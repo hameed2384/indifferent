@@ -3,6 +3,7 @@ here rather than touching os.environ directly, so there's one place that knows
 about .env loading order and defaults.
 """
 import os
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -48,7 +49,12 @@ LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
 # storage.py) — swap for real cloud object storage (S3/R2/etc.) before this
 # handles production traffic; put_object/get_object is the seam that swap
 # goes behind, so no router changes needed when that day comes.
-STORAGE_DIR = os.environ.get("STORAGE_DIR", str(ROOT_DIR / "uploads"))
+# Default is the OS temp dir, not a path under the app itself: serverless
+# platforms (Vercel included) ship the app on a READ-ONLY filesystem — only
+# the temp dir is writable, and even that doesn't persist across cold starts.
+# tempfile.gettempdir() resolves correctly on both Windows (local dev) and
+# Vercel's Linux runtime (/tmp), unlike a hardcoded "/tmp".
+STORAGE_DIR = os.environ.get("STORAGE_DIR", "") or str(Path(tempfile.gettempdir()) / "indifferent-uploads")
 
 # Stripe — two separate products (see routers/payments.py): a £9/mo platform
 # ad-free subscription and a £2/mo per-debater subscription. Empty by default;

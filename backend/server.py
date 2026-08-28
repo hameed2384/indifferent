@@ -47,7 +47,13 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    init_storage()
+    try:
+        init_storage()
+    except Exception as e:
+        # Same reasoning as the create_indexes guard below: a storage backend
+        # hiccup (e.g. an unwritable path) shouldn't take down every endpoint,
+        # including ones that never touch storage at all.
+        logger.error(f"init_storage failed at startup, continuing without it: {e}")
     try:
         await create_indexes()
     except Exception as e:
