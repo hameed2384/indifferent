@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 2 backend-only testing of the new public 'Watch' feature plus light regression. Converted prior ad-hoc script into pytest suite /app/backend/tests/backend_test.py (22 tests, all PASS). Covered: publish consent toggle (401/403/404, single-side, both-sides -> is_public + published_at, unpublish -> is_public false, republish), GET /api/public/debates (shape + only public rooms), GET /api/public/debates/{room_id} (404 when not public, chat ASC with speaker/speaker_side and NO sender_id leakage, comments desc), POST like (+1, persisted, 404 on non-public), WS /api/ws/watch (anonymous connect, spectator-count on join and on leave, comment broadcast author=anonymous/authed=false, authed comment author=display_name, like broadcast, non-public room rejected), and E2E mirroring participant chat -> spectator {type: debate-chat} with pre-publish messages NOT replayed live. Regression spot-checks: GET /api/, /api/auth/me (200 + 401), match enqueue A/B creating a real room with Gemini topics, /api/onboarding/questions, /api/dashboard/stats, room 403 for non-participant, feedback POST.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "WS /api/ws/watch/{room_id} (non-public room)", "issue": "Server closes with 4404 BEFORE websocket.accept(), so the k8s ingress converts it to an HTTP 403 handshake failure. Clients observe 'server rejected WebSocket connection: HTTP 403' and can NEVER read code 4404 (verified against a seeded non-public room and a non-existent room). Rejection itself works. If the frontend branches on event.code === 4404 it will never match — accept() then close(4404) to make the code visible."},
+      {"endpoint": "GET /api/public/debates/{room_id}", "issue": "chat items carry 'created_at' (from mongo) not 'ts', while live WS debate-chat frames use 'ts'. Spec said chat items have 'ts'. Frontend must handle both key names, or normalize server-side to 'ts'."},
+      {"endpoint": "POST /api/public/debates/{room_id}/like and WS {type:like}", "issue": "Read-then-$inc: like count returned is computed as stale_value+1 instead of using find_one_and_update returnDocument=after. Under concurrent likes the returned/broadcast count can be wrong (DB value stays correct)."},
+      {"endpoint": "POST /api/rooms/{room_id}/publish", "issue": "published_at is set only once and is never cleared on unpublish; after unpublish+republish the original published_at is kept (affects sort order in /api/public/debates). Also a room whose status is 'ended' (after feedback) remains listed in /api/public/debates as a live debate — likely fine by design but worth confirming."},
+      {"endpoint": "WS /api/ws/watch/{room_id}", "issue": "No rate limiting / spam protection on spectator comments and likes; a single socket can $inc likes unboundedly. Also is_public is checked only at connect time — if debaters revoke consent mid-stream, already-connected spectators keep receiving mirrored debate-chat."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "MEDIUM: accept() the watch WS before close(code=4404) so browsers can distinguish 'not public' from a generic proxy 403; or have the frontend treat any handshake failure as not-public.",
+    "LOW: normalize public-debate chat timestamp key to 'ts' (or keep created_at and make the frontend tolerant).",
+    "LOW: use find_one_and_update(..., return_document=AFTER) for likes to avoid stale counts under concurrency.",
+    "LOW: consider clearing published_at on unpublish and disconnecting spectators when consent is revoked mid-debate."
+  ],
+  "critical_code_review_comments": [
+    "server.py is ~870 lines and mixes auth, LLM, matchmaking, rooms, public/watch and two WS hubs — split into routers (auth, onboarding, match, rooms, public) before it grows further.",
+    "SpectatorHub/RoomHub are in-memory per process, so spectator_count and live mirroring break with >1 uvicorn worker; document or move to a pub/sub (mongo change stream / redis) if scaling.",
+    "Revoking publish consent does not evict live spectator sockets (privacy gap) — enforce is_public on every mirror broadcast, not just at connect."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (22/22 pytest checks pass)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Re-seeded test-user-a/test_session_progressive and test-user-b/test_session_traditional per /app/memory/test_credentials.md, plus an extra non-participant persona test-user-c / session token 'test_session_third' (Casey C) used for 403 and authed-spectator checks. All test rooms, chat_messages, spectator_comments, feedback, queue entries were deleted and debates/minds_changed counters reset after the run.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Bearer test_session_progressive (test-user-a), Bearer test_session_traditional (test-user-b), Bearer test_session_third (test-user-c, extra); WS uses ?token=<same>",
+  "context_for_next_testing_agent": "Reusable pytest suite at /app/backend/tests/backend_test.py runs the full watch flow in order (it is one class so xdist loadscope keeps ordering; state is shared via a module-level dict). It creates a fresh room via /api/match/enqueue (Gemini topics, ~10s) so no manual room seeding is needed; re-run the mongosh seed from test_credentials.md plus test-user-c before running. pytest-asyncio is NOT installed — async WS tests use asyncio.run() inside sync tests. Frontend of the Watch feature has NOT been tested yet.",
+  "rca_of_the_issue": "Only non-blocking issues found. The 4404 close-code invisibility is the same ingress behavior documented in iteration_1 for 4401/4403: Starlette's websocket.close() before accept() sends an HTTP rejection during the handshake, which the proxy normalizes to 403, discarding the application close code."
+}

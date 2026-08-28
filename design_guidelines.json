@@ -1,0 +1,114 @@
+{
+  "theme": "Editorial Brutalism (Split Motif)",
+  "typography": {
+    "fonts": {
+      "heading": "Playfair Display, serif",
+      "body": "IBM Plex Sans, sans-serif",
+      "mono": "IBM Plex Mono, monospace"
+    },
+    "hierarchy": {
+      "h1": "text-5xl sm:text-6xl lg:text-7xl font-black tracking-tighter leading-none",
+      "h2": "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight",
+      "h3": "text-2xl sm:text-3xl font-semibold leading-snug",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-base leading-relaxed font-normal",
+      "labels": "text-xs font-mono uppercase tracking-[0.2em]"
+    },
+    "rules": [
+      "Never center align body text; left-align for editorial readability.",
+      "Use Playfair Display for all major headings to establish the newspaper authority vibe.",
+      "Use IBM Plex Mono for UI elements like tags, AI analysis scores, timers, and small labels to give a telegraphic, objective feel."
+    ]
+  },
+  "colors": {
+    "palette": {
+      "background_light": "#F4F4F0",
+      "background_dark": "#0A0A0A",
+      "text_primary_light": "#0A0A0A",
+      "text_primary_dark": "#F4F4F0",
+      "accent_ai": "#D6FF00",
+      "accent_alert": "#FF3311",
+      "border_color": "#222222",
+      "surface_muted": "#EBEBE5"
+    },
+    "rules": [
+      "Avoid cliché red and blue for political sides. Use stark Black vs Bone-White split layouts to represent opposing views.",
+      "Use 'accent_ai' (Chartreuse) for anything driven by the AI (match percentage, topic generation, AI analysis).",
+      "Borders should be solid black or solid white depending on the background. Do not use soft gray borders."
+    ]
+  },
+  "visual_enhancers": {
+    "textures": [
+      "Use newspaper collage/noise textures at low opacity (e.g., 5%) over backgrounds to remove digital flatness."
+    ],
+    "shapes": [
+      "Sharp edges. Use `rounded-none` or max `rounded-sm` for all UI elements, cards, and buttons. No soft pills.",
+      "Solid 1px or 2px borders around containers to mimic editorial column dividers."
+    ],
+    "shadows": [
+      "Hard shadows (neo-brutalist) instead of soft diffused shadows. Example: `shadow-[4px_4px_0px_0px_rgba(10,10,10,1)]`."
+    ]
+  },
+  "layouts": {
+    "landing_page": "50/50 Split Motif. Left half dark background, right half light background. Text spans across or is inverted on each side.",
+    "dashboard": "Editorial newspaper grid. Multi-column masonry or strict CSS Grid with visible 1px borders between columns and rows (`border-collapse` style).",
+    "video_chat": "Side-by-side equal weight rectangles for video feeds. A stark monospace timer in the center. Text chat in a rigid sidebar.",
+    "spacing": "Generous. Use `p-8` to `p-16` for main sections. Inside dense dashboard widgets, use tight `p-4` with visible dividers."
+  },
+  "components": {
+    "buttons": "Square or rectangular. Hard borders. Hover state inverses the colors (e.g., black bg with white text becomes white bg with black text).",
+    "cards": "Cardless design or flat rectangles with 1px solid borders. No rounded corners.",
+    "inputs": "Flat bottom border only (`border-b-2 border-black bg-transparent`) for free-text onboarding, giving a 'fill-in-the-blank' typewriter feel.",
+    "tags": "Small rectangular badges, monospace font, solid background."
+  },
+  "motion": {
+    "hover": "Instant or very fast transitions (0.15s). No slow fades. Emphasizes the brutalist, responsive nature.",
+    "loading": "Rapidly cycling text (like a printing press or ticker tape) for 'Finding a Match' instead of standard spinners.",
+    "page_transitions": "Wipe effects or stark cuts."
+  },
+  "accessibility": {
+    "contrast": "Extremely high contrast by default (Black on Bone White).",
+    "focus": "Thick 2px outline using the AI accent color (#D6FF00) for focus states."
+  },
+  "image_urls": {
+    "landing_hero": {
+      "url": "https://images.unsplash.com/photo-1506863530036-1efeddceb993?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwxfHxzZXJpb3VzJTIwcG9ydHJhaXQlMjBzcGxpdCUyMGxpZ2h0aW5nfGVufDB8fHx8MTc4Nzc3MDU4NHww&ixlib=rb-4.1.0&q=85",
+      "description": "Serious grayscale portrait of a woman, for the dark/left side of the split screen."
+    },
+    "landing_hero_2": {
+      "url": "https://images.unsplash.com/photo-1587397845856-e6cf49176c70?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxzZXJpb3VzJTIwcG9ydHJhaXQlMjBzcGxpdCUyMGxpZ2h0aW5nfGVufDB8fHx8MTc4Nzc3MDU4NHww&ixlib=rb-4.1.0&q=85",
+      "description": "Serious portrait of a man, for the light/right side of the split screen."
+    },
+    "debate_section": {
+      "url": "https://images.pexels.com/photos/7937677/pexels-photo-7937677.jpeg",
+      "description": "Two people having an intense discussion, to be used in the 'How it works' section."
+    },
+    "texture_overlay": {
+      "url": "https://images.unsplash.com/photo-1697224687385-5a6263118fbc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwzfHxuZXdzcGFwZXIlMjB0eXBvZ3JhcGh5JTIwdGV4dHVyZXxlbnwwfHx8fDE3ODc3NzA1ODR8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Newspaper typography texture. Use as a low-opacity background mix-blend layer."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Build the app in React using Tailwind CSS and Shadcn UI primitives.",
+    "Override all Shadcn UI default rounded corners. Set `radius` to `0` in Tailwind config or manually apply `rounded-none`.",
+    "Implement a 50/50 vertical split layout on the Landing Page. One side is `bg-[#0A0A0A] text-[#F4F4F0]`, the other is `bg-[#F4F4F0] text-[#0A0A0A]`.",
+    "For the 'Find a Match' queue screen, do not use a circular spinner. Use a text-based animation (like a marquee or fast-scrolling monospace text 'ANALYZING STANCE...', 'SEARCHING OPPOSITION...').",
+    "Use standard HTML5 `<video>` elements with placeholder sources or empty dark rectangles for the WebRTC chat room UI preview.",
+    "Ensure the dashboard uses visible borders on grid items to mimic a newspaper layout."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Do not use generic centered layouts or simplistic gradients. Avoid 'AI slop' aesthetics.",
+    "No emojis for icons. Use Phosphor Icons or Lucide React with sharp, serious weights.",
+    "Every interaction needs a micro-animation, but for this brutalist theme, keep them fast and sharp (not bouncy).",
+    "Use 2-3x more spacing than typical. Use padding heavily inside bordered containers.",
+    "Do not apply `transition: all`. Target specific properties.",
+    "Do not center align the app container in global CSS.",
+    "Use `data-testid` attributes on all interactive elements."
+  ],
+  "GENERAL UI UX DESIGN GUIDELINES": [
+    "Typography is a design element. Scale headings massively (`text-6xl+`) to create impact.",
+    "Use negative space purposefully. A blank screen with just a massive headline and a start button is better than a cluttered dashboard.",
+    "When placing text over the newspaper texture or images, ensure contrast ratios by using solid background blocks behind the text.",
+    "The AI (Gemini 3.1 Pro) analysis output should be visually distinct (using the Chartreuse accent and Monospace font) from the human user input (which should be Serif or Sans-serif)."
+  ]
+}

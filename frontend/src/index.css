@@ -1,0 +1,138 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --bg-muted: #fafafa;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --border-strong: #d4d4d8;
+  --fg: #0a0a0a;
+  --fg-muted: #52525b;
+  --fg-subtle: #71717a;
+  --accent: #10b981;      /* emerald 500 — restrained modern accent */
+  --accent-fg: #ffffff;
+  --accent-soft: #d1fae5;
+  --danger: #ef4444;
+  --danger-soft: #fee2e2;
+  --warning: #f59e0b;
+  --success: #10b981;
+}
+
+.dark {
+  --bg: #0a0a0a;
+  --bg-muted: #141414;
+  --surface: #171717;
+  --border: #262626;
+  --border-strong: #3f3f46;
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --accent: #10b981;
+  --accent-fg: #ffffff;
+  --accent-soft: #064e3b;
+  --danger: #f87171;
+  --danger-soft: #450a0a;
+  --warning: #fbbf24;
+  --success: #10b981;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  margin: 0;
+  font-family: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "ss01" on, "cv11" on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+}
+
+.font-mono-ui { font-family: "Geist Mono", ui-monospace, monospace; }
+.font-heading { font-family: "Geist", ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.025em; }
+
+::selection { background: var(--accent-soft); color: var(--fg); }
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap;
+  }
+  .btn-primary { @apply btn bg-[var(--fg)] text-[var(--bg)] hover:brightness-95; }
+  .btn-accent { @apply btn bg-[var(--accent)] text-white hover:brightness-95; }
+  .btn-outline { @apply btn border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[var(--bg-muted)]; }
+  .btn-ghost { @apply btn text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg-muted)]; }
+  .btn-danger { @apply btn bg-[var(--danger)] text-white hover:brightness-95; }
+
+  .field {
+    @apply w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--fg)] focus:ring-2 focus:ring-black/5 transition;
+  }
+  .field-lg { @apply field px-4 py-3 text-base; }
+  .textarea { @apply field min-h-[8rem] leading-relaxed resize-y; }
+
+  .card { @apply rounded-xl border border-[var(--border)] bg-[var(--surface)]; }
+  .card-muted { @apply rounded-xl border border-[var(--border)] bg-[var(--bg-muted)]; }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] text-xs font-medium text-[var(--fg-muted)];
+  }
+  .chip-accent { @apply chip bg-[var(--accent-soft)] border-transparent text-[color:var(--accent)]; }
+
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--fg-subtle)];
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+    --primary: 0 0% 4%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 0 0% 4%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 160 84% 39%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 20%;
+    --input: 240 4% 20%;
+    --ring: 160 84% 39%;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}

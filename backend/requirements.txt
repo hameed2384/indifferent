@@ -1,0 +1,14 @@
+# Runtime dependencies only — this is what Vercel installs and deploys.
+# Dev-only tooling (linters, test runner, formatters) lives in
+# requirements-dev.txt so it never ships in the serverless bundle.
+fastapi==0.110.1
+uvicorn==0.25.0
+motor==3.3.1
+pymongo==4.6.3
+pydantic>=2.6.4
+python-dotenv>=1.0.1
+requests>=2.31.0
+python-multipart>=0.0.9
+google-genai>=1.0.0
+livekit-api>=0.7.0
+stripe>=10.0.0

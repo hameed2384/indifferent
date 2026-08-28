@@ -1,0 +1,129 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import ThemeToggle from "@/components/ThemeToggle";
+
+function StanceMap({ stance }) {
+  if (!stance) return null;
+  const x = 50 + (stance.economic / 10) * 45;
+  const y = 50 - (stance.social / 10) * 45;
+  return (
+    <div className="card p-5">
+      <div className="eyebrow mb-3">Your position</div>
+      <div className="relative aspect-square w-full max-w-[320px] mx-auto border border-[var(--border-strong)] rounded-lg bg-[var(--bg-muted)]">
+        <div className="absolute inset-0" style={{ backgroundImage: "linear-gradient(to right, transparent 49.5%, var(--border-strong) 49.5%, var(--border-strong) 50.5%, transparent 50.5%), linear-gradient(to bottom, transparent 49.5%, var(--border-strong) 49.5%, var(--border-strong) 50.5%, transparent 50.5%)" }} />
+        <div className="absolute text-[10px] font-medium uppercase tracking-wider text-[var(--fg-subtle)] left-2 top-2">Progressive</div>
+        <div className="absolute text-[10px] font-medium uppercase tracking-wider text-[var(--fg-subtle)] right-2 top-2">Free-market</div>
+        <div className="absolute text-[10px] font-medium uppercase tracking-wider text-[var(--fg-subtle)] left-2 bottom-2">Liberal</div>
+        <div className="absolute text-[10px] font-medium uppercase tracking-wider text-[var(--fg-subtle)] right-2 bottom-2">Traditional</div>
+        <div
+          className="absolute w-3.5 h-3.5 rounded-full bg-[var(--accent)] ring-4 ring-[var(--accent-soft)]"
+          style={{ left: `calc(${x}% - 7px)`, top: `calc(${y}% - 7px)` }}
+          data-testid="stance-dot"
+        />
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <div className="text-[11px] text-[var(--fg-subtle)] uppercase tracking-wider">Economic</div>
+          <div className="font-medium">{stance.economic.toFixed(1)}</div>
+        </div>
+        <div>
+          <div className="text-[11px] text-[var(--fg-subtle)] uppercase tracking-wider">Social</div>
+          <div className="font-medium">{stance.social.toFixed(1)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => { api.get("/dashboard/stats").then(({ data }) => setStats(data)).catch(() => {}); }, []);
+
+  const findMatch = () => {
+    if (!user.id_verified) return navigate("/verify");
+    navigate("/match");
+  };
+
+  return (
+    <div className="min-h-screen bg-[var(--bg)]">
+      <nav className="sticky top-0 z-40 bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)]">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <button onClick={() => navigate("/")} className="font-heading text-lg font-semibold tracking-tight" data-testid="brand-mark">
+            indifferent
+          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate("/watch")} className="btn-ghost text-sm">Watch</button>
+            <span className="text-sm text-[var(--fg-muted)] hidden md:block" data-testid="user-name">{user?.display_name || user?.name}</span>
+            <button className="btn-ghost text-sm" onClick={logout} data-testid="btn-logout">Sign out</button>
+            <ThemeToggle />
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto px-6 py-10 md:py-14">
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <div className="eyebrow">Your dashboard</div>
+            <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold mt-2 leading-tight">
+              Ready for someone<br />who disagrees?
+            </h1>
+            <p className="mt-4 text-[var(--fg-muted)] max-w-lg">
+              One click and we'll find the sharpest opposing viewpoint in the queue.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button className="btn-accent" onClick={findMatch} data-testid="btn-find-match">Find my opposite</button>
+              {!user.id_verified && (
+                <button className="btn-outline" onClick={() => navigate("/verify")} data-testid="btn-verify-cta">Verify ID first</button>
+              )}
+            </div>
+
+            <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <StatCard label="Debates" value={stats?.debates ?? 0} testid="stat-debates" />
+              <StatCard label="Minds changed" value={stats?.minds_changed ?? 0} testid="stat-minds" />
+              <StatCard label="Verified" value={user.id_verified ? "Yes" : "No"} accent={user.id_verified} />
+              <StatCard label="Sign in" value={user.email?.split("@")[0]} small />
+            </div>
+
+            {user.stance?.tags?.length > 0 && (
+              <div className="mt-8">
+                <div className="eyebrow mb-2">Your themes</div>
+                <div className="flex flex-wrap gap-2">
+                  {user.stance.tags.slice(0, 6).map((t) => (
+                    <span key={t} className="chip">{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {user.stance?.summary && (
+              <div className="mt-10 card p-6">
+                <div className="eyebrow mb-2">AI stance summary</div>
+                <p className="text-base leading-relaxed text-[var(--fg)]" data-testid="stance-summary">"{user.stance.summary}"</p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <StanceMap stance={user.stance} />
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function StatCard({ label, value, testid, accent, small }) {
+  return (
+    <div className="card p-4">
+      <div className="text-[11px] text-[var(--fg-subtle)] uppercase tracking-wider">{label}</div>
+      <div className={`font-heading font-semibold mt-1 ${small ? "text-base truncate" : "text-2xl"} ${accent ? "text-[var(--accent)]" : ""}`} data-testid={testid}>
+        {value}
+      </div>
+    </div>
+  );
+}

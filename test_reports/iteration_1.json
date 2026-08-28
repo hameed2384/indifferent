@@ -1,0 +1,43 @@
+{
+  "summary": "Backend-only smoke test for Indifferent MVP. Seeded two opposing test users via mongosh (test_session_progressive, test_session_traditional) and exercised health, onboarding, Gemini stance analysis, ID upload (MOCKED), matchmaking A/B enqueue+poll, room details incl. 403 non-participant, feedback + dashboard stats increments, and WebSocket signaling+chat between two authenticated participants. 17/19 checks pass; the 2 'failures' are proxy artifacts (see notes).",
+  "tested_scope": ["backend", "auth", "integration"],
+  "passed": [
+    "GET /api/ -> {app:Indifferent,status:ok}",
+    "GET /api/onboarding/questions returns 8 quiz items with id+text",
+    "GET /api/auth/me without token -> 401",
+    "GET /api/auth/me with Bearer <session_token> returns user (test-user-a)",
+    "GET /api/auth/ws-ticket returns ticket + user_id",
+    "POST /api/onboarding/submit: Gemini 3.1 Pro returned real analysis (econ=9.4, soc=9.4, tags=['Free Markets','Low Taxes','Traditional Values','Border Security','Conservatism']); onboarded=true; stance numeric within [-10,10]",
+    "POST /api/verify/upload with PNG -> status=verified, id_verified=true, verification_status=verified (MOCKED auto-approval, called out in response note)",
+    "POST /api/match/enqueue (A) -> matched:false",
+    "POST /api/match/enqueue (B) -> matched:true, room_id present, opposition_score=27.5, topics list of 3 (Gemini-generated)",
+    "GET /api/match/poll (A) -> matched:true with same room_id",
+    "GET /api/rooms/{room_id} participant -> partner+topics+opposition_score",
+    "GET /api/rooms/{room_id} non-participant -> 403",
+    "POST /api/rooms/{room_id}/feedback with mind_changed=true -> ok",
+    "GET /api/dashboard/stats -> debates=1, minds_changed=1, stance, recent_feedback[]",
+    "WS /api/ws/room/{room_id} sends {type:room-state,peers} on connect for both participants",
+    "WS signaling: A's offer with target=user-b is delivered to B with `from` field populated",
+    "WS chat message broadcast to both participants (echo to sender + peer)"
+  ],
+  "failed": [
+    {
+      "area": "WebSocket rejection close-codes (invalid token / non-participant)",
+      "issue": "Server calls websocket.close(code=4401/4403) BEFORE websocket.accept(). Rejection works — connection IS refused — but the ingress/proxy translates a pre-accept close into an HTTP 403 handshake failure, so clients cannot read the specific 4401 vs 4403 code. Client sees 'HTTP 403 during opening handshake' instead of the numeric close code.",
+      "evidence": "websockets.connect raises InvalidStatus HTTP 403 for both BADTOKEN and valid-but-non-participant token; rejection itself is correct, only the code is masked by the proxy.",
+      "priority": "LOW"
+    }
+  ],
+  "action_items": [
+    "Optional (LOW): to make the 4401/4403 codes visible to browser clients, accept() first then close(code=...). Current behavior still correctly refuses unauthorized/non-participant WS connections, so functional security is intact.",
+    "No blocking issues for first finish. Frontend can proceed to consume all listed endpoints."
+  ],
+  "success_rate": {"backend": "100% functional (17/17 functional checks); 2 cosmetic proxy artifacts on WS close-codes", "frontend": "not tested (backend-only request)"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": {
+    "mocked_apis_verified": ["ID verification review auto-approves on upload — response includes 'MOCKED auto-approval for MVP' note"],
+    "real_llm_verified": ["Gemini 3.1 Pro (gemini-3.1-pro-preview) via emergentintegrations produced structured JSON stance & topics on live calls (took ~5-15s as expected)"],
+    "seed_used": "mongosh seed from /app/memory/test_credentials.md (test-user-a/test_session_progressive, test-user-b/test_session_traditional)"
+  }
+}

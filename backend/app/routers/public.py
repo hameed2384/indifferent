@@ -1,0 +1,202 @@
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from ..db import db
+from ..deps import get_current_user, get_current_user_optional
+from ..models import User
+
+router = APIRouter()
+
+
+async def _spectator_count(room_id: str) -> int:
+    """Docs in spectator_heartbeats are TTL'd out ~45s after a client stops
+    polling (see db.create_indexes), so a plain count approximates "currently
+    watching" without needing a persistent connection to track presence."""
+    return await db.spectator_heartbeats.count_documents({"room_id": room_id})
+
+
+async def _touch_heartbeat(room_id: str, client_id: Optional[str]):
+    if not client_id:
+        return
+    await db.spectator_heartbeats.update_one(
+        {"room_id": room_id, "client_id": client_id},
+        {"$set": {"last_seen_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+
+
+@router.post("/rooms/{room_id}/publish")
+async def toggle_publish(room_id: str, user: User = Depends(get_current_user)):
+    """Either participant flips their consent. Room becomes public when BOTH have consented."""
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if user.user_id not in (room["user_a"], room["user_b"]):
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    field = "publish_a" if room["user_a"] == user.user_id else "publish_b"
+    new_val = not bool(room.get(field, False))
+    other_field = "publish_b" if field == "publish_a" else "publish_a"
+    was_public = bool(room.get("is_public", False))
+    updates = {field: new_val}
+    updates["is_public"] = bool(new_val and room.get(other_field, False))
+    if updates["is_public"] and not room.get("published_at"):
+        updates["published_at"] = datetime.now(timezone.utc).isoformat()
+    if was_public and not updates["is_public"]:
+        # Unpublished — clear published_at so a later republish doesn't sort by the
+        # original publish time, and so a privately-toggled room never leaks a stale
+        # timestamp to anything that reads it directly off the room doc.
+        updates["published_at"] = None
+    await db.rooms.update_one({"room_id": room_id}, {"$set": updates})
+    # No spectator eviction step needed here (unlike the old WS version) — a
+    # room that's gone private simply 404s spectators' next poll.
+
+    return {"publish_a": updates.get("publish_a", room.get("publish_a", False)),
+            "publish_b": updates.get("publish_b", room.get("publish_b", False)),
+            "is_public": updates["is_public"]}
+
+
+@router.get("/public/debates")
+async def list_public_debates():
+    rooms = await db.rooms.find(
+        {"is_public": True},
+        {"_id": 0}
+    ).sort("published_at", -1).to_list(50)
+    out = []
+    for r in rooms:
+        a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
+        b = await db.users.find_one({"user_id": r["user_b"]}, {"_id": 0}) or {}
+        out.append({
+            "room_id": r["room_id"],
+            "status": r.get("status", "active"),
+            "opposition_score": r.get("opposition_score", 0),
+            "topics": r.get("topics", []),
+            "categories": r.get("categories", []),
+            "likes": int(r.get("likes", 0)),
+            "spectator_count": await _spectator_count(r["room_id"]),
+            "published_at": r.get("published_at"),
+            "side_a": {
+                "identity": f"user-{r['user_a']}",
+                "display_name": a.get("display_name") or a.get("name") or "Debater A",
+                "stance": a.get("stance"),
+                "id_verified": a.get("id_verified", False),
+            },
+            "side_b": {
+                "identity": f"user-{r['user_b']}",
+                "display_name": b.get("display_name") or b.get("name") or "Debater B",
+                "stance": b.get("stance"),
+                "id_verified": b.get("id_verified", False),
+            },
+        })
+    return {"debates": out}
+
+
+@router.get("/public/debates/{room_id}")
+async def get_public_debate(room_id: str):
+    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Debate not public or not found")
+    a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
+    b = await db.users.find_one({"user_id": r["user_b"]}, {"_id": 0}) or {}
+    msgs = await db.chat_messages.find({"room_id": room_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    for m in msgs:
+        speaker_doc = a if m["sender_id"] == r["user_a"] else b
+        m["speaker"] = speaker_doc.get("display_name") or speaker_doc.get("name") or "Debater"
+        m["speaker_side"] = "a" if m["sender_id"] == r["user_a"] else "b"
+        m.pop("sender_id", None)
+    comments = await db.spectator_comments.find({"room_id": room_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {
+        "room_id": room_id,
+        "status": r.get("status", "active"),
+        "opposition_score": r.get("opposition_score", 0),
+        "topics": r.get("topics", []),
+        "categories": r.get("categories", []),
+        "likes": int(r.get("likes", 0)),
+        "spectator_count": await _spectator_count(room_id),
+        "published_at": r.get("published_at"),
+        "side_a": {"identity": f"user-{r['user_a']}", "display_name": a.get("display_name") or a.get("name") or "Debater A", "stance": a.get("stance"), "id_verified": a.get("id_verified", False)},
+        "side_b": {"identity": f"user-{r['user_b']}", "display_name": b.get("display_name") or b.get("name") or "Debater B", "stance": b.get("stance"), "id_verified": b.get("id_verified", False)},
+        "chat": msgs,
+        "comments": comments,
+        "server_time": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/public/debates/{room_id}/updates")
+async def poll_public_updates(room_id: str, since: Optional[str] = None, client_id: Optional[str] = None):
+    """Poll for spectator-side activity since a given ISO timestamp (pass back
+    the response's server_time as the next `since`). Replaces the old WS
+    'debate-chat' mirror / 'comment' / 'like' / 'spectator-count' pushes.
+    Also doubles as this spectator's presence heartbeat when client_id is
+    given — no separate endpoint needed for that."""
+    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Debate not public or not found")
+    await _touch_heartbeat(room_id, client_id)
+
+    a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
+    b = await db.users.find_one({"user_id": r["user_b"]}, {"_id": 0}) or {}
+
+    chat_filter = {"room_id": room_id}
+    comment_filter = {"room_id": room_id}
+    if since:
+        chat_filter["created_at"] = {"$gt": since}
+        comment_filter["created_at"] = {"$gt": since}
+    msgs = await db.chat_messages.find(chat_filter, {"_id": 0}).sort("created_at", 1).to_list(200)
+    chat_events = []
+    for m in msgs:
+        speaker_doc = a if m["sender_id"] == r["user_a"] else b
+        chat_events.append({
+            "type": "debate-chat",
+            "speaker": speaker_doc.get("display_name") or speaker_doc.get("name") or "Debater",
+            "speaker_side": "a" if m["sender_id"] == r["user_a"] else "b",
+            "text": m["text"],
+            "ts": m["created_at"],
+        })
+    comments = await db.spectator_comments.find(comment_filter, {"_id": 0}).sort("created_at", 1).to_list(50)
+    comment_events = [{"type": "comment", "text": c["text"], "author": c["author"], "authed": c["authed"], "ts": c["created_at"]} for c in comments]
+
+    events = sorted(chat_events + comment_events, key=lambda e: e["ts"])
+
+    return {
+        "events": events,
+        "is_public": True,
+        "likes": int(r.get("likes", 0)),
+        "spectator_count": await _spectator_count(room_id),
+        "server_time": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+class SpectatorCommentIn(BaseModel):
+    text: str
+
+
+@router.post("/public/debates/{room_id}/comment")
+async def post_comment(room_id: str, payload: SpectatorCommentIn, user: Optional[User] = Depends(get_current_user_optional)):
+    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Debate not public or not found")
+    text = payload.text.strip()[:280]
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty comment")
+    display_name = (user.display_name or user.name) if user else None
+    now = datetime.now(timezone.utc).isoformat()
+    await db.spectator_comments.insert_one({
+        "room_id": room_id, "text": text,
+        "author": display_name or "anonymous", "authed": bool(display_name),
+        "created_at": now,
+    })
+    return {"ok": True, "ts": now}
+
+
+@router.post("/public/debates/{room_id}/like")
+async def like_debate(room_id: str):
+    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Not found")
+    await db.rooms.update_one({"room_id": room_id}, {"$inc": {"likes": 1}})
+    fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    return {"likes": int(fresh.get("likes", 0))}

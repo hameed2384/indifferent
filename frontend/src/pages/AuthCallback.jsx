@@ -1,0 +1,47 @@
+import { useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+
+export default function AuthCallback() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { setUser } = useAuth();
+  const processed = useRef(false);
+
+  useEffect(() => {
+    if (processed.current) return;
+    processed.current = true;
+
+    const params = new URLSearchParams(location.search);
+    const code = params.get("code");
+    if (!code) { navigate("/", { replace: true }); return; }
+
+    // Must be the exact redirect_uri Google was sent in the initial authorize
+    // request (Landing.jsx stashed it — Google's token endpoint requires an
+    // exact match, and by the time we're here window.location.origin is the
+    // same value anyway, this is just belt-and-suspenders against edge cases
+    // like a trailing-slash mismatch).
+    const redirectUri = sessionStorage.getItem("google_oauth_redirect_uri")
+      || (window.location.origin + "/auth/callback");
+
+    (async () => {
+      try {
+        const { data } = await api.post("/auth/google/callback", { code, redirect_uri: redirectUri });
+        sessionStorage.removeItem("google_oauth_redirect_uri");
+        setUser(data.user);
+        const target = data.user.onboarded ? "/dashboard" : "/onboarding";
+        navigate(target, { replace: true, state: { user: data.user } });
+      } catch (e) {
+        console.error("Auth callback failed", e);
+        navigate("/", { replace: true });
+      }
+    })();
+  }, [location.search, navigate, setUser]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-[#f4f4f0]">
+      <div className="font-mono-ui text-sm tracking-widest uppercase">Establishing session…</div>
+    </div>
+  );
+}

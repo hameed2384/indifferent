@@ -1,0 +1,11 @@
+# Local development only — not installed by Vercel. Install with:
+#   pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+
+pytest>=8.0.0
+pytest-xdist>=3.6.0
+black>=24.1.1
+isort>=5.13.2
+flake8>=7.0.0
+mypy>=1.8.0
+websockets>=12.0
