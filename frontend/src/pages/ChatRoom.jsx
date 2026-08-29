@@ -6,10 +6,11 @@ import { toast } from "sonner";
 import { useLiveKit } from "@/lib/livekit";
 import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
 
 export default function ChatRoom() {
   const { roomId } = useParams();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [room, setRoom] = useState(null);
@@ -198,6 +199,7 @@ export default function ChatRoom() {
             {sidebarOpen ? "Hide chat" : `Chat${messages.length > 0 ? ` · ${messages.length}` : ""}`}
           </button>
           <ThemeToggle />
+          <AccountMenu user={user} logout={logout} />
         </div>
       </header>
 

@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import DebateCard from "@/components/DebateCard";
 import { readNotInterested } from "@/lib/notInterested";
+import { startGoogleLogin } from "@/lib/auth";
 
 export default function Watch() {
   const [debates, setDebates] = useState([]);
@@ -70,13 +71,10 @@ export default function Watch() {
             {user?.is_debater && (
               <button onClick={() => setShowGoLive(true)} className="btn-accent text-sm" data-testid="btn-go-live">Go Live</button>
             )}
-            {user ? (
-              <button onClick={() => navigate("/dashboard")} className="btn-primary text-sm" data-testid="nav-enter">Dashboard</button>
-            ) : (
-              <button onClick={() => navigate("/")} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>
-            )}
             <ThemeToggle />
-            {user && <AccountMenu user={user} logout={logout} />}
+            {user
+              ? <AccountMenu user={user} logout={logout} />
+              : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}
           </div>
         </div>
         {categories.length > 0 && (

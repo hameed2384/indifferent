@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "@/App.css";
-import Landing from "@/pages/Landing";
 import AuthCallback from "@/pages/AuthCallback";
 import Dashboard from "@/pages/Dashboard";
 import Onboarding from "@/pages/Onboarding";
@@ -15,7 +14,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 function RouterInner() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      {/* Home IS the watch feed (client feedback: no separate marketing splash —
+          live/featured/previously-published debates, same as YouTube/Twitch's
+          own home page). Both paths render the same component. */}
+      <Route path="/" element={<Watch />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/watch" element={<Watch />} />
       <Route path="/watch/:roomId" element={<WatchRoom />} />

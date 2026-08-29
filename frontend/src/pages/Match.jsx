@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
+import { useAuth } from "@/contexts/AuthContext";
 
 const STATUSES = ["Scanning queue", "Analyzing stances", "Plotting opposition", "Matching adversary", "Preparing topics"];
 
 export default function Match() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [status, setStatus] = useState("idle");
   const [tick, setTick] = useState(0);
   const pollRef = useRef(null);
@@ -54,6 +57,7 @@ export default function Match() {
           <div className="flex items-center gap-2">
             <button onClick={cancel} className="btn-ghost text-sm" data-testid="btn-cancel-match">Cancel</button>
             <ThemeToggle />
+            <AccountMenu user={user} logout={logout} />
           </div>
         </div>
       </header>

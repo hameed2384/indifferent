@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { useLiveKit } from "@/lib/livekit";
 import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
 import { excludeCategories } from "@/lib/notInterested";
+import { startGoogleLogin } from "@/lib/auth";
 
 function ViewerOverlay({ side, navigate }) {
   const [following, setFollowing] = useState(null); // null = unknown/self/open, else bool
@@ -95,7 +97,7 @@ function RelatedDebates({ category, excludeRoomId, navigate }) {
 export default function WatchRoom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const [debate, setDebate] = useState(null);
   const [chat, setChat] = useState([]);
@@ -272,6 +274,9 @@ export default function WatchRoom() {
           <div className="flex items-center gap-2">
             <button onClick={share} className="btn-outline text-sm" data-testid="btn-share">Share</button>
             <ThemeToggle />
+            {user
+              ? <AccountMenu user={user} logout={logout} />
+              : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}
           </div>
         </div>
       </nav>

@@ -18,10 +18,10 @@ export default function AuthCallback() {
     if (!code) { navigate("/", { replace: true }); return; }
 
     // Must be the exact redirect_uri Google was sent in the initial authorize
-    // request (Landing.jsx stashed it — Google's token endpoint requires an
-    // exact match, and by the time we're here window.location.origin is the
-    // same value anyway, this is just belt-and-suspenders against edge cases
-    // like a trailing-slash mismatch).
+    // request (lib/auth.js's startGoogleLogin stashed it — Google's token
+    // endpoint requires an exact match, and by the time we're here
+    // window.location.origin is the same value anyway, this is just
+    // belt-and-suspenders against edge cases like a trailing-slash mismatch).
     const redirectUri = sessionStorage.getItem("google_oauth_redirect_uri")
       || (window.location.origin + "/auth/callback");
 
@@ -30,7 +30,10 @@ export default function AuthCallback() {
         const { data } = await api.post("/auth/google/callback", { code, redirect_uri: redirectUri });
         sessionStorage.removeItem("google_oauth_redirect_uri");
         setUser(data.user);
-        const target = data.user.onboarded ? "/dashboard" : "/onboarding";
+        // Onboarded users land back on the feed (home), same as YouTube/Twitch
+        // return you to the feed after signing in rather than a separate
+        // account page — Dashboard is still one click away via the avatar menu.
+        const target = data.user.onboarded ? "/" : "/onboarding";
         navigate(target, { replace: true, state: { user: data.user } });
       } catch (e) {
         console.error("Auth callback failed", e);
