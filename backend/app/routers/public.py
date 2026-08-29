@@ -28,13 +28,28 @@ async def _touch_heartbeat(room_id: str, client_id: Optional[str]):
     )
 
 
+def _side(doc: Optional[dict], user_id: Optional[str], fallback_label: str) -> dict:
+    """Build a side_a/side_b summary. user_id is None for a go-live room's
+    still-open seat — the client tells "waiting for an opponent" apart from
+    a real, resolvable debater this way rather than a fake identity string."""
+    if not user_id or not doc:
+        return {"identity": None, "display_name": fallback_label, "stance": None, "id_verified": False, "open": not user_id}
+    return {
+        "identity": f"user-{user_id}",
+        "display_name": doc.get("display_name") or doc.get("name") or fallback_label,
+        "stance": doc.get("stance"),
+        "id_verified": doc.get("id_verified", False),
+        "open": False,
+    }
+
+
 @router.post("/rooms/{room_id}/publish")
 async def toggle_publish(room_id: str, user: User = Depends(get_current_user)):
     """Either participant flips their consent. Room becomes public when BOTH have consented."""
     room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    if user.user_id not in (room["user_a"], room["user_b"]):
+    if user.user_id not in (room["user_a"], room.get("user_b")):
         raise HTTPException(status_code=403, detail="Not a participant")
 
     field = "publish_a" if room["user_a"] == user.user_id else "publish_b"
@@ -60,50 +75,60 @@ async def toggle_publish(room_id: str, user: User = Depends(get_current_user)):
 
 
 @router.get("/public/debates")
-async def list_public_debates():
-    rooms = await db.rooms.find(
-        {"is_public": True},
-        {"_id": 0}
-    ).sort("published_at", -1).to_list(50)
+async def list_public_debates(category: Optional[str] = None, q: Optional[str] = None):
+    """Live public rooms + ended rooms archived as public (client brief #16, #21-24).
+    `category` filters to rooms tagged with that exact category; `q` searches
+    topics/category text (title/description equivalents — rooms don't have a
+    separate user-authored title, the Gemini-generated topics serve that role)."""
+    query: dict = {"$or": [
+        {"is_public": True, "status": "active"},
+        {"archive_visibility": "public"},
+    ]}
+    if category:
+        query = {"$and": [query, {"categories": category}]}
+    if q:
+        query = {"$and": [query, {"$or": [
+            {"topics": {"$regex": q, "$options": "i"}},
+            {"categories": {"$regex": q, "$options": "i"}},
+        ]}]}
+
+    rooms = await db.rooms.find(query, {"_id": 0}).sort("published_at", -1).to_list(50)
     out = []
     for r in rooms:
         a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
-        b = await db.users.find_one({"user_id": r["user_b"]}, {"_id": 0}) or {}
+        b = await db.users.find_one({"user_id": r.get("user_b")}, {"_id": 0}) if r.get("user_b") else None
         out.append({
             "room_id": r["room_id"],
             "status": r.get("status", "active"),
-            "opposition_score": r.get("opposition_score", 0),
+            "opposition_score": r.get("opposition_score"),
             "topics": r.get("topics", []),
             "categories": r.get("categories", []),
             "likes": int(r.get("likes", 0)),
             "spectator_count": await _spectator_count(r["room_id"]),
             "published_at": r.get("published_at"),
-            "side_a": {
-                "identity": f"user-{r['user_a']}",
-                "display_name": a.get("display_name") or a.get("name") or "Debater A",
-                "stance": a.get("stance"),
-                "id_verified": a.get("id_verified", False),
-            },
-            "side_b": {
-                "identity": f"user-{r['user_b']}",
-                "display_name": b.get("display_name") or b.get("name") or "Debater B",
-                "stance": b.get("stance"),
-                "id_verified": b.get("id_verified", False),
-            },
+            "archive_visibility": r.get("archive_visibility"),
+            "side_a": _side(a, r["user_a"], "Debater A"),
+            "side_b": _side(b, r.get("user_b"), "Open seat — request to join"),
         })
     return {"debates": out}
 
 
 @router.get("/public/debates/{room_id}")
 async def get_public_debate(room_id: str):
-    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
+    """Public listing shows only archive_visibility == "public"; this direct-link
+    lookup also accepts "unlisted" (YouTube unlisted-video model, client brief #16)
+    and any currently-live is_public room."""
+    r = await db.rooms.find_one({"room_id": room_id, "$or": [
+        {"is_public": True},
+        {"archive_visibility": {"$in": ["public", "unlisted"]}},
+    ]}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Debate not public or not found")
     a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
-    b = await db.users.find_one({"user_id": r["user_b"]}, {"_id": 0}) or {}
+    b = await db.users.find_one({"user_id": r.get("user_b")}, {"_id": 0}) if r.get("user_b") else None
     msgs = await db.chat_messages.find({"room_id": room_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
     for m in msgs:
-        speaker_doc = a if m["sender_id"] == r["user_a"] else b
+        speaker_doc = a if m["sender_id"] == r["user_a"] else (b or {})
         m["speaker"] = speaker_doc.get("display_name") or speaker_doc.get("name") or "Debater"
         m["speaker_side"] = "a" if m["sender_id"] == r["user_a"] else "b"
         m.pop("sender_id", None)
@@ -111,14 +136,15 @@ async def get_public_debate(room_id: str):
     return {
         "room_id": room_id,
         "status": r.get("status", "active"),
-        "opposition_score": r.get("opposition_score", 0),
+        "opposition_score": r.get("opposition_score"),
         "topics": r.get("topics", []),
         "categories": r.get("categories", []),
         "likes": int(r.get("likes", 0)),
         "spectator_count": await _spectator_count(room_id),
         "published_at": r.get("published_at"),
-        "side_a": {"identity": f"user-{r['user_a']}", "display_name": a.get("display_name") or a.get("name") or "Debater A", "stance": a.get("stance"), "id_verified": a.get("id_verified", False)},
-        "side_b": {"identity": f"user-{r['user_b']}", "display_name": b.get("display_name") or b.get("name") or "Debater B", "stance": b.get("stance"), "id_verified": b.get("id_verified", False)},
+        "archive_visibility": r.get("archive_visibility"),
+        "side_a": _side(a, r["user_a"], "Debater A"),
+        "side_b": _side(b, r.get("user_b"), "Open seat — request to join"),
         "chat": msgs,
         "comments": comments,
         "server_time": datetime.now(timezone.utc).isoformat(),
@@ -138,7 +164,7 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
     await _touch_heartbeat(room_id, client_id)
 
     a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
-    b = await db.users.find_one({"user_id": r["user_b"]}, {"_id": 0}) or {}
+    b = await db.users.find_one({"user_id": r.get("user_b")}, {"_id": 0}) if r.get("user_b") else None
 
     chat_filter = {"room_id": room_id}
     comment_filter = {"room_id": room_id}
@@ -148,7 +174,7 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
     msgs = await db.chat_messages.find(chat_filter, {"_id": 0}).sort("created_at", 1).to_list(200)
     chat_events = []
     for m in msgs:
-        speaker_doc = a if m["sender_id"] == r["user_a"] else b
+        speaker_doc = a if m["sender_id"] == r["user_a"] else (b or {})
         chat_events.append({
             "type": "debate-chat",
             "speaker": speaker_doc.get("display_name") or speaker_doc.get("name") or "Debater",
@@ -163,6 +189,7 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
 
     return {
         "events": events,
+        "categories": r.get("categories", []),
         "is_public": True,
         "likes": int(r.get("likes", 0)),
         "spectator_count": await _spectator_count(room_id),

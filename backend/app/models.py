@@ -52,6 +52,14 @@ class SpectatorComment(BaseModel):
     display_name: Optional[str] = None
 
 
+class GoLiveRequest(BaseModel):
+    category: str
+
+
+class ArchiveVisibility(BaseModel):
+    visibility: str  # "private" | "unlisted" | "public"
+
+
 class TopicStance(BaseModel):
     """Per-(user, topic) position, generalizing StanceScores to any category.
 

@@ -13,6 +13,7 @@ message, check in — but never more often than once per 15s.
 import logging
 from datetime import datetime, timezone
 
+from .categories import CATEGORIES
 from .db import db
 from .llm import call_gemini_json
 
@@ -74,3 +75,62 @@ async def maybe_run_coach(room_id: str, room: dict):
         "created_at": now.isoformat(),
     })
     await db.rooms.update_one({"room_id": room_id}, {"$set": {"coach_last_emit_at": now.isoformat()}})
+
+
+TOPIC_DRIFT_SYSTEM = (
+    "You classify the CURRENT subject of a live conversation. Read the recent transcript "
+    "and decide which single category from this fixed list the participants are actually "
+    f"talking about right now: {CATEGORIES}. "
+    "Judge the real subject, not word associations — a passing mention doesn't count. "
+    'Return ONLY JSON: {"category": "<one exact value from the list>"}. No prose, no markdown.'
+)
+TOPIC_DRIFT_SUSTAIN_SECONDS = 10 * 60  # client brief #2: 10 minutes sustained before it counts
+
+
+async def maybe_detect_topic_drift(room_id: str, room: dict):
+    """Companion to maybe_run_coach, same inline-on-chat-message trigger shape
+    (own counter, independent of the coach's). Tracks a rolling "what are they
+    actually talking about" candidate on the room doc; only once the SAME
+    category has been the classified subject continuously for 10+ minutes does
+    it get added to rooms.categories — a topic mentioned in passing, or one the
+    conversation drifts through quickly, never sticks (client brief #2).
+    """
+    count = room.get("topic_msg_count", 0) + 1
+    if count < 5:
+        await db.rooms.update_one({"room_id": room_id}, {"$set": {"topic_msg_count": count}})
+        return
+    await db.rooms.update_one({"room_id": room_id}, {"$set": {"topic_msg_count": 0}})
+
+    msgs = await db.chat_messages.find({"room_id": room_id}, {"_id": 0}).sort("created_at", -1).to_list(12)
+    if not msgs:
+        return
+    msgs.reverse()
+    transcript = "\n".join(m["text"] for m in msgs)
+    data = await call_gemini_json(TOPIC_DRIFT_SYSTEM, f"Recent transcript:\n{transcript}", session_id=f"topicdrift-{room_id}")
+    if not data:
+        return
+    category = data.get("category")
+    if category not in CATEGORIES:
+        return
+
+    now = datetime.now(timezone.utc)
+    existing_categories = room.get("categories") or []
+    if category in existing_categories:
+        return  # already tagged, nothing to track
+
+    candidate = room.get("topic_drift_candidate")
+    since = room.get("topic_drift_since")
+    if candidate != category or not since:
+        # New candidate (or the first ever) — start the 10-minute clock over.
+        await db.rooms.update_one({"room_id": room_id}, {"$set": {
+            "topic_drift_candidate": category,
+            "topic_drift_since": now.isoformat(),
+        }})
+        return
+
+    since_dt = datetime.fromisoformat(since)
+    if (now - since_dt).total_seconds() >= TOPIC_DRIFT_SUSTAIN_SECONDS:
+        await db.rooms.update_one({"room_id": room_id}, {
+            "$addToSet": {"categories": category},
+            "$set": {"topic_drift_candidate": None, "topic_drift_since": None},
+        })

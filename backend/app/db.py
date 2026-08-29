@@ -27,3 +27,8 @@ async def create_indexes():
     # index expires (and so silently un-counts) anyone who stops polling.
     await db.spectator_heartbeats.create_index([("room_id", 1), ("client_id", 1)], unique=True)
     await db.spectator_heartbeats.create_index("last_seen_at", expireAfterSeconds=45)
+
+    # Discovery/search (routers/public.py list_public_debates).
+    await db.rooms.create_index("categories")
+    await db.rooms.create_index([("is_public", 1), ("status", 1), ("published_at", -1)])
+    await db.rooms.create_index("archive_visibility")
