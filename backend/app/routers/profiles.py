@@ -74,6 +74,27 @@ async def get_topic_stances(user_id: str):
     return {"topics": docs}
 
 
+@router.get("/users/{user_id}/debates")
+async def list_user_debates(user_id: str):
+    """A debater's public archive + live-now status — client brief #9's
+    "channel page" half of a profile (topic-stances above is the other
+    half). Same public/unlisted visibility rule as the main feed
+    (routers/public.py), scoped to rooms this person was any kind of
+    participant in — original, party member, or approved joiner."""
+    participant_filter = {"$or": [{"user_a": user_id}, {"user_b": user_id}, {"extra_a": user_id}, {"extra_b": user_id}]}
+    visibility_filter = {"$or": [{"is_public": True, "status": "active"}, {"archive_visibility": "public"}]}
+    docs = await db.rooms.find({"$and": [participant_filter, visibility_filter]}, {"_id": 0}).sort("published_at", -1).to_list(50)
+    debates = [{
+        "room_id": d["room_id"],
+        "status": d.get("status", "active"),
+        "categories": d.get("categories", []),
+        "topics": d.get("topics", []),
+        "likes": int(d.get("likes", 0)),
+        "published_at": d.get("published_at"),
+    } for d in docs]
+    return {"debates": debates, "live_room_id": await find_live_room_id(user_id)}
+
+
 @router.get("/users/me/following")
 async def list_following(user: User = Depends(get_current_user)):
     """Powers the sidebar's "Following" section — free, one-directional

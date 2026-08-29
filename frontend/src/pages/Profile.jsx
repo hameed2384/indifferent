@@ -54,12 +54,15 @@ export default function Profile() {
   const { user: viewer } = useAuth();
   const [profile, setProfile] = useState(null);
   const [topics, setTopics] = useState([]);
+  const [debates, setDebates] = useState([]);
+  const [liveRoomId, setLiveRoomId] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
 
   const load = () => {
     api.get(`/users/${userId}`).then(({ data }) => setProfile(data)).catch(() => setNotFound(true));
     api.get(`/users/${userId}/topic-stances`).then(({ data }) => setTopics(data.topics || [])).catch(() => {});
+    api.get(`/users/${userId}/debates`).then(({ data }) => { setDebates(data.debates || []); setLiveRoomId(data.live_room_id || null); }).catch(() => {});
   };
 
   useEffect(() => {
@@ -106,6 +109,17 @@ export default function Profile() {
       </nav>
 
       <main className="max-w-3xl mx-auto px-6 py-12">
+        {liveRoomId && (
+          <button
+            onClick={() => navigate(`/watch/${liveRoomId}`)}
+            className="w-full mb-6 card p-4 flex items-center justify-between gap-3 border-[var(--accent)] hover:brightness-95 transition"
+            data-testid="btn-profile-live-now"
+          >
+            <span className="chip-accent"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" /> Live now</span>
+            <span className="text-sm font-medium">Watch {profile.display_name} debate live →</span>
+          </button>
+        )}
+
         <div className="flex items-center gap-5">
           {profile.picture
             ? <img src={profile.picture} alt="" className="w-20 h-20 rounded-full object-cover border border-[var(--border)]" />
@@ -141,6 +155,31 @@ export default function Profile() {
                 {profile.is_subscribed ? "Subscribed £2/mo ✓" : subLoading ? "…" : "Subscribe £2/mo"}
               </button>
             )}
+          </div>
+        )}
+
+        {debates.length > 0 && (
+          <div className="mt-12">
+            <div className="eyebrow mb-3">Debates</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {debates.map((d) => (
+                <button
+                  key={d.room_id}
+                  onClick={() => navigate(`/watch/${d.room_id}`)}
+                  className="card p-4 text-left hover:border-[var(--fg)] transition-colors"
+                  data-testid={`profile-debate-${d.room_id}`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    {d.status === "active"
+                      ? <span className="chip-accent !py-0 !px-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" /> Live</span>
+                      : <span className="chip !py-0 !px-1.5">Published</span>}
+                    {d.categories?.[0] && <span className="chip !py-0 !px-1.5">{d.categories[0]}</span>}
+                  </div>
+                  <div className="text-sm font-medium leading-snug line-clamp-2">{d.topics?.[0] || "An unrecorded disagreement"}</div>
+                  <div className="text-xs text-[var(--fg-subtle)] mt-1">♥ {d.likes}</div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
