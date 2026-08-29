@@ -45,3 +45,12 @@ async def create_indexes():
 
     # Debater subscriptions (routers/payments.py) — £2/mo per debater.
     await db.subscriptions_debater.create_index([("subscriber_id", 1), ("debater_id", 1)], unique=True)
+
+    # Group debates (routers/rooms.py) — subscriber-join requests + kick votes
+    # only ever hold in-progress docs (resolved ones are deleted immediately),
+    # so the unique index doubles as "no duplicate pending request/vote."
+    await db.room_join_requests.create_index([("room_id", 1), ("user_id", 1)], unique=True)
+    await db.room_kick_votes.create_index([("room_id", 1), ("target_user_id", 1)], unique=True)
+    # Party-queue (routers/match.py) — two friends queueing together.
+    await db.party_match_queue.create_index("party_id", unique=True)
+    await db.party_match_queue.create_index("user_ids")

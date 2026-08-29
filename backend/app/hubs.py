@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from .categories import CATEGORIES
 from .db import db
 from .llm import call_gemini_json
+from .room_utils import member_side
 
 logger = logging.getLogger("indifferent")
 
@@ -61,7 +62,7 @@ async def maybe_run_coach(room_id: str, room: dict):
         return
     msgs.reverse()
     transcript = "\n".join(
-        f"{'A' if m['sender_id'] == room['user_a'] else 'B'}: {m['text']}" for m in msgs
+        f"{(member_side(room, m['sender_id']) or 'b').upper()}: {m['text']}" for m in msgs
     )
     data = await call_gemini_json(COACH_SYSTEM, f"Recent transcript:\n{transcript}", session_id=f"coach-{room_id}")
     if not data or not data.get("intervene"):

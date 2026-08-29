@@ -27,17 +27,28 @@ export default function ChatRoom() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chatTab, setChatTab] = useState("debater"); // "debater" | "viewer"
   const [viewerComments, setViewerComments] = useState([]);
+  const [decidingId, setDecidingId] = useState(null);
 
   const sinceRef = useRef(null);
   const viewerSinceRef = useRef(null);
   const startedAtRef = useRef(Date.now());
   const messagesEndRef = useRef(null);
 
+  const loadRoom = () => api.get(`/rooms/${roomId}`).then(({ data }) => setRoom(data)).catch(() => {
+    toast.error("Room not accessible"); navigate("/dashboard");
+  });
+
+  useEffect(() => { loadRoom(); }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Roster/governance can change without a chat message ever being sent (a
+  // join request gets approved, a kick vote lands) — poll the room doc
+  // itself on its own cadence, separate from the chat/coach poll below.
   useEffect(() => {
-    api.get(`/rooms/${roomId}`).then(({ data }) => setRoom(data)).catch(() => {
-      toast.error("Room not accessible"); navigate("/dashboard");
-    });
-  }, [roomId, navigate]);
+    if (!room) return;
+    const iv = setInterval(loadRoom, 4000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room, roomId]);
 
   const lk = useLiveKit({ roomId, mode: "participant", enabled: !!room });
 
@@ -127,23 +138,51 @@ export default function ChatRoom() {
     } catch { toast.error("Feedback failed"); }
   };
 
+  const decideJoinRequest = async (requesterId, approve) => {
+    setDecidingId(requesterId);
+    try {
+      await api.post(`/rooms/${roomId}/join-requests/${requesterId}/decide`, { approve });
+      loadRoom();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't record your decision");
+    } finally {
+      setDecidingId(null);
+    }
+  };
+
+  const castKickVote = async (targetUserId) => {
+    try {
+      const { data } = await api.post(`/rooms/${roomId}/kick-votes`, { target_user_id: targetUserId });
+      toast(data.status === "kicked" ? "Removed from the debate." : `Vote recorded (${data.votes?.length || 0}/${data.needed?.length || "?"})`);
+      loadRoom();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't cast vote");
+    }
+  };
+
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
   const myConsent = room?.my_role === "a" ? publishState.publish_a : publishState.publish_b;
   const partnerConsent = room?.my_role === "a" ? publishState.publish_b : publishState.publish_a;
-  const remote = lk.remoteParticipants[0];
 
-  // Video-view mode
-  const [viewMode, setViewMode] = useState("normal");
+  const participants = room?.participants || [];
+  const others = participants.filter((p) => !p.is_self);
+  const me = participants.find((p) => p.is_self);
+  const hasCoDebater = participants.filter((p) => p.is_founding).length > 1;
+  const canTogglePublish = !!me?.is_primary && hasCoDebater;
+
   const myIdentity = user ? `user-${user.user_id}` : "me";
-  const partnerIdentity = remote?.identity || "partner";
+
+  const [viewMode, setViewMode] = useState("normal");
   const [spotlightIdentity, setSpotlightIdentity] = useState(myIdentity);
   useEffect(() => {
-    // Default spotlight to the partner once they arrive
-    if (remote?.identity && spotlightIdentity === myIdentity) {
-      setSpotlightIdentity(remote.identity);
+    // Default spotlight to the first arrival on the other side (once) — never
+    // yanks it away again afterward, including when a 2nd/3rd joiner arrives.
+    if (others.length > 0 && spotlightIdentity === myIdentity) {
+      setSpotlightIdentity(`user-${others[0].user_id}`);
     }
-  }, [remote?.identity]); // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [others.length]);
 
   if (!room) {
     return <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center text-sm text-[var(--fg-subtle)]">Loading room…</div>;
@@ -158,16 +197,30 @@ export default function ChatRoom() {
       audioMuted: !lk.micEnabled,
       placeholderTitle: lk.camEnabled ? (lk.status === "connecting" ? "Connecting…" : "Camera off") : "Camera off",
     },
-    {
-      key: "remote",
-      identity: partnerIdentity,
-      label: `${room.partner?.display_name || "—"}${room.partner?.id_verified ? " ✓" : ""}`,
-      videoEl: remote?.videoEl,
-      audioEl: remote?.audioEl,
-      audioMuted: remote?.audioMuted,
-      placeholderTitle: room.partner?.display_name || "Opposition",
-      placeholderFooter: lk.status === "connected" ? "Waiting for opposite…" : "Connecting…",
-    },
+    ...others.map((p) => {
+      const identity = `user-${p.user_id}`;
+      const lkP = lk.remoteParticipants.find((rp) => rp.identity === identity);
+      const canKick = room.is_founding && !p.is_founding;
+      return {
+        key: p.user_id,
+        identity,
+        label: `${p.display_name}${p.id_verified ? " ✓" : ""}`,
+        videoEl: lkP?.videoEl,
+        audioEl: lkP?.audioEl,
+        audioMuted: lkP?.audioMuted,
+        placeholderTitle: p.display_name,
+        placeholderFooter: lk.status === "connected" ? "Waiting for camera…" : "Connecting…",
+        overlay: canKick ? (
+          <button
+            onClick={() => castKickVote(p.user_id)}
+            className="absolute top-2 right-2 bg-[var(--danger)]/90 text-white text-[10px] font-medium px-2 py-1 rounded-full hover:bg-[var(--danger)]"
+            data-testid={`btn-kick-${p.user_id}`}
+          >
+            Vote to kick
+          </button>
+        ) : undefined,
+      };
+    }),
   ];
 
   return (
@@ -181,7 +234,7 @@ export default function ChatRoom() {
         </div>
         <div className="font-mono-ui text-base tabular-nums text-[var(--fg)]" data-testid="room-timer">{mm}:{ss}</div>
         <div className="flex items-center gap-2">
-          {room.partner && (
+          {canTogglePublish && (
             <button
               onClick={togglePublish}
               data-testid="btn-toggle-publish"
@@ -203,9 +256,40 @@ export default function ChatRoom() {
         </div>
       </header>
 
-      {room.partner && (myConsent || partnerConsent) && !publishState.is_public && (
+      {canTogglePublish && (myConsent || partnerConsent) && !publishState.is_public && (
         <div className="shrink-0 bg-[var(--accent-soft)] text-[color:var(--accent)] px-4 py-2 text-xs text-center border-b border-[var(--border)]">
           {myConsent ? "Waiting for your opposite to consent to publish…" : "Your opposite wants to go public — tap 'Go public' to agree."}
+        </div>
+      )}
+
+      {room.is_founding && room.join_requests?.length > 0 && (
+        <div className="shrink-0 bg-[var(--accent-soft)] border-b border-[var(--border)] px-4 py-2 space-y-1.5">
+          {room.join_requests.map((r) => (
+            <div key={r.user_id} className="flex items-center justify-between gap-3 text-xs">
+              <span>
+                <strong>{r.display_name}</strong> wants to join side {String(r.side).toUpperCase()}
+                {" "}({(r.approvals || []).length} approved)
+              </span>
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  onClick={() => decideJoinRequest(r.user_id, true)}
+                  disabled={decidingId === r.user_id}
+                  className="btn-accent !px-2 !py-1 !text-[11px]"
+                  data-testid={`btn-approve-join-${r.user_id}`}
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => decideJoinRequest(r.user_id, false)}
+                  disabled={decidingId === r.user_id}
+                  className="btn-outline !px-2 !py-1 !text-[11px]"
+                  data-testid={`btn-reject-join-${r.user_id}`}
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -216,7 +300,7 @@ export default function ChatRoom() {
             viewMode={viewMode}
             spotlightIdentity={spotlightIdentity}
             onSpotlightChange={setSpotlightIdentity}
-            mobileSpotlightIdentity={partnerIdentity}
+            mobileSpotlightIdentity={others[0] ? `user-${others[0].user_id}` : myIdentity}
           />
 
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
@@ -230,7 +314,7 @@ export default function ChatRoom() {
               spotlightIdentity={spotlightIdentity}
               sides={[
                 { identity: myIdentity, label: "You" },
-                { identity: partnerIdentity, label: room.partner?.display_name || "Them" },
+                ...others.map((p) => ({ identity: `user-${p.user_id}`, label: p.display_name })),
               ]}
               onSpotlightChange={setSpotlightIdentity}
             />
@@ -249,7 +333,7 @@ export default function ChatRoom() {
         {sidebarOpen && (
           <aside className="hidden lg:flex flex-col border-l border-[var(--border)] bg-[var(--surface)] min-h-0">
             <ChatPanel
-              connected={connected} messages={messages} user={user} room={room} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
+              connected={connected} messages={messages} user={user} participants={participants} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
               isPublic={publishState.is_public} chatTab={chatTab} setChatTab={setChatTab} viewerComments={viewerComments}
             />
           </aside>
@@ -270,7 +354,7 @@ export default function ChatRoom() {
             <button onClick={() => setChatOpen(false)} className="btn-ghost text-sm" data-testid="btn-close-chat-mobile">Close</button>
           </div>
           <ChatPanel
-            connected={connected} messages={messages} user={user} room={room} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
+            connected={connected} messages={messages} user={user} participants={participants} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
             isPublic={publishState.is_public} chatTab={chatTab} setChatTab={setChatTab} viewerComments={viewerComments}
           />
         </div>
@@ -308,8 +392,9 @@ export default function ChatRoom() {
   );
 }
 
-function ChatPanel({ connected, messages, user, room, text, setText, sendChat, messagesEndRef, isPublic, chatTab, setChatTab, viewerComments }) {
+function ChatPanel({ connected, messages, user, participants, text, setText, sendChat, messagesEndRef, isPublic, chatTab, setChatTab, viewerComments }) {
   const showingViewer = isPublic && chatTab === "viewer";
+  const nameFor = (userId) => participants.find((p) => p.user_id === userId)?.display_name || "Them";
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="hidden lg:flex shrink-0 h-12 px-4 border-b border-[var(--border)] items-center justify-between">
@@ -368,7 +453,7 @@ function ChatPanel({ connected, messages, user, room, text, setText, sendChat, m
           return (
             <div key={i} className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${mine ? "ml-auto bg-[var(--fg)] text-white" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
               <div className={`text-[10px] uppercase tracking-wider mb-1 ${mine ? "text-white/60" : "text-[var(--fg-subtle)]"}`}>
-                {mine ? "You" : (room.partner?.display_name || "Them")}
+                {mine ? "You" : nameFor(m.from)}
               </div>
               <div className="whitespace-pre-wrap break-words">{m.text}</div>
             </div>

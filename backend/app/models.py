@@ -59,6 +59,22 @@ class GoLiveRequest(BaseModel):
     category: str
 
 
+class JoinRequestCreate(BaseModel):
+    side: str  # "a" | "b" — which side the subscriber wants to join
+
+
+class JoinRequestDecision(BaseModel):
+    approve: bool
+
+
+class KickVoteCreate(BaseModel):
+    target_user_id: str
+
+
+class PartyEnqueueRequest(BaseModel):
+    friend_id: str
+
+
 class ArchiveVisibility(BaseModel):
     visibility: str  # "private" | "unlisted" | "public"
 

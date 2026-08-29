@@ -55,6 +55,98 @@ function ViewerOverlay({ side, navigate }) {
   );
 }
 
+function JoinRequestPanel({ roomId, debate, navigate }) {
+  const { user } = useAuth();
+  const [side, setSide] = useState(null);
+  const [status, setStatus] = useState("none"); // none | pending | approved
+  const [sending, setSending] = useState(false);
+
+  const myIdentity = user ? `user-${user.user_id}` : null;
+  const allIdentities = [
+    debate.side_a.identity, debate.side_b.identity,
+    ...(debate.side_a_extra || []).map((s) => s.identity),
+    ...(debate.side_b_extra || []).map((s) => s.identity),
+  ].filter(Boolean);
+  const alreadyIn = !!myIdentity && allIdentities.includes(myIdentity);
+
+  useEffect(() => {
+    if (!user || alreadyIn) return;
+    let cancelled = false;
+    api.get(`/rooms/${roomId}/join-status`).then(({ data }) => { if (!cancelled) setStatus(data.status); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user, alreadyIn, roomId]);
+
+  useEffect(() => {
+    if (status !== "pending") return;
+    const iv = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/rooms/${roomId}/join-status`);
+        setStatus(data.status);
+        if (data.status === "approved") {
+          toast.success("You're in — joining the debate…");
+          navigate(`/room/${roomId}`);
+        }
+      } catch { /* transient — next tick retries */ }
+    }, 4000);
+    return () => clearInterval(iv);
+  }, [status, roomId, navigate]);
+
+  if (!user || alreadyIn || debate.status !== "active") return null;
+
+  const requestJoin = async () => {
+    if (!side) return;
+    setSending(true);
+    try {
+      await api.post(`/rooms/${roomId}/join-requests`, { side });
+      setStatus("pending");
+      toast.success("Request sent — waiting for both debaters to approve.");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't send request");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (status === "pending") {
+    return (
+      <div className="mt-6 card p-4 flex items-center justify-between gap-3">
+        <span className="text-sm text-[var(--fg-muted)]">Request to join sent — waiting for approval…</span>
+        <span className="chip">Pending</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 card p-4">
+      <div className="eyebrow mb-2">Jump in</div>
+      <p className="text-sm text-[var(--fg-muted)] mb-3">Subscribe to a debater here to request joining as a third voice — both debaters have to agree.</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-[var(--border-strong)] overflow-hidden">
+          <button
+            onClick={() => setSide("a")}
+            disabled={debate.side_full?.a}
+            className={`px-3 py-1.5 text-xs font-medium ${side === "a" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"} disabled:opacity-40`}
+            data-testid="join-side-a"
+          >
+            Side A{debate.side_full?.a ? " (full)" : ""}
+          </button>
+          <button
+            onClick={() => setSide("b")}
+            disabled={debate.side_full?.b}
+            className={`px-3 py-1.5 text-xs font-medium border-l border-[var(--border-strong)] ${side === "b" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"} disabled:opacity-40`}
+            data-testid="join-side-b"
+          >
+            Side B{debate.side_full?.b ? " (full)" : ""}
+          </button>
+        </div>
+        <button onClick={requestJoin} disabled={!side || sending} className="btn-accent text-xs" data-testid="btn-request-join">
+          {sending ? "Sending…" : "Request to join"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RelatedDebates({ category, excludeRoomId, navigate }) {
   const [related, setRelated] = useState([]);
   useEffect(() => {
@@ -231,6 +323,21 @@ export default function WatchRoom() {
     );
   }
 
+  const extraTiles = (extras, prefix, sideLabel) => (extras || []).map((ex, i) => {
+    const exLk = lk.remoteParticipants.find((p) => p.identity === ex.identity);
+    return {
+      key: `${prefix}-extra-${i}`,
+      identity: ex.identity,
+      overlay: <ViewerOverlay side={ex} navigate={navigate} />,
+      videoEl: exLk?.videoEl,
+      audioEl: exLk?.audioEl,
+      audioMuted: exLk?.audioMuted,
+      placeholderTitle: ex.display_name,
+      placeholderSubtitle: ex.stance ? `e ${ex.stance.economic?.toFixed?.(1)} · s ${ex.stance.social?.toFixed?.(1)}` : `Joined ${sideLabel}`,
+      placeholderFooter: isLive ? (lk.status === "connected" ? "Waiting for camera…" : "Connecting…") : "Debate ended",
+    };
+  });
+
   const tiles = [
     {
       key: "a",
@@ -243,6 +350,7 @@ export default function WatchRoom() {
       placeholderSubtitle: debate.side_a.stance ? `e ${debate.side_a.stance.economic?.toFixed?.(1)} · s ${debate.side_a.stance.social?.toFixed?.(1)}` : null,
       placeholderFooter: isLive ? (lk.status === "connected" ? "Waiting for camera…" : "Connecting…") : "Debate ended",
     },
+    ...extraTiles(debate.side_a_extra, "a", "Side A"),
     {
       key: "b",
       identity: debate.side_b.identity || "side-b-open",
@@ -254,10 +362,13 @@ export default function WatchRoom() {
       placeholderSubtitle: debate.side_b.stance ? `e ${debate.side_b.stance.economic?.toFixed?.(1)} · s ${debate.side_b.stance.social?.toFixed?.(1)}` : null,
       placeholderFooter: debate.side_b.open ? "Waiting for a debater to join" : (isLive ? (lk.status === "connected" ? "Waiting for camera…" : "Connecting…") : "Debate ended"),
     },
+    ...extraTiles(debate.side_b_extra, "b", "Side B"),
   ];
   const pickableSides = [
     { identity: debate.side_a.identity, label: "Side A" },
+    ...(debate.side_a_extra || []).map((ex, i) => ({ identity: ex.identity, label: `A #${i + 2}` })),
     ...(debate.side_b.identity ? [{ identity: debate.side_b.identity, label: "Side B" }] : []),
+    ...(debate.side_b_extra || []).map((ex, i) => ({ identity: ex.identity, label: `B #${i + 2}` })),
   ];
 
   return (
@@ -321,6 +432,8 @@ export default function WatchRoom() {
                 </ol>
               </div>
             )}
+
+            {isLive && <JoinRequestPanel roomId={roomId} debate={debate} navigate={navigate} />}
 
             <div className="mt-6 card overflow-hidden">
               <div className="px-4 h-12 border-b border-[var(--border)] flex items-center justify-between">

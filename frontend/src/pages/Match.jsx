@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -10,10 +10,13 @@ const STATUSES = ["Scanning queue", "Analyzing stances", "Plotting opposition", 
 
 export default function Match() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const [status, setStatus] = useState("idle");
   const [tick, setTick] = useState(0);
   const pollRef = useRef(null);
+  const friendId = location.state?.friendId || null;
+  const friendName = location.state?.friendName || "your friend";
 
   useEffect(() => {
     const iv = setInterval(() => setTick((t) => (t + 1) % STATUSES.length), 1600);
@@ -23,7 +26,9 @@ export default function Match() {
   const start = async () => {
     setStatus("searching");
     try {
-      const { data } = await api.post("/match/enqueue");
+      const { data } = friendId
+        ? await api.post("/match/enqueue-party", { friend_id: friendId })
+        : await api.post("/match/enqueue");
       if (data.matched) { navigate(`/room/${data.room_id}`); return; }
       pollRef.current = setInterval(async () => {
         try {
@@ -69,10 +74,12 @@ export default function Match() {
             <span data-testid="match-status-label">{STATUSES[tick]}…</span>
           </div>
           <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-semibold leading-tight" data-testid="match-headline">
-            Finding your opposite.
+            {friendId ? <>Finding your party's opposite.</> : <>Finding your opposite.</>}
           </h1>
           <p className="mt-4 text-[var(--fg-muted)]">
-            Average wait is under 60 seconds when the queue has partners. Feel free to grab water.
+            {friendId
+              ? <>Queued together with {friendName} — matched against another pair, or a single opponent if that's what's waiting.</>
+              : <>Average wait is under 60 seconds when the queue has partners. Feel free to grab water.</>}
           </p>
           <div className="mt-10 grid grid-cols-2 gap-4">
             <div className="card p-4 text-left">

@@ -9,7 +9,23 @@ from ..categories import CATEGORIES
 from ..db import db
 from ..deps import get_current_user
 from ..hubs import maybe_detect_topic_drift, maybe_run_coach
-from ..models import ArchiveVisibility, GoLiveRequest, MatchFeedback, User
+from ..models import (
+    ArchiveVisibility,
+    GoLiveRequest,
+    JoinRequestCreate,
+    JoinRequestDecision,
+    KickVoteCreate,
+    MatchFeedback,
+    User,
+)
+from ..room_utils import (
+    MAX_PER_SIDE,
+    founding_members,
+    is_founding,
+    is_participant,
+    member_side,
+    side_members,
+)
 
 router = APIRouter()
 
@@ -17,8 +33,15 @@ router = APIRouter()
 def _require_participant(room: dict, user_id: str):
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    if user_id not in (room["user_a"], room.get("user_b")):
+    if not is_participant(room, user_id):
         raise HTTPException(status_code=403, detail="Not a participant")
+
+
+def _require_founding(room: dict, user_id: str):
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if not is_founding(room, user_id):
+        raise HTTPException(status_code=403, detail="Only an original debater can do this")
 
 
 @router.post("/rooms/golive")
@@ -46,6 +69,9 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
         "room_id": room_id,
         "user_a": user.user_id,
         "user_b": None,
+        "extra_a": [],
+        "extra_b": [],
+        "founding_members": [user.user_id],
         "opposition_score": None,
         "topics": [],
         "categories": [payload.category],
@@ -64,20 +90,44 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
 async def get_room(room_id: str, user: User = Depends(get_current_user)):
     room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     _require_participant(room, user.user_id)
-    partner_id = room.get("user_b") if room["user_a"] == user.user_id else room["user_a"]
-    partner = await db.users.find_one({"user_id": partner_id}, {"_id": 0}) if partner_id else None
+    my_side = member_side(room, user.user_id)
+    founding = founding_members(room)
+
+    participants = []
+    for side in ("a", "b"):
+        for uid in side_members(room, side):
+            doc = await db.users.find_one({"user_id": uid}, {"_id": 0}) or {}
+            participants.append({
+                "user_id": uid,
+                "display_name": doc.get("display_name") or doc.get("name") or "Debater",
+                "stance": doc.get("stance"),
+                "id_verified": doc.get("id_verified", False),
+                "side": side,
+                "is_self": uid == user.user_id,
+                "is_founding": uid in founding,
+                # Only the two ORIGINAL primaries control publishing (see
+                # /rooms/{id}/publish) — party partners and approved joiners,
+                # founding or not, don't get a vote on going public.
+                "is_primary": uid == room.get(f"user_{side}"),
+            })
+
+    join_requests = []
+    kick_votes = []
+    if user.user_id in founding:
+        join_requests = await db.room_join_requests.find({"room_id": room_id}, {"_id": 0}).to_list(20)
+        kick_votes = await db.room_kick_votes.find({"room_id": room_id}, {"_id": 0}).to_list(20)
+
     return {
         "room_id": room_id,
         "opposition_score": room.get("opposition_score"),
         "topics": room.get("topics", []),
         "categories": room.get("categories", []),
-        "partner": {
-            "user_id": partner["user_id"],
-            "display_name": partner.get("display_name") or partner["name"],
-            "stance": partner.get("stance"),
-            "id_verified": partner.get("id_verified", False),
-        } if partner else None,
-        "my_role": "a" if room["user_a"] == user.user_id else "b",
+        "participants": participants,
+        "my_role": my_side,
+        "is_founding": user.user_id in founding,
+        "side_full": {s: len(side_members(room, s)) >= MAX_PER_SIDE for s in ("a", "b")},
+        "join_requests": join_requests,
+        "kick_votes": kick_votes,
     }
 
 
@@ -168,6 +218,121 @@ async def set_archive_visibility(room_id: str, payload: ArchiveVisibility, user:
         raise HTTPException(status_code=400, detail="Debate must have ended first")
     await db.rooms.update_one({"room_id": room_id}, {"$set": {"archive_visibility": payload.visibility}})
     return {"archive_visibility": payload.visibility}
+
+
+@router.post("/rooms/{room_id}/join-requests")
+async def request_to_join(room_id: str, payload: JoinRequestCreate, user: User = Depends(get_current_user)):
+    """A subscriber asks to join a live debate as a third (or fourth) voice.
+    Requires being subscribed to at least one founding debater on the room —
+    that's the whole premise of "a subscriber requests to join" (client brief
+    #13). Needs unanimous approval from every founding member before the
+    requester actually becomes a participant (see the /decide endpoint)."""
+    if payload.side not in ("a", "b"):
+        raise HTTPException(status_code=400, detail="side must be 'a' or 'b'")
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    if not room or room.get("status") != "active" or not room.get("is_public"):
+        raise HTTPException(status_code=404, detail="Debate not live")
+    if is_participant(room, user.user_id):
+        raise HTTPException(status_code=400, detail="You're already in this debate")
+    if len(side_members(room, payload.side)) >= MAX_PER_SIDE:
+        raise HTTPException(status_code=400, detail="That side is already full")
+
+    founding = founding_members(room)
+    sub = await db.subscriptions_debater.find_one(
+        {"subscriber_id": user.user_id, "debater_id": {"$in": founding}, "active": True}, {"_id": 0}
+    )
+    if not sub:
+        raise HTTPException(status_code=403, detail="Subscribe to a debater in this debate to request joining")
+
+    existing = await db.room_join_requests.find_one({"room_id": room_id, "user_id": user.user_id}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have a pending request for this debate")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.room_join_requests.insert_one({
+        "room_id": room_id, "user_id": user.user_id,
+        "display_name": user.display_name or user.name,
+        "side": payload.side, "approvals": [], "created_at": now,
+    })
+    return {"status": "pending"}
+
+
+@router.get("/rooms/{room_id}/join-status")
+async def my_join_status(room_id: str, user: User = Depends(get_current_user)):
+    """Polled by a spectator who's requested to join — tells them when they've
+    been let in (at which point /room/{id} has them as a real participant) or
+    turned down (any single founding member declining ends the request)."""
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    if room and is_participant(room, user.user_id):
+        return {"status": "approved"}
+    pending = await db.room_join_requests.find_one({"room_id": room_id, "user_id": user.user_id}, {"_id": 0})
+    return {"status": "pending" if pending else "none"}
+
+
+@router.post("/rooms/{room_id}/join-requests/{requester_id}/decide")
+async def decide_join_request(room_id: str, requester_id: str, payload: JoinRequestDecision, user: User = Depends(get_current_user)):
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_founding(room, user.user_id)
+    req = await db.room_join_requests.find_one({"room_id": room_id, "user_id": requester_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="No pending request")
+
+    if not payload.approve:
+        await db.room_join_requests.delete_one({"room_id": room_id, "user_id": requester_id})
+        return {"status": "rejected"}
+
+    approvals = list(set(req.get("approvals", []) + [user.user_id]))
+    founding = founding_members(room)
+    if not set(founding).issubset(approvals):
+        await db.room_join_requests.update_one(
+            {"room_id": room_id, "user_id": requester_id}, {"$set": {"approvals": approvals}}
+        )
+        return {"status": "pending", "approvals": approvals, "needed": founding}
+
+    # Unanimous — seat them and clear the request.
+    side = req["side"]
+    if len(side_members(room, side)) >= MAX_PER_SIDE:
+        await db.room_join_requests.delete_one({"room_id": room_id, "user_id": requester_id})
+        raise HTTPException(status_code=400, detail="That side filled up while this request was pending")
+    await db.rooms.update_one({"room_id": room_id}, {"$addToSet": {f"extra_{side}": requester_id}})
+    await db.room_join_requests.delete_one({"room_id": room_id, "user_id": requester_id})
+    return {"status": "approved"}
+
+
+@router.post("/rooms/{room_id}/kick-votes")
+async def cast_kick_vote(room_id: str, payload: KickVoteCreate, user: User = Depends(get_current_user)):
+    """Removal requires a unanimous vote of the room's ORIGINAL/founding
+    debaters only — a subscriber who joined later has no say in kicking
+    anyone, and can't be the one others rally to keep (client brief #13)."""
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_founding(room, user.user_id)
+    founding = founding_members(room)
+    if payload.target_user_id in founding or not is_participant(room, payload.target_user_id):
+        raise HTTPException(status_code=400, detail="Target must be a non-founding participant")
+
+    doc = await db.room_kick_votes.find_one({"room_id": room_id, "target_user_id": payload.target_user_id}, {"_id": 0})
+    votes = list(set((doc.get("votes", []) if doc else []) + [user.user_id]))
+
+    if not set(founding).issubset(votes):
+        await db.room_kick_votes.update_one(
+            {"room_id": room_id, "target_user_id": payload.target_user_id},
+            {"$set": {"votes": votes, "created_at": doc.get("created_at") if doc else datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+        return {"status": "pending", "votes": votes, "needed": founding}
+
+    side = member_side(room, payload.target_user_id)
+    await db.rooms.update_one({"room_id": room_id}, {"$pull": {f"extra_{side}": payload.target_user_id}})
+    await db.room_kick_votes.delete_one({"room_id": room_id, "target_user_id": payload.target_user_id})
+    return {"status": "kicked"}
+
+
+@router.delete("/rooms/{room_id}/kick-votes/{target_user_id}")
+async def retract_kick_vote(room_id: str, target_user_id: str, user: User = Depends(get_current_user)):
+    await db.room_kick_votes.update_one(
+        {"room_id": room_id, "target_user_id": target_user_id}, {"$pull": {"votes": user.user_id}}
+    )
+    return {"status": "ok"}
 
 
 @router.get("/dashboard/stats")

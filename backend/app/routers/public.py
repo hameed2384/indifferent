@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional
 from ..models import User
+from ..room_utils import MAX_PER_SIDE, is_participant, member_side, side_members
 
 router = APIRouter()
 
@@ -43,14 +44,32 @@ def _side(doc: Optional[dict], user_id: Optional[str], fallback_label: str) -> d
     }
 
 
+async def _participant_docs(room: dict) -> dict:
+    """user_id -> user doc, for every member of the room (primaries + extras)."""
+    docs = {}
+    for uid in side_members(room, "a") + side_members(room, "b"):
+        docs[uid] = await db.users.find_one({"user_id": uid}, {"_id": 0}) or {}
+    return docs
+
+
+def _extra_sides(room: dict, docs: dict, side: str) -> list:
+    """Party partners / approved joiners beyond the primary user_a/user_b —
+    same shape as _side() so the frontend renders them identically."""
+    primary = room.get(f"user_{side}")
+    return [_side(docs.get(uid), uid, "Debater") for uid in side_members(room, side) if uid != primary]
+
+
 @router.post("/rooms/{room_id}/publish")
 async def toggle_publish(room_id: str, user: User = Depends(get_current_user)):
-    """Either participant flips their consent. Room becomes public when BOTH have consented."""
+    """Either ORIGINAL debater flips their consent — party partners and any
+    subscriber who joined later don't get a vote on publishing, same as they
+    don't get a vote on kicking (client brief #13). Room goes public when
+    both original debaters have consented."""
     room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     if user.user_id not in (room["user_a"], room.get("user_b")):
-        raise HTTPException(status_code=403, detail="Not a participant")
+        raise HTTPException(status_code=403, detail="Only the original two debaters control publishing")
     if not room.get("user_b"):
         # A solo go-live room is public unconditionally (that's the entire
         # point of "Go Live") — there's no second participant to co-consent
@@ -103,8 +122,7 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
     rooms = await db.rooms.find(query, {"_id": 0}).sort("published_at", -1).to_list(50)
     out = []
     for r in rooms:
-        a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
-        b = await db.users.find_one({"user_id": r.get("user_b")}, {"_id": 0}) if r.get("user_b") else None
+        docs = await _participant_docs(r)
         out.append({
             "room_id": r["room_id"],
             "status": r.get("status", "active"),
@@ -115,8 +133,10 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
             "spectator_count": await _spectator_count(r["room_id"]),
             "published_at": r.get("published_at"),
             "archive_visibility": r.get("archive_visibility"),
-            "side_a": _side(a, r["user_a"], "Debater A"),
-            "side_b": _side(b, r.get("user_b"), "Open seat — request to join"),
+            "side_a": _side(docs.get(r["user_a"]), r["user_a"], "Debater A"),
+            "side_b": _side(docs.get(r.get("user_b")), r.get("user_b"), "Open seat — request to join"),
+            "side_a_extra": _extra_sides(r, docs, "a"),
+            "side_b_extra": _extra_sides(r, docs, "b"),
         })
     return {"debates": out}
 
@@ -132,13 +152,13 @@ async def get_public_debate(room_id: str):
     ]}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Debate not public or not found")
-    a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
-    b = await db.users.find_one({"user_id": r.get("user_b")}, {"_id": 0}) if r.get("user_b") else None
+    docs = await _participant_docs(r)
     msgs = await db.chat_messages.find({"room_id": room_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
     for m in msgs:
-        speaker_doc = a if m["sender_id"] == r["user_a"] else (b or {})
+        side = member_side(r, m["sender_id"]) or "b"
+        speaker_doc = docs.get(m["sender_id"], {})
         m["speaker"] = speaker_doc.get("display_name") or speaker_doc.get("name") or "Debater"
-        m["speaker_side"] = "a" if m["sender_id"] == r["user_a"] else "b"
+        m["speaker_side"] = side
         m.pop("sender_id", None)
     comments = await db.spectator_comments.find({"room_id": room_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
     return {
@@ -151,8 +171,11 @@ async def get_public_debate(room_id: str):
         "spectator_count": await _spectator_count(room_id),
         "published_at": r.get("published_at"),
         "archive_visibility": r.get("archive_visibility"),
-        "side_a": _side(a, r["user_a"], "Debater A"),
-        "side_b": _side(b, r.get("user_b"), "Open seat — request to join"),
+        "side_a": _side(docs.get(r["user_a"]), r["user_a"], "Debater A"),
+        "side_b": _side(docs.get(r.get("user_b")), r.get("user_b"), "Open seat — request to join"),
+        "side_a_extra": _extra_sides(r, docs, "a"),
+        "side_b_extra": _extra_sides(r, docs, "b"),
+        "side_full": {s: len(side_members(r, s)) >= MAX_PER_SIDE for s in ("a", "b")},
         "chat": msgs,
         "comments": comments,
         "server_time": datetime.now(timezone.utc).isoformat(),
@@ -171,8 +194,7 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
         raise HTTPException(status_code=404, detail="Debate not public or not found")
     await _touch_heartbeat(room_id, client_id)
 
-    a = await db.users.find_one({"user_id": r["user_a"]}, {"_id": 0}) or {}
-    b = await db.users.find_one({"user_id": r.get("user_b")}, {"_id": 0}) if r.get("user_b") else None
+    docs = await _participant_docs(r)
 
     chat_filter = {"room_id": room_id}
     comment_filter = {"room_id": room_id}
@@ -182,11 +204,11 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
     msgs = await db.chat_messages.find(chat_filter, {"_id": 0}).sort("created_at", 1).to_list(200)
     chat_events = []
     for m in msgs:
-        speaker_doc = a if m["sender_id"] == r["user_a"] else (b or {})
+        speaker_doc = docs.get(m["sender_id"], {})
         chat_events.append({
             "type": "debate-chat",
             "speaker": speaker_doc.get("display_name") or speaker_doc.get("name") or "Debater",
-            "speaker_side": "a" if m["sender_id"] == r["user_a"] else "b",
+            "speaker_side": member_side(r, m["sender_id"]) or "b",
             "text": m["text"],
             "ts": m["created_at"],
         })

@@ -41,6 +41,7 @@ function StanceMap({ stance }) {
 
 function FriendsCard({ allowFriendRequests, onToggleAllow }) {
   const [data, setData] = useState(null);
+  const navigate = useNavigate();
   const load = () => api.get("/friends").then(({ data }) => setData(data)).catch(() => {});
   useEffect(() => { load(); }, []);
   if (!data) return null;
@@ -70,10 +71,20 @@ function FriendsCard({ allowFriendRequests, onToggleAllow }) {
       ) : (
         <div className="space-y-2">
           {data.friends.map((f) => (
-            <Link key={f.user_id} to={`/u/${f.user_id}`} className="flex items-center gap-2 text-sm hover:underline" data-testid={`friend-${f.user_id}`}>
-              {f.picture ? <img src={f.picture} alt="" className="w-6 h-6 rounded-full object-cover" /> : <span className="w-6 h-6 rounded-full bg-[var(--bg-muted)]" />}
-              <span className="truncate">{f.display_name}</span>
-            </Link>
+            <div key={f.user_id} className="flex items-center justify-between gap-2" data-testid={`friend-${f.user_id}`}>
+              <Link to={`/u/${f.user_id}`} className="flex items-center gap-2 text-sm hover:underline min-w-0">
+                {f.picture ? <img src={f.picture} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" /> : <span className="w-6 h-6 rounded-full bg-[var(--bg-muted)] shrink-0" />}
+                <span className="truncate">{f.display_name}</span>
+              </Link>
+              <button
+                onClick={() => navigate("/match", { state: { friendId: f.user_id, friendName: f.display_name } })}
+                className="btn-outline !px-2 !py-1 !text-xs shrink-0"
+                title="Queue together — you'll be matched as a pair"
+                data-testid={`btn-party-queue-${f.user_id}`}
+              >
+                Queue together
+              </button>
+            </div>
           ))}
         </div>
       )}

@@ -97,7 +97,10 @@ export function VideoControls({
 export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChange, mobileSpotlightIdentity }) {
   const isCinema = viewMode === "cinema";
   const spot = tiles.find((t) => t.identity === spotlightIdentity) || tiles[0];
-  const other = tiles.find((t) => t !== spot);
+  // Every non-spotlighted tile stacks as a PiP — with only 2 tiles total this
+  // is exactly one, but a 3-4 person group debate (party-queue, subscriber
+  // join) must not silently drop the rest of the room from view.
+  const others = tiles.filter((t) => t !== spot);
 
   // Mobile spotlight defaults to the last tile (usually the partner)
   const mobileSpot =
@@ -105,13 +108,12 @@ export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChan
     tiles.find((t) => t.key !== "local") ||
     tiles[tiles.length - 1] ||
     tiles[0];
-  const mobileOther = tiles.find((t) => t !== mobileSpot);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* Mobile: two stacked, equal-height tiles */}
+      {/* Mobile: stacked, equal-height tiles (spotlight first) */}
       <div className="md:hidden flex-1 min-h-0 flex flex-col gap-2">
-        {tiles.map((t) => (
+        {[mobileSpot, ...tiles.filter((t) => t !== mobileSpot)].map((t) => (
           <div key={t.key} className="flex-1 min-h-0 relative rounded-lg overflow-hidden">
             <VideoTile tile={t} fill />
           </div>
@@ -123,16 +125,21 @@ export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChan
         {isCinema ? (
           <div className="relative w-full flex-1 min-h-0 rounded-lg overflow-hidden">
             <VideoTile tile={spot} fill />
-            {other && (
-              <button
-                onClick={() => onSpotlightChange?.(other.identity)}
-                className="group absolute bottom-3 right-3 w-44 lg:w-56 aspect-video rounded-md overflow-hidden shadow-2xl ring-2 ring-white/60 hover:ring-[var(--accent)] transition"
-                title={`Spotlight ${other.label || "other side"}`}
-                data-testid="pip-swap"
-              >
-                <VideoTile tile={other} compact />
-                <span className="pointer-events-none absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
-              </button>
+            {others.length > 0 && (
+              <div className="absolute bottom-3 right-3 flex flex-col gap-2 items-end">
+                {others.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => onSpotlightChange?.(t.identity)}
+                    className="group relative w-36 lg:w-48 aspect-video rounded-md overflow-hidden shadow-2xl ring-2 ring-white/60 hover:ring-[var(--accent)] transition"
+                    title={`Spotlight ${t.label || "this participant"}`}
+                    data-testid="pip-swap"
+                  >
+                    <VideoTile tile={t} compact />
+                    <span className="pointer-events-none absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         ) : (

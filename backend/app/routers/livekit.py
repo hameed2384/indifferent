@@ -9,6 +9,7 @@ from ..config import LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL
 from ..db import db
 from ..deps import get_current_user
 from ..models import User
+from ..room_utils import is_participant
 
 router = APIRouter()
 
@@ -38,7 +39,7 @@ async def livekit_participant_token(payload: Dict[str, str], user: User = Depend
     room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    if user.user_id not in (room["user_a"], room["user_b"]):
+    if not is_participant(room, user.user_id):
         raise HTTPException(status_code=403, detail="Not a participant")
     if not (LIVEKIT_URL and LIVEKIT_API_KEY and LIVEKIT_API_SECRET):
         raise HTTPException(status_code=503, detail="LiveKit not configured")
