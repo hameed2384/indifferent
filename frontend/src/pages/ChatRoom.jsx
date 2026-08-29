@@ -23,8 +23,12 @@ export default function ChatRoom() {
   const [notes, setNotes] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [chatTab, setChatTab] = useState("debater"); // "debater" | "viewer"
+  const [viewerComments, setViewerComments] = useState([]);
 
   const sinceRef = useRef(null);
+  const viewerSinceRef = useRef(null);
   const startedAtRef = useRef(Date.now());
   const messagesEndRef = useRef(null);
 
@@ -70,6 +74,28 @@ export default function ChatRoom() {
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, user, roomId]);
+
+  // Viewer live chat — a read surface onto the public spectator comments,
+  // separate from the debater's own private text channel above. Only polls
+  // while the room is actually public; reuses the same public endpoint
+  // WatchRoom polls, since a debater watching their own public comments
+  // needs nothing a spectator doesn't already get.
+  const pollViewerChat = async () => {
+    try {
+      const { data } = await api.get(`/public/debates/${roomId}/updates`, { params: { since: viewerSinceRef.current || undefined } });
+      viewerSinceRef.current = data.server_time;
+      const newComments = (data.events || []).filter((e) => e.type === "comment");
+      if (newComments.length) setViewerComments((c) => [...c, ...newComments]);
+    } catch { /* not public yet, or a transient miss — next tick retries */ }
+  };
+
+  useEffect(() => {
+    if (!publishState.is_public) return;
+    pollViewerChat();
+    const iv = setInterval(pollViewerChat, 3000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publishState.is_public, roomId]);
 
   const sendChat = async () => {
     const t = text.trim();
@@ -164,6 +190,13 @@ export default function ChatRoom() {
             </button>
           )}
           <button onClick={endDebate} className="btn-danger text-xs px-3 py-1.5" data-testid="btn-end-debate">End</button>
+          <button
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="btn-outline text-xs px-3 py-1.5 hidden lg:inline-flex"
+            data-testid="btn-toggle-chat-sidebar"
+          >
+            {sidebarOpen ? "Hide chat" : `Chat${messages.length > 0 ? ` · ${messages.length}` : ""}`}
+          </button>
           <ThemeToggle />
         </div>
       </header>
@@ -174,7 +207,7 @@ export default function ChatRoom() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className={`flex-1 min-h-0 grid grid-cols-1 ${sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_380px]" : "lg:grid-cols-1"}`}>
         <div className="min-h-0 flex flex-col p-3 sm:p-6 gap-3 sm:gap-4 overflow-hidden">
           <VideoStage
             tiles={tiles}
@@ -211,9 +244,14 @@ export default function ChatRoom() {
           </div>
         </div>
 
-        <aside className="hidden lg:flex flex-col border-l border-[var(--border)] bg-[var(--surface)] min-h-0">
-          <ChatPanel connected={connected} messages={messages} user={user} room={room} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef} />
-        </aside>
+        {sidebarOpen && (
+          <aside className="hidden lg:flex flex-col border-l border-[var(--border)] bg-[var(--surface)] min-h-0">
+            <ChatPanel
+              connected={connected} messages={messages} user={user} room={room} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
+              isPublic={publishState.is_public} chatTab={chatTab} setChatTab={setChatTab} viewerComments={viewerComments}
+            />
+          </aside>
+        )}
       </div>
 
       <button
@@ -229,7 +267,10 @@ export default function ChatRoom() {
             <span className="font-medium text-sm">Text channel</span>
             <button onClick={() => setChatOpen(false)} className="btn-ghost text-sm" data-testid="btn-close-chat-mobile">Close</button>
           </div>
-          <ChatPanel connected={connected} messages={messages} user={user} room={room} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef} />
+          <ChatPanel
+            connected={connected} messages={messages} user={user} room={room} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
+            isPublic={publishState.is_public} chatTab={chatTab} setChatTab={setChatTab} viewerComments={viewerComments}
+          />
         </div>
       )}
 
@@ -265,15 +306,49 @@ export default function ChatRoom() {
   );
 }
 
-function ChatPanel({ connected, messages, user, room, text, setText, sendChat, messagesEndRef }) {
+function ChatPanel({ connected, messages, user, room, text, setText, sendChat, messagesEndRef, isPublic, chatTab, setChatTab, viewerComments }) {
+  const showingViewer = isPublic && chatTab === "viewer";
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="hidden lg:flex shrink-0 h-12 px-4 border-b border-[var(--border)] items-center justify-between">
-        <span className="text-sm font-medium">Text channel</span>
+        {isPublic ? (
+          <div className="inline-flex rounded-lg border border-[var(--border-strong)] overflow-hidden">
+            <button
+              onClick={() => setChatTab("debater")}
+              className={`px-3 py-1 text-xs font-medium ${chatTab !== "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+              data-testid="chat-tab-debater"
+            >
+              Debater chat
+            </button>
+            <button
+              onClick={() => setChatTab("viewer")}
+              className={`px-3 py-1 text-xs font-medium border-l border-[var(--border-strong)] ${chatTab === "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+              data-testid="chat-tab-viewer"
+            >
+              Viewer chat{viewerComments.length > 0 && ` · ${viewerComments.length}`}
+            </button>
+          </div>
+        ) : (
+          <span className="text-sm font-medium">Text channel</span>
+        )}
         <span className={`text-xs ${connected ? "text-[var(--accent)]" : "text-[var(--fg-subtle)]"}`}>
           {connected ? "● Live" : "○ Offline"}
         </span>
       </div>
+
+      {showingViewer ? (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3" data-testid="viewer-chat-messages">
+          {viewerComments.length === 0 && <div className="text-sm text-[var(--fg-subtle)]">No viewer comments yet.</div>}
+          {viewerComments.map((c, i) => (
+            <div key={i} className="border-l-2 border-[var(--border-strong)] pl-3">
+              <div className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)]">
+                {c.author}{!c.authed && " · anon"}
+              </div>
+              <div className="text-sm break-words">{c.text}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
         {messages.map((m, i) => {
           if (m.type === "coach") {
@@ -299,17 +374,21 @@ function ChatPanel({ connected, messages, user, room, text, setText, sendChat, m
         })}
         <div ref={messagesEndRef} />
       </div>
-      <div className="shrink-0 p-3 border-t border-[var(--border)] flex gap-2">
-        <input
-          data-testid="chat-input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendChat()}
-          placeholder="Say what you mean…"
-          className="field"
-        />
-        <button className="btn-primary px-4 text-sm" onClick={sendChat} data-testid="btn-send-chat">Send</button>
-      </div>
+      )}
+
+      {!showingViewer && (
+        <div className="shrink-0 p-3 border-t border-[var(--border)] flex gap-2">
+          <input
+            data-testid="chat-input"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendChat()}
+            placeholder="Say what you mean…"
+            className="field"
+          />
+          <button className="btn-primary px-4 text-sm" onClick={sendChat} data-testid="btn-send-chat">Send</button>
+        </div>
+      )}
     </div>
   );
 }
