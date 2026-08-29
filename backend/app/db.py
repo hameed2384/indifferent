@@ -63,3 +63,8 @@ async def create_indexes():
     # call site by construction, see that module's docstring.
     await db.private_messages.create_index([("pair_key", 1), ("created_at", 1)])
     await db.private_calls.create_index("pair_key", unique=True)
+
+    # Claim Trees (routers/clips.py) — branching async video rebuttals.
+    await db.clips.create_index("clip_id", unique=True)
+    await db.clips.create_index([("parent_clip_id", 1), ("likes", -1)])
+    await db.clips.create_index([("category", 1), ("parent_clip_id", 1), ("created_at", -1)])

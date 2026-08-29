@@ -10,6 +10,8 @@ import Watch from "@/pages/Watch";
 import WatchRoom from "@/pages/WatchRoom";
 import Profile from "@/pages/Profile";
 import PrivateChat from "@/pages/PrivateChat";
+import Claims from "@/pages/Claims";
+import ClaimTree from "@/pages/ClaimTree";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 function RouterInner() {
@@ -23,6 +25,8 @@ function RouterInner() {
       <Route path="/watch" element={<Watch />} />
       <Route path="/watch/:roomId" element={<WatchRoom />} />
       <Route path="/u/:userId" element={<Profile />} />
+      <Route path="/claims" element={<Claims />} />
+      <Route path="/claims/:clipId" element={<ClaimTree />} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/verify" element={<ProtectedRoute requireOnboarded><Verify /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute requireOnboarded><Dashboard /></ProtectedRoute>} />

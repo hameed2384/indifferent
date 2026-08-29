@@ -28,6 +28,10 @@ def put_object(path: str, data: bytes, content_type: str) -> dict:
     dest = Path(STORAGE_DIR) / path
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)
+    # Sidecar for the content-type — needed now that clip video playback
+    # depends on getting the real mime type back (ID-verification images
+    # never needed this, so it was fine to skip until now).
+    dest.with_suffix(dest.suffix + ".meta").write_text(content_type or "application/octet-stream")
     return {"path": path}
 
 
@@ -35,7 +39,6 @@ def get_object(path: str) -> Tuple[bytes, str]:
     dest = Path(STORAGE_DIR) / path
     if not dest.is_file():
         raise HTTPException(status_code=404, detail="Object not found")
-    # Content-type isn't persisted separately in this interim implementation —
-    # add a sidecar (or a real object-storage backend, which stores it natively)
-    # before anything depends on getting the exact original mime type back.
-    return dest.read_bytes(), "application/octet-stream"
+    meta = dest.with_suffix(dest.suffix + ".meta")
+    content_type = meta.read_text().strip() if meta.is_file() else "application/octet-stream"
+    return dest.read_bytes(), content_type

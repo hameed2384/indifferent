@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Users, Star, Rss, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Home, GitBranch, Users, Star, Rss, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -105,6 +105,16 @@ export default function SideNav({ collapsed, onToggleCollapsed }) {
         >
           <Home className="w-4 h-4 shrink-0" />
           {!collapsed && <span className="text-sm font-medium">Home</span>}
+        </button>
+
+        <button
+          onClick={() => navigate("/claims")}
+          className={`flex items-center gap-3 w-full text-left rounded-lg transition-colors ${location.pathname.startsWith("/claims") ? "bg-[var(--bg-muted)]" : "hover:bg-[var(--bg-muted)]"} ${collapsed ? "justify-center px-0 py-2" : "px-3 py-2"}`}
+          data-testid="sidenav-claims"
+          title="Claim Trees"
+        >
+          <GitBranch className="w-4 h-4 shrink-0" />
+          {!collapsed && <span className="text-sm font-medium">Claims</span>}
         </button>
 
         {!user ? (
