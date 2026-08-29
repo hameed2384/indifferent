@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
 import { toast } from "sonner";
 
 function StanceMap({ stance }) {
@@ -38,6 +39,55 @@ function StanceMap({ stance }) {
   );
 }
 
+function FriendsCard({ allowFriendRequests, onToggleAllow }) {
+  const [data, setData] = useState(null);
+  const load = () => api.get("/friends").then(({ data }) => setData(data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+  if (!data) return null;
+
+  const respond = async (endpoint, userId) => {
+    try { await api.post(`/friends/${endpoint}/${userId}`); load(); } catch { toast.error("Couldn't update request"); }
+  };
+
+  return (
+    <div className="card p-5 mt-6">
+      <div className="eyebrow mb-3">Friends</div>
+      {data.incoming_requests.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {data.incoming_requests.map((f) => (
+            <div key={f.user_id} className="flex items-center justify-between gap-2 text-sm">
+              <Link to={`/u/${f.user_id}`} className="truncate hover:underline">{f.display_name}</Link>
+              <div className="flex gap-1.5 shrink-0">
+                <button className="btn-accent !px-2 !py-1 !text-xs" onClick={() => respond("accept", f.user_id)}>Accept</button>
+                <button className="btn-outline !px-2 !py-1 !text-xs" onClick={() => respond("reject", f.user_id)}>Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {data.friends.length === 0 ? (
+        <p className="text-sm text-[var(--fg-subtle)]">No friends yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {data.friends.map((f) => (
+            <Link key={f.user_id} to={`/u/${f.user_id}`} className="flex items-center gap-2 text-sm hover:underline" data-testid={`friend-${f.user_id}`}>
+              {f.picture ? <img src={f.picture} alt="" className="w-6 h-6 rounded-full object-cover" /> : <span className="w-6 h-6 rounded-full bg-[var(--bg-muted)]" />}
+              <span className="truncate">{f.display_name}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+      {data.outgoing_requests.length > 0 && (
+        <p className="mt-3 text-xs text-[var(--fg-subtle)]">{data.outgoing_requests.length} request(s) pending</p>
+      )}
+      <label className="mt-4 flex items-center gap-2 pt-3 border-t border-[var(--border)] cursor-pointer">
+        <input type="checkbox" checked={!allowFriendRequests} onChange={onToggleAllow} className="w-4 h-4 accent-[var(--accent)]" data-testid="checkbox-block-friend-requests" />
+        <span className="text-xs text-[var(--fg-muted)]">Don't allow friend requests</span>
+      </label>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -49,6 +99,16 @@ export default function Dashboard() {
   const findMatch = () => {
     if (!user.id_verified) return navigate("/verify");
     navigate("/match");
+  };
+
+  const toggleFriendRequests = async () => {
+    const next = !user.allow_friend_requests;
+    try {
+      await api.post("/users/me/friend-privacy", null, { params: { allow: next } });
+      setUser((u) => ({ ...u, allow_friend_requests: next }));
+    } catch {
+      toast.error("Couldn't update setting");
+    }
   };
 
   const becomeDebater = async () => {
@@ -74,8 +134,8 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate("/watch")} className="btn-ghost text-sm">Watch</button>
             <span className="text-sm text-[var(--fg-muted)] hidden md:block" data-testid="user-name">{user?.display_name || user?.name}</span>
-            <button className="btn-ghost text-sm" onClick={logout} data-testid="btn-logout">Sign out</button>
             <ThemeToggle />
+            <AccountMenu user={user} logout={logout} />
           </div>
         </div>
       </nav>
@@ -132,6 +192,7 @@ export default function Dashboard() {
 
           <div>
             <StanceMap stance={user.stance} />
+            <FriendsCard allowFriendRequests={user.allow_friend_requests} onToggleAllow={toggleFriendRequests} />
           </div>
         </div>
       </main>

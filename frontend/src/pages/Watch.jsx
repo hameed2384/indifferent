@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
 import DebateCard from "@/components/DebateCard";
 import { readNotInterested } from "@/lib/notInterested";
 
@@ -16,7 +17,7 @@ export default function Watch() {
   const [excluded] = useState(readNotInterested);
   const [showGoLive, setShowGoLive] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     api.get("/categories").then(({ data }) => setCategories(data.categories || [])).catch(() => {});
@@ -69,10 +70,13 @@ export default function Watch() {
             {user?.is_debater && (
               <button onClick={() => setShowGoLive(true)} className="btn-accent text-sm" data-testid="btn-go-live">Go Live</button>
             )}
-            <button onClick={() => navigate(user ? "/dashboard" : "/")} className="btn-primary text-sm" data-testid="nav-enter">
-              {user ? "Dashboard" : "Sign in"}
-            </button>
+            {user ? (
+              <button onClick={() => navigate("/dashboard")} className="btn-primary text-sm" data-testid="nav-enter">Dashboard</button>
+            ) : (
+              <button onClick={() => navigate("/")} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>
+            )}
             <ThemeToggle />
+            {user && <AccountMenu user={user} logout={logout} />}
           </div>
         </div>
         {categories.length > 0 && (

@@ -5,17 +5,61 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 
+function TopicSpectrum({ t }) {
+  const pct = 50 + (t.position / 10) * 50;
+  return (
+    <div className="py-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-sm font-medium">{t.topic}</span>
+        <span className="text-xs font-mono-ui text-[var(--fg-subtle)]">{t.position?.toFixed?.(1)}</span>
+      </div>
+      <div className="relative h-1.5 rounded-full bg-[var(--bg-muted)] border border-[var(--border-strong)]">
+        <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[var(--accent)] ring-2 ring-[var(--accent-soft)]" style={{ left: `calc(${pct}% - 6px)` }} />
+      </div>
+      {t.summary && <p className="mt-2 text-xs text-[var(--fg-muted)]">{t.summary}</p>}
+    </div>
+  );
+}
+
+function FriendButton({ profile, userId, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const act = async (endpoint) => {
+    setBusy(true);
+    try { await api.post(`/friends/${endpoint}/${userId}`); onChange(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Couldn't update friend request"); }
+    finally { setBusy(false); }
+  };
+  const remove = async () => {
+    setBusy(true);
+    try { await api.delete(`/friends/${userId}`); onChange(); }
+    catch { toast.error("Couldn't remove friend"); }
+    finally { setBusy(false); }
+  };
+
+  if (profile.friend_status === "friends") return <button className="btn-outline" onClick={remove} disabled={busy} data-testid="btn-unfriend">Friends ✓</button>;
+  if (profile.friend_status === "pending_outgoing") return <button className="btn-outline" disabled data-testid="btn-friend-pending">Request sent</button>;
+  if (profile.friend_status === "pending_incoming") return (
+    <div className="flex gap-2">
+      <button className="btn-accent" onClick={() => act("accept")} disabled={busy} data-testid="btn-accept-friend">Accept</button>
+      <button className="btn-outline" onClick={() => act("reject")} disabled={busy} data-testid="btn-reject-friend">Reject</button>
+    </div>
+  );
+  if (!profile.allow_friend_requests) return null;
+  return <button className="btn-outline" onClick={() => act("request")} disabled={busy} data-testid="btn-add-friend">Add friend</button>;
+}
+
 export default function Profile() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { user: viewer } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [topics, setTopics] = useState([]);
   const [notFound, setNotFound] = useState(false);
+  const [subLoading, setSubLoading] = useState(false);
 
   const load = () => {
-    api.get(`/users/${userId}`)
-      .then(({ data }) => setProfile(data))
-      .catch(() => setNotFound(true));
+    api.get(`/users/${userId}`).then(({ data }) => setProfile(data)).catch(() => setNotFound(true));
+    api.get(`/users/${userId}/topic-stances`).then(({ data }) => setTopics(data.topics || [])).catch(() => {});
   };
 
   useEffect(() => {
@@ -30,6 +74,19 @@ export default function Profile() {
       else await api.post(`/users/${userId}/follow`);
       load();
     } catch { toast.error("Couldn't update follow"); }
+  };
+
+  const subscribe = async () => {
+    if (!viewer) { toast.info("Sign in to subscribe"); return; }
+    setSubLoading(true);
+    try {
+      const { data } = await api.post(`/payments/checkout/debater/${userId}`);
+      window.location.href = data.checkout_url;
+    } catch (e) {
+      toast.error(e.response?.status === 503 ? "Subscriptions aren't live yet" : "Couldn't start checkout");
+    } finally {
+      setSubLoading(false);
+    }
   };
 
   if (notFound) return (
@@ -70,18 +127,33 @@ export default function Profile() {
         </div>
 
         {!profile.is_self && (
-          <button
-            onClick={toggleFollow}
-            className={profile.is_following ? "btn-outline mt-6" : "btn-accent mt-6"}
-            data-testid="btn-profile-follow"
-          >
-            {profile.is_following ? "Following" : "Follow"}
-          </button>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              onClick={toggleFollow}
+              className={profile.is_following ? "btn-outline" : "btn-accent"}
+              data-testid="btn-profile-follow"
+            >
+              {profile.is_following ? "Following" : "Follow"}
+            </button>
+            <FriendButton profile={profile} userId={userId} onChange={load} />
+            {profile.is_debater && (
+              <button onClick={subscribe} disabled={subLoading || profile.is_subscribed} className="btn-outline" data-testid="btn-subscribe">
+                {profile.is_subscribed ? "Subscribed £2/mo ✓" : subLoading ? "…" : "Subscribe £2/mo"}
+              </button>
+            )}
+          </div>
         )}
 
         <div className="mt-12 card p-6">
-          <div className="eyebrow mb-2">Topic spectrums</div>
-          <p className="text-sm text-[var(--fg-muted)]">Coming soon — where this person stands, per topic, based on their debates.</p>
+          <div className="eyebrow mb-1">Topic spectrums</div>
+          <p className="text-xs text-[var(--fg-subtle)] mb-2">Where they stand, per topic — built from their debates and viewer feedback.</p>
+          {topics.length === 0 ? (
+            <p className="text-sm text-[var(--fg-muted)] mt-4">No debates scored yet.</p>
+          ) : (
+            <div className="divide-y divide-[var(--border)]">
+              {topics.map((t) => <TopicSpectrum key={t.topic} t={t} />)}
+            </div>
+          )}
         </div>
       </main>
     </div>
