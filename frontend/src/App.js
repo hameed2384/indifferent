@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "sonner";
+import { useTheme } from "@/hooks/use-theme";
 import "@/App.css";
 import AuthCallback from "@/pages/AuthCallback";
 import Dashboard from "@/pages/Dashboard";
@@ -38,11 +40,17 @@ function RouterInner() {
 }
 
 export default function App() {
+  const { theme } = useTheme();
   return (
     <div className="App">
       <BrowserRouter>
         <RouterInner />
       </BrowserRouter>
+      {/* Toaster's own theme prop drives its internal light/dark styling —
+          it doesn't read the .dark class on <html> — so it must be wired to
+          the real live theme here, not left hardcoded (previous bug: toasts
+          always rendered dark, even in light mode). */}
+      <Toaster theme={theme} position="top-center" />
     </div>
   );
 }

@@ -9,6 +9,19 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
         <title>Indifferent</title>
+        <script>
+            // Applies the dark class before the CSS/JS bundle even loads, so a
+            // dark-mode visitor never sees a flash of the light theme on load —
+            // hooks/use-theme.js reads/writes the exact same key and does the
+            // exact same class toggle once React mounts, this just wins the race.
+            (function () {
+                try {
+                    var stored = localStorage.getItem("indifferent-theme");
+                    var dark = stored === "dark" || (!stored && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                    if (dark) document.documentElement.classList.add("dark");
+                } catch (e) {}
+            })();
+        </script>
     </head>
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>

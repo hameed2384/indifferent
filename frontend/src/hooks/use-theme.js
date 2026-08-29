@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "indifferent-theme";
+const ThemeContext = createContext(null);
 
 function getInitialTheme() {
   try {
@@ -15,7 +16,12 @@ function getInitialTheme() {
   return "light";
 }
 
-export function useTheme() {
+/** A real Context (mirroring AuthContext) rather than independent per-component
+ * state — needed so every consumer (every page's ThemeToggle, and the sonner
+ * Toaster in App.js) observes the same live value. The previous per-hook
+ * local-state version left the Toaster's theme prop permanently stale after
+ * any toggle, since nothing propagated between separate useState instances. */
+export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(getInitialTheme);
 
   useEffect(() => {
@@ -31,5 +37,8 @@ export function useTheme() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
   }, []);
 
-  return { theme, toggleTheme };
+  const value = useMemo(() => ({ theme, toggleTheme }), [theme, toggleTheme]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
+
+export const useTheme = () => useContext(ThemeContext);
