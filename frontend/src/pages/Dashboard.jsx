@@ -93,6 +93,19 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [becoming, setBecoming] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+
+  const upgradeAdFree = async () => {
+    setUpgrading(true);
+    try {
+      const { data } = await api.post("/payments/checkout/platform");
+      window.location.href = data.checkout_url;
+    } catch (e) {
+      toast.error(e.response?.status === 503 ? "Ad-free isn't live yet" : "Couldn't start checkout");
+    } finally {
+      setUpgrading(false);
+    }
+  };
 
   useEffect(() => { api.get("/dashboard/stats").then(({ data }) => setStats(data)).catch(() => {}); }, []);
 
@@ -193,6 +206,19 @@ export default function Dashboard() {
           <div>
             <StanceMap stance={user.stance} />
             <FriendsCard allowFriendRequests={user.allow_friend_requests} onToggleAllow={toggleFriendRequests} />
+            <div className="card p-5 mt-6">
+              <div className="eyebrow mb-2">Ad-free</div>
+              {user.ad_free ? (
+                <p className="text-sm text-[var(--accent)] font-medium">You're ad-free ✓</p>
+              ) : (
+                <>
+                  <p className="text-sm text-[var(--fg-muted)] mb-3">Remove ads everywhere on the site.</p>
+                  <button className="btn-outline w-full" onClick={upgradeAdFree} disabled={upgrading} data-testid="btn-upgrade-ad-free">
+                    {upgrading ? "…" : "Upgrade — £9/mo"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </main>

@@ -26,6 +26,7 @@ class User(BaseModel):
     minds_changed: int = 0
     is_debater: bool = False
     allow_friend_requests: bool = True
+    ad_free: bool = False
     created_at: str
 
 
