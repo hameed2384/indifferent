@@ -43,6 +43,13 @@ export default function AccountMenu({ user, logout }) {
           >
             Dashboard
           </button>
+          <button
+            onClick={() => { setOpen(false); navigate("/settings"); }}
+            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--bg-muted)]"
+            data-testid="account-menu-settings"
+          >
+            Settings
+          </button>
           <div className="my-1 border-t border-[var(--border)]" />
           <button
             onClick={() => { setOpen(false); logout(); }}

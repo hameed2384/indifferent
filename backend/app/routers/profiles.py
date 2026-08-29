@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional
@@ -13,6 +14,11 @@ from ..models import User
 from ..room_utils import find_live_room_id
 
 router = APIRouter()
+
+
+class ProfileUpdate(BaseModel):
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
 
 
 @router.get("/users/{user_id}")
@@ -105,6 +111,25 @@ async def list_subscriptions(user: User = Depends(get_current_user)):
             "live_room_id": await find_live_room_id(u["user_id"]),
         })
     return {"subscriptions": out}
+
+
+@router.post("/users/me/profile", response_model=User)
+async def update_my_profile(payload: ProfileUpdate, user: User = Depends(get_current_user)):
+    """Settings page — editing display_name/bio after onboarding wasn't
+    possible at all until now; onboarding/submit was the only write path."""
+    update = {}
+    if payload.display_name is not None:
+        name = payload.display_name.strip()[:40]
+        if not name:
+            raise HTTPException(status_code=400, detail="Display name can't be empty")
+        update["display_name"] = name
+    if payload.bio is not None:
+        update["bio"] = payload.bio.strip()[:300]
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    await db.users.update_one({"user_id": user.user_id}, {"$set": update})
+    doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    return User(**doc)
 
 
 @router.post("/users/me/become-debater")

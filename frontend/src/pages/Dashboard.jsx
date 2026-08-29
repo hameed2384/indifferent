@@ -39,7 +39,7 @@ function StanceMap({ stance }) {
   );
 }
 
-function FriendsCard({ allowFriendRequests, onToggleAllow }) {
+function FriendsCard() {
   const [data, setData] = useState(null);
   const navigate = useNavigate();
   const load = () => api.get("/friends").then(({ data }) => setData(data)).catch(() => {});
@@ -101,10 +101,6 @@ function FriendsCard({ allowFriendRequests, onToggleAllow }) {
       {data.outgoing_requests.length > 0 && (
         <p className="mt-3 text-xs text-[var(--fg-subtle)]">{data.outgoing_requests.length} request(s) pending</p>
       )}
-      <label className="mt-4 flex items-center gap-2 pt-3 border-t border-[var(--border)] cursor-pointer">
-        <input type="checkbox" checked={!allowFriendRequests} onChange={onToggleAllow} className="w-4 h-4 accent-[var(--accent)]" data-testid="checkbox-block-friend-requests" />
-        <span className="text-xs text-[var(--fg-muted)]">Don't allow friend requests</span>
-      </label>
     </div>
   );
 }
@@ -133,16 +129,6 @@ export default function Dashboard() {
   const findMatch = () => {
     if (!user.id_verified) return navigate("/verify");
     navigate("/match");
-  };
-
-  const toggleFriendRequests = async () => {
-    const next = !user.allow_friend_requests;
-    try {
-      await api.post("/users/me/friend-privacy", null, { params: { allow: next } });
-      setUser((u) => ({ ...u, allow_friend_requests: next }));
-    } catch {
-      toast.error("Couldn't update setting");
-    }
   };
 
   const becomeDebater = async () => {
@@ -226,7 +212,7 @@ export default function Dashboard() {
 
           <div>
             <StanceMap stance={user.stance} />
-            <FriendsCard allowFriendRequests={user.allow_friend_requests} onToggleAllow={toggleFriendRequests} />
+            <FriendsCard />
             <div className="card p-5 mt-6">
               <div className="eyebrow mb-2">Ad-free</div>
               {user.ad_free ? (
