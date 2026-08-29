@@ -9,6 +9,7 @@ import Match from "@/pages/Match";
 import ChatRoom from "@/pages/ChatRoom";
 import Watch from "@/pages/Watch";
 import WatchRoom from "@/pages/WatchRoom";
+import Profile from "@/pages/Profile";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 function RouterInner() {
@@ -18,6 +19,7 @@ function RouterInner() {
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/watch" element={<Watch />} />
       <Route path="/watch/:roomId" element={<WatchRoom />} />
+      <Route path="/u/:userId" element={<Profile />} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/verify" element={<ProtectedRoute requireOnboarded><Verify /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute requireOnboarded><Dashboard /></ProtectedRoute>} />

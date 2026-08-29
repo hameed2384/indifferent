@@ -88,7 +88,10 @@ export function VideoControls({
  *   - Mobile (< md): Discord-style — mobileSpotlightTile fills, the other is a small PiP bottom-right
  *   - Desktop (>= md): honors viewMode
  *
- * `tiles`: [{ key, identity, label, videoEl, audioEl, audioMuted, placeholderTitle, placeholderSubtitle, placeholderFooter }]
+ * `tiles`: [{ key, identity, label?, overlay?, videoEl, audioEl, audioMuted, placeholderTitle, placeholderSubtitle, placeholderFooter }]
+ * `label` is a plain string used for tooltips (PiP swap button, spotlight picker);
+ * `overlay`, if given, is a richer node rendered top-left instead of the plain
+ * text badge (WatchRoom uses this for the viewer name/pic/follow chip).
  * `mobileSpotlightIdentity`: identity to spotlight on mobile (defaults to tiles[1] — usually the partner/remote)
  */
 export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChange, mobileSpotlightIdentity }) {
@@ -124,7 +127,7 @@ export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChan
               <button
                 onClick={() => onSpotlightChange?.(other.identity)}
                 className="group absolute bottom-3 right-3 w-44 lg:w-56 aspect-video rounded-md overflow-hidden shadow-2xl ring-2 ring-white/60 hover:ring-[var(--accent)] transition"
-                title={`Spotlight ${other.label}`}
+                title={`Spotlight ${other.label || "other side"}`}
                 data-testid="pip-swap"
               >
                 <VideoTile tile={other} compact />
@@ -167,7 +170,8 @@ function VideoTile({ tile, fill, compact }) {
         </div>
       )}
       {tile.audioEl && <MediaMount el={tile.audioEl} className="hidden" />}
-      {tile.label && !compact && (
+      {!compact && tile.overlay}
+      {tile.label && !compact && !tile.overlay && (
         <div className="absolute top-2 left-2 text-[11px] font-medium bg-white/90 text-black px-2 py-0.5 rounded">
           {tile.label}
         </div>

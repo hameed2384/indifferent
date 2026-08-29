@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import { toast } from "sonner";
 
 function StanceMap({ stance }) {
   if (!stance) return null;
@@ -38,15 +39,29 @@ function StanceMap({ stance }) {
 }
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
+  const [becoming, setBecoming] = useState(false);
 
   useEffect(() => { api.get("/dashboard/stats").then(({ data }) => setStats(data)).catch(() => {}); }, []);
 
   const findMatch = () => {
     if (!user.id_verified) return navigate("/verify");
     navigate("/match");
+  };
+
+  const becomeDebater = async () => {
+    setBecoming(true);
+    try {
+      await api.post("/users/me/become-debater");
+      setUser((u) => ({ ...u, is_debater: true }));
+      toast.success("You're a debater now — go live any time from Watch.");
+    } catch {
+      toast.error("Couldn't update your account");
+    } finally {
+      setBecoming(false);
+    }
   };
 
   return (
@@ -79,6 +94,13 @@ export default function Dashboard() {
               <button className="btn-accent" onClick={findMatch} data-testid="btn-find-match">Find my opposite</button>
               {!user.id_verified && (
                 <button className="btn-outline" onClick={() => navigate("/verify")} data-testid="btn-verify-cta">Verify ID first</button>
+              )}
+              {user.is_debater ? (
+                <button className="btn-outline" onClick={() => navigate("/watch")} data-testid="btn-go-live-cta">Go live</button>
+              ) : (
+                <button className="btn-outline" onClick={becomeDebater} disabled={becoming} data-testid="btn-become-debater">
+                  {becoming ? "…" : "Become a debater"}
+                </button>
               )}
             </div>
 
