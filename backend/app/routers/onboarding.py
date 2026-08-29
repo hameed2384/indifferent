@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Dict, List
 
 from fastapi import APIRouter, Depends
@@ -7,6 +6,7 @@ from ..db import db
 from ..deps import get_current_user
 from ..llm import analyze_free_text
 from ..models import OnboardingSubmit, StanceScores, User
+from ..topic_stances import upsert_topic_stance
 
 router = APIRouter()
 
@@ -39,26 +39,6 @@ def quiz_to_scores(answers: Dict[str, int]) -> tuple[float, float]:
     return econ, soc
 
 
-async def _upsert_topic_stance(user_id: str, topic: str, category: str, position: float, summary: str, tags: List[str]):
-    """Mirror a stance into the generalized topic_stances collection (see models.TopicStance)."""
-    existing = await db.topic_stances.find_one({"user_id": user_id, "topic": topic}, {"_id": 0})
-    sample_count = (existing or {}).get("sample_count", 0) + 1
-    await db.topic_stances.update_one(
-        {"user_id": user_id, "topic": topic},
-        {"$set": {
-            "user_id": user_id,
-            "topic": topic,
-            "category": category,
-            "position": position,
-            "summary": summary,
-            "tags": tags,
-            "sample_count": sample_count,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }},
-        upsert=True,
-    )
-
-
 @router.post("/onboarding/submit", response_model=User)
 async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_current_user)):
     econ_q, soc_q = quiz_to_scores(payload.quiz_answers or {})
@@ -88,8 +68,8 @@ async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_
     # Mirror into the generalized per-topic spectrum model so the profile UI can
     # render politics as two rows in the same list as every other category,
     # instead of a one-off two-axis square map (client brief #10).
-    await _upsert_topic_stance(user.user_id, "Politics: Economic", "Politics", final.economic, final.summary, final.tags)
-    await _upsert_topic_stance(user.user_id, "Politics: Social", "Politics", final.social, final.summary, final.tags)
+    await upsert_topic_stance(user.user_id, "Politics: Economic", "Politics", final.economic, final.summary, final.tags)
+    await upsert_topic_stance(user.user_id, "Politics: Social", "Politics", final.social, final.summary, final.tags)
 
     doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     return User(**doc)

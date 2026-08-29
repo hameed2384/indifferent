@@ -82,6 +82,25 @@ async def analyze_free_text(text: str) -> StanceScores:
     )
 
 
+VOTE_REASONING_SYSTEM = (
+    "You analyze a spectator's reasoning after watching a debate and place their view on a "
+    "single -10..10 spectrum for the debate's topic, where -10 means fully agreeing with "
+    "the side labeled SIDE A and +10 means fully agreeing with the side labeled SIDE B. "
+    'Return ONLY JSON: {"position": <number -10..10>, "summary": "<1 short sentence>", '
+    '"tags": ["<2-4 short topic tags>"]}. No prose outside JSON, no markdown fences.'
+)
+
+
+async def analyze_vote_reasoning(topic: str, side_a_label: str, side_b_label: str, reasoning: str) -> Optional[dict]:
+    """Client brief #18 — a viewer's agree/disagree reasoning refines their own
+    topic_stances position. Returns None (caller falls back to a flat
+    directional nudge) if there's no reasoning text or Gemini is unavailable."""
+    if not reasoning or not reasoning.strip():
+        return None
+    prompt = f"Topic: {topic}\nSIDE A: {side_a_label}\nSIDE B: {side_b_label}\nSpectator's reasoning: {reasoning.strip()[:1000]}"
+    return await call_gemini_json(VOTE_REASONING_SYSTEM, prompt, session_id=f"vote-{uuid.uuid4().hex[:8]}")
+
+
 async def generate_topics(a: StanceScores, b: StanceScores) -> List[str]:
     """Ask Gemini for 3 debate prompts tailored to two opposing stances."""
     prompt = (

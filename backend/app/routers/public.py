@@ -6,8 +6,10 @@ from pydantic import BaseModel
 
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional
+from ..llm import analyze_vote_reasoning
 from ..models import User
 from ..room_utils import MAX_PER_SIDE, is_participant, member_side, side_members
+from ..topic_stances import upsert_topic_stance
 
 router = APIRouter()
 
@@ -142,7 +144,7 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
 
 
 @router.get("/public/debates/{room_id}")
-async def get_public_debate(room_id: str):
+async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_current_user_optional)):
     """Public listing shows only archive_visibility == "public"; this direct-link
     lookup also accepts "unlisted" (YouTube unlisted-video model, client brief #16)
     and any currently-live is_public room."""
@@ -153,6 +155,10 @@ async def get_public_debate(room_id: str):
     if not r:
         raise HTTPException(status_code=404, detail="Debate not public or not found")
     docs = await _participant_docs(r)
+    my_vote = None
+    if viewer:
+        mv = await db.debate_votes.find_one({"room_id": room_id, "user_id": viewer.user_id}, {"_id": 0})
+        my_vote = mv["side"] if mv else None
     msgs = await db.chat_messages.find({"room_id": room_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
     for m in msgs:
         side = member_side(r, m["sender_id"]) or "b"
@@ -161,6 +167,7 @@ async def get_public_debate(room_id: str):
         m["speaker_side"] = side
         m.pop("sender_id", None)
     comments = await db.spectator_comments.find({"room_id": room_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    tally = await _vote_tally(room_id)
     return {
         "room_id": room_id,
         "status": r.get("status", "active"),
@@ -168,6 +175,9 @@ async def get_public_debate(room_id: str):
         "topics": r.get("topics", []),
         "categories": r.get("categories", []),
         "likes": int(r.get("likes", 0)),
+        "dislikes": int(r.get("dislikes", 0)),
+        **tally,
+        "my_vote": my_vote,
         "spectator_count": await _spectator_count(room_id),
         "published_at": r.get("published_at"),
         "archive_visibility": r.get("archive_visibility"),
@@ -217,11 +227,14 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
 
     events = sorted(chat_events + comment_events, key=lambda e: e["ts"])
 
+    tally = await _vote_tally(room_id)
     return {
         "events": events,
         "categories": r.get("categories", []),
         "is_public": True,
         "likes": int(r.get("likes", 0)),
+        "dislikes": int(r.get("dislikes", 0)),
+        **tally,
         "spectator_count": await _spectator_count(room_id),
         "server_time": datetime.now(timezone.utc).isoformat(),
     }
@@ -257,3 +270,65 @@ async def like_debate(room_id: str):
     await db.rooms.update_one({"room_id": room_id}, {"$inc": {"likes": 1}})
     fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     return {"likes": int(fresh.get("likes", 0))}
+
+
+@router.post("/public/debates/{room_id}/dislike")
+async def dislike_debate(room_id: str):
+    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Not found")
+    await db.rooms.update_one({"room_id": room_id}, {"$inc": {"dislikes": 1}})
+    fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    return {"dislikes": int(fresh.get("dislikes", 0))}
+
+
+class VoteIn(BaseModel):
+    side: str  # "a" | "b"
+    reasoning: Optional[str] = None
+
+
+async def _vote_tally(room_id: str) -> dict:
+    votes_a = await db.debate_votes.count_documents({"room_id": room_id, "side": "a"})
+    votes_b = await db.debate_votes.count_documents({"room_id": room_id, "side": "b"})
+    return {"votes_a": votes_a, "votes_b": votes_b}
+
+
+@router.post("/public/debates/{room_id}/vote")
+async def vote_on_debate(room_id: str, payload: VoteIn, user: User = Depends(get_current_user)):
+    """Agree/disagree with reasoning (client brief #17/#18) — requires auth
+    since, unlike a like or a comment, this refines the voter's OWN
+    topic_stances position and can be changed later, not just tallied."""
+    if payload.side not in ("a", "b"):
+        raise HTTPException(status_code=400, detail="side must be 'a' or 'b'")
+    r = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    if not r or not (r.get("is_public") or r.get("archive_visibility") in ("public", "unlisted")):
+        raise HTTPException(status_code=404, detail="Debate not public or not found")
+
+    now = datetime.now(timezone.utc).isoformat()
+    reasoning = (payload.reasoning or "").strip()[:1000]
+    await db.debate_votes.update_one(
+        {"room_id": room_id, "user_id": user.user_id},
+        {"$set": {"room_id": room_id, "user_id": user.user_id, "side": payload.side, "reasoning": reasoning, "created_at": now}},
+        upsert=True,
+    )
+
+    docs = await _participant_docs(r)
+    side_a_label = (docs.get(r["user_a"]) or {}).get("display_name") or "Side A"
+    side_b_label = (docs.get(r.get("user_b")) or {}).get("display_name") or "Side B"
+    topic = (r.get("categories") or ["General"])[0]
+    ai = await analyze_vote_reasoning(topic, side_a_label, side_b_label, reasoning)
+    if ai and ai.get("position") is not None:
+        position = max(-10.0, min(10.0, float(ai["position"])))
+        summary = str(ai.get("summary", ""))[:200]
+        tags = [str(t)[:30] for t in (ai.get("tags") or [])][:4]
+    else:
+        # No reasoning text, or Gemini unavailable — still a real signal, just
+        # a flatter one: picking a side without elaborating nudges moderately
+        # rather than not updating the profile at all.
+        position = -6.0 if payload.side == "a" else 6.0
+        summary, tags = "", []
+    for category in (r.get("categories") or ["General"]):
+        await upsert_topic_stance(user.user_id, category, category, position, summary, tags, blend=True)
+
+    tally = await _vote_tally(room_id)
+    return {**tally, "my_vote": payload.side}

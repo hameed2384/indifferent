@@ -148,6 +148,68 @@ function JoinRequestPanel({ roomId, debate, navigate }) {
   );
 }
 
+function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel }) {
+  const [reasoning, setReasoning] = useState("");
+  const [picked, setPicked] = useState(votes.my_vote);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => { setPicked(votes.my_vote); }, [votes.my_vote]);
+
+  const total = (votes.votes_a || 0) + (votes.votes_b || 0);
+  const pctA = total > 0 ? Math.round((votes.votes_a / total) * 100) : 50;
+
+  const submit = async () => {
+    if (!picked) return;
+    setSubmitting(true);
+    try { await onVote(picked, reasoning); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="mt-6 card p-5">
+      <div className="eyebrow mb-3">Who do you agree with?</div>
+      <div className="flex rounded-lg overflow-hidden border border-[var(--border-strong)] h-8 mb-2" data-testid="vote-bar">
+        <div className="bg-[var(--accent)] flex items-center justify-center text-white text-[11px] font-medium transition-all" style={{ width: `${pctA}%` }}>
+          {total > 0 && pctA > 12 ? `${pctA}%` : ""}
+        </div>
+        <div className="bg-[var(--fg)] flex items-center justify-center text-white text-[11px] font-medium transition-all" style={{ width: `${100 - pctA}%` }}>
+          {total > 0 && 100 - pctA > 12 ? `${100 - pctA}%` : ""}
+        </div>
+      </div>
+      <div className="flex justify-between text-[11px] text-[var(--fg-subtle)] mb-4">
+        <span className="truncate">{sideALabel} · {votes.votes_a || 0}</span>
+        <span className="truncate">{sideBLabel} · {votes.votes_b || 0}</span>
+      </div>
+
+      {!signedIn ? (
+        <p className="text-sm text-[var(--fg-subtle)]">Sign in to vote and refine your own topic profile.</p>
+      ) : (
+        <>
+          <div className="flex gap-2 mb-3">
+            <button onClick={() => setPicked("a")} className={picked === "a" ? "btn-accent flex-1" : "btn-outline flex-1"} data-testid="vote-side-a">{sideALabel}</button>
+            <button onClick={() => setPicked("b")} className={picked === "b" ? "btn-accent flex-1" : "btn-outline flex-1"} data-testid="vote-side-b">{sideBLabel}</button>
+          </div>
+          {picked && (
+            <>
+              <textarea
+                value={reasoning}
+                onChange={(e) => setReasoning(e.target.value)}
+                placeholder="Optional: why? (sharpens your own topic profile)"
+                rows={2}
+                maxLength={1000}
+                className="textarea mb-2"
+                data-testid="vote-reasoning"
+              />
+              <button onClick={submit} disabled={submitting} className="btn-primary w-full text-sm" data-testid="btn-submit-vote">
+                {submitting ? "Saving…" : votes.my_vote ? "Update vote" : "Submit vote"}
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function RelatedDebates({ category, excludeRoomId, navigate }) {
   const [related, setRelated] = useState([]);
   useEffect(() => {
@@ -196,6 +258,8 @@ export default function WatchRoom() {
   const [chat, setChat] = useState([]);
   const [comments, setComments] = useState([]);
   const [likes, setLikes] = useState(0);
+  const [dislikes, setDislikes] = useState(0);
+  const [votes, setVotes] = useState({ votes_a: 0, votes_b: 0, my_vote: null });
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [connected, setConnected] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -218,6 +282,8 @@ export default function WatchRoom() {
         setChat(data.chat || []);
         setComments((data.comments || []).slice().reverse());
         setLikes(data.likes || 0);
+        setDislikes(data.dislikes || 0);
+        setVotes({ votes_a: data.votes_a || 0, votes_b: data.votes_b || 0, my_vote: data.my_vote || null });
         likesRef.current = data.likes || 0;
         setSpectatorCount(data.spectator_count || 0);
         sinceRef.current = data.server_time;
@@ -236,6 +302,8 @@ export default function WatchRoom() {
       if (data.likes !== likesRef.current) setLikeBurst((b) => b + 1);
       likesRef.current = data.likes;
       setLikes(data.likes);
+      setDislikes(data.dislikes || 0);
+      setVotes((v) => ({ ...v, votes_a: data.votes_a || 0, votes_b: data.votes_b || 0 }));
       setSpectatorCount(data.spectator_count);
       for (const evt of data.events || []) {
         if (evt.type === "debate-chat") {
@@ -282,6 +350,21 @@ export default function WatchRoom() {
       setLikes(data.likes);
       setLikeBurst((b) => b + 1);
     }).catch(() => {});
+  };
+
+  const dislike = () => {
+    api.post(`/public/debates/${roomId}/dislike`).then(({ data }) => setDislikes(data.dislikes)).catch(() => {});
+  };
+
+  const castVote = async (side, reasoning) => {
+    if (!user) { toast.info("Sign in to vote"); return; }
+    try {
+      const { data } = await api.post(`/public/debates/${roomId}/vote`, { side, reasoning });
+      setVotes({ votes_a: data.votes_a, votes_b: data.votes_b, my_vote: data.my_vote });
+      toast.success("Vote recorded — thanks for weighing in.");
+    } catch {
+      toast.error("Couldn't record your vote");
+    }
   };
 
   const share = async () => {
@@ -464,6 +547,7 @@ export default function WatchRoom() {
                 ♥ {likes}
                 {likeBurst > 0 && <span key={likeBurst} className="absolute -top-3 -right-3 text-lg text-[var(--accent)] animate-pulse">+1</span>}
               </button>
+              <button onClick={dislike} className="btn-outline" data-testid="btn-dislike">👎 {dislikes}</button>
               <button onClick={share} className="btn-outline" data-testid="btn-share-2">Share</button>
               {debate.opposition_score != null && (
                 <div className="text-xs text-[var(--fg-subtle)]">
@@ -471,6 +555,14 @@ export default function WatchRoom() {
                 </div>
               )}
             </div>
+
+            <VotePanel
+              votes={votes}
+              onVote={castVote}
+              signedIn={!!user}
+              sideALabel={debate.side_a.display_name}
+              sideBLabel={debate.side_b.open ? "Side B" : debate.side_b.display_name}
+            />
           </div>
 
           <aside className="min-w-0 space-y-4">

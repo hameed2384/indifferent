@@ -54,3 +54,7 @@ async def create_indexes():
     # Party-queue (routers/match.py) — two friends queueing together.
     await db.party_match_queue.create_index("party_id", unique=True)
     await db.party_match_queue.create_index("user_ids")
+
+    # Agree/disagree voting (routers/public.py) — one vote per (room, viewer),
+    # changeable, feeding topic_stances via the reasoning text.
+    await db.debate_votes.create_index([("room_id", 1), ("user_id", 1)], unique=True)
