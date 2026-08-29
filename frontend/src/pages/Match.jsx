@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import AdSlot from "@/components/AdSlot";
 import { useAuth } from "@/contexts/AuthContext";
 
 const STATUSES = ["Scanning queue", "Analyzing stances", "Plotting opposition", "Matching adversary", "Preparing topics"];
@@ -90,6 +91,9 @@ export default function Match() {
               <div className="eyebrow">Guarantee</div>
               <div className="text-sm mt-1">Verified human · opposing stance</div>
             </div>
+          </div>
+          <div className="mt-6">
+            <AdSlot variant="banner" />
           </div>
         </div>
       </main>

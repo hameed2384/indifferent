@@ -6,8 +6,19 @@ import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import DebateCard from "@/components/DebateCard";
+import AdSlot from "@/components/AdSlot";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
+
+/** Interleaves one ad card into a feed row at a fixed position, YouTube-style
+ * — only when the row has enough real cards for it not to dominate. */
+function withAd(cards, afterIndex = 2) {
+  if (cards.length <= afterIndex) return cards;
+  const out = cards.slice(0, afterIndex + 1);
+  out.push(<AdSlot key="ad-slot" variant="card" />);
+  out.push(...cards.slice(afterIndex + 1));
+  return out;
+}
 
 export default function Watch() {
   const [debates, setDebates] = useState([]);
@@ -120,13 +131,13 @@ export default function Watch() {
 
         {featured.length > 0 && !activeCategory && !search && (
           <Row title="Featured for you">
-            {featured.map((d) => <DebateCard key={d.room_id} d={d} onClick={() => navigate(`/watch/${d.room_id}`)} />)}
+            {withAd(featured.map((d) => <DebateCard key={d.room_id} d={d} onClick={() => navigate(`/watch/${d.room_id}`)} />))}
           </Row>
         )}
 
         {published.length > 0 && (
           <Row title="Previously published">
-            {published.map((d) => <DebateCard key={d.room_id} d={d} onClick={() => navigate(`/watch/${d.room_id}`)} />)}
+            {withAd(published.map((d) => <DebateCard key={d.room_id} d={d} onClick={() => navigate(`/watch/${d.room_id}`)} />))}
           </Row>
         )}
       </main>

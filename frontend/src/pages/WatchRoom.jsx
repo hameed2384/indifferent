@@ -7,6 +7,7 @@ import { useLiveKit } from "@/lib/livekit";
 import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import AdSlot from "@/components/AdSlot";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 
@@ -472,7 +473,8 @@ export default function WatchRoom() {
             </div>
           </div>
 
-          <aside className="min-w-0">
+          <aside className="min-w-0 space-y-4">
+            <AdSlot variant="banner" />
             <div className="card overflow-hidden">
               <div className="px-4 h-12 border-b border-[var(--border)] flex items-center justify-between">
                 <span className="text-sm font-medium">Spectator chat</span>
