@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, GitBranch, Users, Star, Rss, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Home, GitBranch, Users, Star, Rss, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -56,7 +56,10 @@ function Section({ title, icon: Icon, entries, collapsed, navigate, onHeaderClic
  * subscriptions sidebar) with friends/subscriptions/follows is the concrete
  * ask, and its presence + a proper full-width header is most of what makes
  * a page read as "primary" vs. "nested." */
-export default function SideNav({ collapsed, onToggleCollapsed }) {
+/** onClose (mobile drawer mode): when provided, the sidebar always renders
+ * fully expanded (a narrow icon rail makes no sense inside a full-width
+ * overlay) and its top button closes the drawer instead of toggling width. */
+export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, onClose }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,25 +84,26 @@ export default function SideNav({ collapsed, onToggleCollapsed }) {
   }, [user]);
 
   const isHome = location.pathname === "/" || location.pathname === "/watch";
+  const collapsed = onClose ? false : collapsedProp;
 
   return (
     <aside
-      className={`sticky top-0 h-screen shrink-0 border-r border-[var(--border)] bg-[var(--surface)] overflow-y-auto transition-[width] duration-150 ${collapsed ? "w-16" : "w-60"}`}
+      className={`${onClose ? "w-72 max-w-[80vw]" : "sticky top-0 h-screen"} h-full shrink-0 border-r border-[var(--border)] bg-[var(--surface)] overflow-y-auto transition-[width] duration-150 ${collapsed ? "w-16" : "w-60"}`}
       data-testid="sidenav"
     >
       <div className="p-2">
         <button
-          onClick={onToggleCollapsed}
+          onClick={onClose || onToggleCollapsed}
           className={`btn-ghost w-full !justify-start gap-3 mb-2 ${collapsed ? "!justify-center !px-0" : ""}`}
-          data-testid="sidenav-toggle"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          data-testid={onClose ? "sidenav-close" : "sidenav-toggle"}
+          title={onClose ? "Close menu" : (collapsed ? "Expand sidebar" : "Collapse sidebar")}
         >
-          {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-          {!collapsed && <span className="text-sm">Collapse</span>}
+          {onClose ? <X className="w-4 h-4" /> : (collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />)}
+          {!collapsed && <span className="text-sm">{onClose ? "Close" : "Collapse"}</span>}
         </button>
 
         <button
-          onClick={() => navigate("/")}
+          onClick={() => { navigate("/"); onClose?.(); }}
           className={`flex items-center gap-3 w-full text-left rounded-lg transition-colors ${isHome ? "bg-[var(--bg-muted)]" : "hover:bg-[var(--bg-muted)]"} ${collapsed ? "justify-center px-0 py-2" : "px-3 py-2"}`}
           data-testid="sidenav-home"
         >
@@ -108,7 +112,7 @@ export default function SideNav({ collapsed, onToggleCollapsed }) {
         </button>
 
         <button
-          onClick={() => navigate("/claims")}
+          onClick={() => { navigate("/claims"); onClose?.(); }}
           className={`flex items-center gap-3 w-full text-left rounded-lg transition-colors ${location.pathname.startsWith("/claims") ? "bg-[var(--bg-muted)]" : "hover:bg-[var(--bg-muted)]"} ${collapsed ? "justify-center px-0 py-2" : "px-3 py-2"}`}
           data-testid="sidenav-claims"
           title="Claim Trees"
@@ -121,9 +125,9 @@ export default function SideNav({ collapsed, onToggleCollapsed }) {
           !collapsed && <p className="px-3 py-4 text-xs text-[var(--fg-subtle)]">Sign in to see friends, follows, and subscriptions here.</p>
         ) : (
           <>
-            <Section title="Friends" icon={Users} entries={friends} collapsed={collapsed} navigate={navigate} onHeaderClick={() => navigate("/dashboard")} emptyHint="No friends yet" />
-            <Section title="Subscriptions" icon={Star} entries={subscriptions} collapsed={collapsed} navigate={navigate} onHeaderClick={() => navigate("/dashboard")} emptyHint="Subscribe to a debater's channel" />
-            <Section title="Following" icon={Rss} entries={following} collapsed={collapsed} navigate={navigate} onHeaderClick={() => navigate("/dashboard")} emptyHint="Follow debaters to see them here" />
+            <Section title="Friends" icon={Users} entries={friends} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/dashboard"); onClose?.(); }} emptyHint="No friends yet" />
+            <Section title="Subscriptions" icon={Star} entries={subscriptions} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/dashboard"); onClose?.(); }} emptyHint="Subscribe to a debater's channel" />
+            <Section title="Following" icon={Rss} entries={following} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/dashboard"); onClose?.(); }} emptyHint="Follow debaters to see them here" />
           </>
         )}
       </div>

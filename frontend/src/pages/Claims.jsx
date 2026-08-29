@@ -7,10 +7,9 @@ import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import SideNav from "@/components/SideNav";
+import { useSideNavToggle } from "@/hooks/use-sidenav";
 import RecordClipModal from "@/components/RecordClipModal";
 import { startGoogleLogin } from "@/lib/auth";
-
-const SIDENAV_COLLAPSED_KEY = "indifferent-sidenav-collapsed";
 
 function ClaimCard({ clip, onClick }) {
   return (
@@ -33,19 +32,9 @@ export default function Claims() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showRecorder, setShowRecorder] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try { return localStorage.getItem(SIDENAV_COLLAPSED_KEY) === "1"; } catch { return false; }
-  });
+  const { collapsed: sidebarCollapsed, mobileOpen: mobileNavOpen, toggle: toggleSidebar, closeMobile } = useSideNavToggle();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed((v) => {
-      const next = !v;
-      try { localStorage.setItem(SIDENAV_COLLAPSED_KEY, next ? "1" : "0"); } catch { /* noop */ }
-      return next;
-    });
-  };
 
   useEffect(() => {
     api.get("/categories").then(({ data }) => setCategories(data.categories || [])).catch(() => {});
@@ -96,6 +85,13 @@ export default function Claims() {
           </div>
         )}
       </nav>
+
+      {mobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex" data-testid="mobile-sidenav-overlay">
+          <SideNav onClose={closeMobile} />
+          <button className="flex-1 bg-black/50" onClick={closeMobile} aria-label="Close menu" />
+        </div>
+      )}
 
       <div className="flex items-start">
         <div className="hidden md:block">

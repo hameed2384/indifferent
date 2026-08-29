@@ -9,10 +9,9 @@ import AccountMenu from "@/components/AccountMenu";
 import DebateCard from "@/components/DebateCard";
 import AdSlot from "@/components/AdSlot";
 import SideNav from "@/components/SideNav";
+import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
-
-const SIDENAV_COLLAPSED_KEY = "indifferent-sidenav-collapsed";
 
 /** Interleaves one ad card into a feed row at a fixed position, YouTube-style
  * — only when the row has enough real cards for it not to dominate. */
@@ -32,19 +31,9 @@ export default function Watch() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [excluded] = useState(readNotInterested);
   const [showGoLive, setShowGoLive] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try { return localStorage.getItem(SIDENAV_COLLAPSED_KEY) === "1"; } catch { return false; }
-  });
+  const { collapsed: sidebarCollapsed, mobileOpen: mobileNavOpen, toggle: toggleSidebar, closeMobile } = useSideNavToggle();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed((v) => {
-      const next = !v;
-      try { localStorage.setItem(SIDENAV_COLLAPSED_KEY, next ? "1" : "0"); } catch { /* noop */ }
-      return next;
-    });
-  };
 
   useEffect(() => {
     api.get("/categories").then(({ data }) => setCategories(data.categories || [])).catch(() => {});
@@ -146,6 +135,13 @@ export default function Watch() {
           </div>
         )}
       </nav>
+
+      {mobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex" data-testid="mobile-sidenav-overlay">
+          <SideNav onClose={closeMobile} />
+          <button className="flex-1 bg-black/50" onClick={closeMobile} aria-label="Close menu" />
+        </div>
+      )}
 
       <div className="flex items-start">
         <div className="hidden md:block">
