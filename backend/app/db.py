@@ -32,3 +32,8 @@ async def create_indexes():
     await db.rooms.create_index("categories")
     await db.rooms.create_index([("is_public", 1), ("status", 1), ("published_at", -1)])
     await db.rooms.create_index("archive_visibility")
+
+    # Follow graph (routers/profiles.py) — one of three deliberately separate
+    # relationship systems (follow/friend/subscribe).
+    await db.follows.create_index([("follower_id", 1), ("followee_id", 1)], unique=True)
+    await db.follows.create_index("followee_id")

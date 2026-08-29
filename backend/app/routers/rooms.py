@@ -35,6 +35,8 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Complete onboarding first")
     if not user.id_verified:
         raise HTTPException(status_code=400, detail="ID verification required")
+    if not user.is_debater:
+        raise HTTPException(status_code=400, detail="Set your account as a debater first")
     if payload.category not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Unknown category")
 
