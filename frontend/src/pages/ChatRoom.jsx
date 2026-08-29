@@ -154,19 +154,21 @@ export default function ChatRoom() {
         </div>
         <div className="font-mono-ui text-base tabular-nums text-[var(--fg)]" data-testid="room-timer">{mm}:{ss}</div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={togglePublish}
-            data-testid="btn-toggle-publish"
-            className={myConsent ? "btn-accent text-xs px-3 py-1.5" : "btn-outline text-xs px-3 py-1.5"}
-          >
-            {myConsent ? "✓ Publish" : "Go public"}
-          </button>
+          {room.partner && (
+            <button
+              onClick={togglePublish}
+              data-testid="btn-toggle-publish"
+              className={myConsent ? "btn-accent text-xs px-3 py-1.5" : "btn-outline text-xs px-3 py-1.5"}
+            >
+              {myConsent ? "✓ Publish" : "Go public"}
+            </button>
+          )}
           <button onClick={endDebate} className="btn-danger text-xs px-3 py-1.5" data-testid="btn-end-debate">End</button>
           <ThemeToggle />
         </div>
       </header>
 
-      {(myConsent || partnerConsent) && !publishState.is_public && (
+      {room.partner && (myConsent || partnerConsent) && !publishState.is_public && (
         <div className="shrink-0 bg-[var(--accent-soft)] text-[color:var(--accent)] px-4 py-2 text-xs text-center border-b border-[var(--border)]">
           {myConsent ? "Waiting for your opposite to consent to publish…" : "Your opposite wants to go public — tap 'Go public' to agree."}
         </div>

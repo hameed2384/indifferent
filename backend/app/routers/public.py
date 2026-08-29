@@ -51,6 +51,14 @@ async def toggle_publish(room_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Room not found")
     if user.user_id not in (room["user_a"], room.get("user_b")):
         raise HTTPException(status_code=403, detail="Not a participant")
+    if not room.get("user_b"):
+        # A solo go-live room is public unconditionally (that's the entire
+        # point of "Go Live") — there's no second participant to co-consent
+        # with, so the mutual-consent toggle below doesn't apply here. Making
+        # this a no-op (rather than letting it fall through) specifically
+        # prevents it from computing a false "both consented" state and
+        # accidentally un-publishing an already-public solo room.
+        return {"publish_a": True, "publish_b": False, "is_public": True}
 
     field = "publish_a" if room["user_a"] == user.user_id else "publish_b"
     new_val = not bool(room.get(field, False))
