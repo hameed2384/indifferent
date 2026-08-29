@@ -58,3 +58,8 @@ async def create_indexes():
     # Agree/disagree voting (routers/public.py) — one vote per (room, viewer),
     # changeable, feeding topic_stances via the reasoning text.
     await db.debate_votes.create_index([("room_id", 1), ("user_id", 1)], unique=True)
+
+    # Private friend chat/call (routers/private.py) — isolated from every AI
+    # call site by construction, see that module's docstring.
+    await db.private_messages.create_index([("pair_key", 1), ("created_at", 1)])
+    await db.private_calls.create_index("pair_key", unique=True)

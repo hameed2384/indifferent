@@ -76,14 +76,24 @@ function FriendsCard({ allowFriendRequests, onToggleAllow }) {
                 {f.picture ? <img src={f.picture} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" /> : <span className="w-6 h-6 rounded-full bg-[var(--bg-muted)] shrink-0" />}
                 <span className="truncate">{f.display_name}</span>
               </Link>
-              <button
-                onClick={() => navigate("/match", { state: { friendId: f.user_id, friendName: f.display_name } })}
-                className="btn-outline !px-2 !py-1 !text-xs shrink-0"
-                title="Queue together — you'll be matched as a pair"
-                data-testid={`btn-party-queue-${f.user_id}`}
-              >
-                Queue together
-              </button>
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  onClick={() => navigate(`/private/${f.user_id}`)}
+                  className="btn-outline !px-2 !py-1 !text-xs"
+                  title="Private chat/call — never seen by AI features"
+                  data-testid={`btn-message-${f.user_id}`}
+                >
+                  Message
+                </button>
+                <button
+                  onClick={() => navigate("/match", { state: { friendId: f.user_id, friendName: f.display_name } })}
+                  className="btn-outline !px-2 !py-1 !text-xs"
+                  title="Queue together — you'll be matched as a pair"
+                  data-testid={`btn-party-queue-${f.user_id}`}
+                >
+                  Queue together
+                </button>
+              </div>
             </div>
           ))}
         </div>

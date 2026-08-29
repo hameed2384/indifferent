@@ -9,6 +9,7 @@ import ChatRoom from "@/pages/ChatRoom";
 import Watch from "@/pages/Watch";
 import WatchRoom from "@/pages/WatchRoom";
 import Profile from "@/pages/Profile";
+import PrivateChat from "@/pages/PrivateChat";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 function RouterInner() {
@@ -27,6 +28,7 @@ function RouterInner() {
       <Route path="/dashboard" element={<ProtectedRoute requireOnboarded><Dashboard /></ProtectedRoute>} />
       <Route path="/match" element={<ProtectedRoute requireOnboarded requireVerified><Match /></ProtectedRoute>} />
       <Route path="/room/:roomId" element={<ProtectedRoute requireOnboarded requireVerified><ChatRoom /></ProtectedRoute>} />
+      <Route path="/private/:friendId" element={<ProtectedRoute requireOnboarded><PrivateChat /></ProtectedRoute>} />
     </Routes>
   );
 }

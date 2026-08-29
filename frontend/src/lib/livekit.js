@@ -9,8 +9,13 @@ import { toast } from "sonner";
  * Manages a LiveKit Room connection.
  * mode="participant": publishes camera+mic + exposes toggle helpers
  * mode="spectator":   subscribe-only
+ * tokenEndpoint: override the token-minting route (defaults to the public
+ * debate endpoints) — private calls (lib/privateCall usage in PrivateChat)
+ * pass their own isolated endpoint here. The connection/track-handling
+ * logic itself has no AI coupling either way, so this is pure reuse, not a
+ * shortcut through anything that needs to stay isolated.
  */
-export function useLiveKit({ roomId, mode, enabled = true }) {
+export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
   const [status, setStatus] = useState("idle");
   const [remoteParticipants, setRemoteParticipants] = useState([]);
   const [localVideoEl, setLocalVideoEl] = useState(null);
@@ -79,7 +84,7 @@ export function useLiveKit({ roomId, mode, enabled = true }) {
     (async () => {
       try {
         setStatus("connecting");
-        const endpoint = mode === "participant" ? "/livekit/participant-token" : "/livekit/spectator-token";
+        const endpoint = tokenEndpoint || (mode === "participant" ? "/livekit/participant-token" : "/livekit/spectator-token");
         const { data } = await api.post(endpoint, { room_id: roomId });
         if (cancelled) return;
         await room.connect(data.server_url, data.participant_token);
@@ -120,7 +125,7 @@ export function useLiveKit({ roomId, mode, enabled = true }) {
       setRemoteParticipants([]);
       setLocalVideoEl(null);
     };
-  }, [roomId, mode, enabled]);
+  }, [roomId, mode, enabled, tokenEndpoint]);
 
   const toggleMic = useCallback(async () => {
     const room = roomRef.current;
