@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional
 from ..models import User
+from ..room_utils import find_live_room_id
 
 router = APIRouter()
 
@@ -65,6 +66,45 @@ async def get_topic_stances(user_id: str):
     two-axis square map. Only topics the user has actually been scored on."""
     docs = await db.topic_stances.find({"user_id": user_id}, {"_id": 0}).sort("updated_at", -1).to_list(200)
     return {"topics": docs}
+
+
+@router.get("/users/me/following")
+async def list_following(user: User = Depends(get_current_user)):
+    """Powers the sidebar's "Following" section — free, one-directional
+    follows (client brief #11), separate from friends and paid subscriptions."""
+    docs = await db.follows.find({"follower_id": user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    out = []
+    for d in docs:
+        u = await db.users.find_one({"user_id": d["followee_id"]}, {"_id": 0})
+        if not u:
+            continue
+        out.append({
+            "user_id": u["user_id"],
+            "display_name": u.get("display_name") or u.get("name"),
+            "picture": u.get("picture"),
+            "is_debater": bool(u.get("is_debater")),
+            "live_room_id": await find_live_room_id(u["user_id"]) if u.get("is_debater") else None,
+        })
+    return {"following": out}
+
+
+@router.get("/users/me/subscriptions")
+async def list_subscriptions(user: User = Depends(get_current_user)):
+    """Powers the sidebar's "Subscriptions" section — the £2/mo paid,
+    per-debater relationship (client brief #12), separate from follows."""
+    docs = await db.subscriptions_debater.find({"subscriber_id": user.user_id, "active": True}, {"_id": 0}).to_list(200)
+    out = []
+    for d in docs:
+        u = await db.users.find_one({"user_id": d["debater_id"]}, {"_id": 0})
+        if not u:
+            continue
+        out.append({
+            "user_id": u["user_id"],
+            "display_name": u.get("display_name") or u.get("name"),
+            "picture": u.get("picture"),
+            "live_room_id": await find_live_room_id(u["user_id"]),
+        })
+    return {"subscriptions": out}
 
 
 @router.post("/users/me/become-debater")

@@ -6,6 +6,8 @@ pre-existing call site that reads them directly is unaffected; `extra_a`/
 """
 from typing import List, Optional
 
+from .db import db
+
 
 def side_members(room: dict, side: str) -> List[str]:
     primary = room.get(f"user_{side}")
@@ -44,3 +46,15 @@ def is_founding(room: dict, user_id: str) -> bool:
 
 
 MAX_PER_SIDE = 2  # two friends queuing together, or one original + one approved joiner
+
+
+async def find_live_room_id(user_id: str) -> Optional[str]:
+    """The room_id of a currently-active, public room this user is any kind
+    of participant in — powers "live now" indicators on a debater's channel
+    and in the friends/following/subscriptions sidebar."""
+    r = await db.rooms.find_one(
+        {"status": "active", "is_public": True,
+         "$or": [{"user_a": user_id}, {"user_b": user_id}, {"extra_a": user_id}, {"extra_b": user_id}]},
+        {"_id": 0, "room_id": 1},
+    )
+    return r["room_id"] if r else None

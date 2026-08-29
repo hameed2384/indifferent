@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..db import db
 from ..deps import get_current_user
 from ..models import User
+from ..room_utils import find_live_room_id
 
 router = APIRouter()
 
@@ -76,6 +77,8 @@ async def list_friends(user: User = Depends(get_current_user)):
         other = await db.users.find_one({"user_id": other_id}, {"_id": 0}) or {}
         entry = {"user_id": other_id, "display_name": other.get("display_name") or other.get("name"), "picture": other.get("picture")}
         if d["status"] == "accepted":
+            entry["is_debater"] = bool(other.get("is_debater"))
+            entry["live_room_id"] = await find_live_room_id(other_id) if other.get("is_debater") else None
             friends.append(entry)
         elif d["requested_by"] == user.user_id:
             outgoing.append(entry)
