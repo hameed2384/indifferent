@@ -107,7 +107,7 @@ export default function Onboarding() {
                       key={v}
                       data-testid={`quiz-${q.id}-${v}`}
                       onClick={() => setAnswers((a) => ({ ...a, [q.id]: v }))}
-                      className={`py-2 rounded-lg border text-sm font-medium transition ${answers[q.id] === v ? "bg-[var(--fg)] text-white border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
+                      className={`py-2 rounded-lg border text-sm font-medium transition ${answers[q.id] === v ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
                     >
                       {v}
                     </button>

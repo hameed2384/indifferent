@@ -171,7 +171,7 @@ function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel }) {
         <div className="bg-[var(--accent)] flex items-center justify-center text-white text-[11px] font-medium transition-all" style={{ width: `${pctA}%` }}>
           {total > 0 && pctA > 12 ? `${pctA}%` : ""}
         </div>
-        <div className="bg-[var(--fg)] flex items-center justify-center text-white text-[11px] font-medium transition-all" style={{ width: `${100 - pctA}%` }}>
+        <div className="bg-[var(--fg)] flex items-center justify-center text-[var(--bg)] text-[11px] font-medium transition-all" style={{ width: `${100 - pctA}%` }}>
           {total > 0 && 100 - pctA > 12 ? `${100 - pctA}%` : ""}
         </div>
       </div>
@@ -530,8 +530,8 @@ export default function WatchRoom() {
                 {chat.length === 0 && <div className="text-sm text-[var(--fg-subtle)]">Waiting for the first move…</div>}
                 {chat.map((m, i) => (
                   <div key={i} className={`flex ${m.speaker_side === "b" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${m.speaker_side === "b" ? "bg-[var(--fg)] text-white" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
-                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${m.speaker_side === "b" ? "text-white/60" : "text-[var(--fg-subtle)]"}`}>
+                    <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${m.speaker_side === "b" ? "bg-[var(--fg)] text-[var(--bg)]" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
+                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${m.speaker_side === "b" ? "text-[var(--bg)]/60" : "text-[var(--fg-subtle)]"}`}>
                         {m.speaker} · Side {m.speaker_side?.toUpperCase()}
                       </div>
                       <div className="whitespace-pre-wrap break-words">{m.text}</div>

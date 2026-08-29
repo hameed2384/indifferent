@@ -370,7 +370,7 @@ export default function ChatRoom() {
               <div className="grid grid-cols-5 gap-2">
                 {[1,2,3,4,5].map((n) => (
                   <button key={n} onClick={() => setRating(n)} data-testid={`rating-${n}`}
-                    className={`h-12 rounded-lg border text-sm font-medium transition ${rating === n ? "bg-[var(--fg)] text-white border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}>
+                    className={`h-12 rounded-lg border text-sm font-medium transition ${rating === n ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}>
                     {n}
                   </button>
                 ))}
@@ -451,8 +451,8 @@ function ChatPanel({ connected, messages, user, participants, text, setText, sen
           }
           const mine = m.from === user?.user_id;
           return (
-            <div key={i} className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${mine ? "ml-auto bg-[var(--fg)] text-white" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
-              <div className={`text-[10px] uppercase tracking-wider mb-1 ${mine ? "text-white/60" : "text-[var(--fg-subtle)]"}`}>
+            <div key={i} className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${mine ? "ml-auto bg-[var(--fg)] text-[var(--bg)]" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
+              <div className={`text-[10px] uppercase tracking-wider mb-1 ${mine ? "text-[var(--bg)]/60" : "text-[var(--fg-subtle)]"}`}>
                 {mine ? "You" : nameFor(m.from)}
               </div>
               <div className="whitespace-pre-wrap break-words">{m.text}</div>

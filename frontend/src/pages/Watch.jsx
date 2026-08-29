@@ -153,6 +153,19 @@ export default function Watch() {
         </div>
 
         <main className="flex-1 min-w-0 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          {!user && (
+            <div className="card p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-testid="explainer-banner">
+              <div>
+                <div className="eyebrow mb-1">What is this?</div>
+                <div className="font-heading text-lg sm:text-xl font-semibold">Find someone who disagrees with you. On camera. Live.</div>
+                <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">
+                  Indifferent matches you with the sharpest opposing viewpoint for a real debate — or browse Claim Trees, video arguments that fork into video rebuttals instead of a comment section.
+                </p>
+              </div>
+              <button onClick={startGoogleLogin} className="btn-primary text-sm shrink-0" data-testid="explainer-sign-in">Sign in to start</button>
+            </div>
+          )}
+
           {loading && <div className="mt-4 text-sm text-[var(--fg-subtle)]">Loading feed…</div>}
 
           {!loading && visible.length === 0 && (
@@ -161,6 +174,11 @@ export default function Watch() {
               <div className="font-heading text-xl sm:text-2xl mt-2">
                 {search || activeCategory ? "No debates match that." : "Be the first debate on the record."}
               </div>
+              {!search && !activeCategory && (
+                <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                  No one's live right now. <button onClick={() => navigate("/claims")} className="text-[var(--accent)] hover:underline font-medium">Check Claim Trees</button> for video arguments you can jump into any time.
+                </p>
+              )}
             </div>
           )}
 

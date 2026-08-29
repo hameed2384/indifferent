@@ -162,7 +162,7 @@ export default function PrivateChat() {
             {messages.map((m, i) => {
               const mine = m.sender_id === user?.user_id;
               return (
-                <div key={i} className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${mine ? "ml-auto bg-[var(--fg)] text-white" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
+                <div key={i} className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${mine ? "ml-auto bg-[var(--fg)] text-[var(--bg)]" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
                   <div className="whitespace-pre-wrap break-words">{m.text}</div>
                 </div>
               );

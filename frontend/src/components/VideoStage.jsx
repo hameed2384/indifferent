@@ -22,7 +22,7 @@ export function VideoControls({
         <button
           onClick={() => onViewModeChange("normal")}
           data-testid="view-mode-normal"
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium ${!isCinema ? "bg-[var(--fg)] text-white" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium ${!isCinema ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
           title="Normal view — equal tiles"
         >
           <LayoutGrid className="w-3.5 h-3.5" /> Normal
@@ -30,7 +30,7 @@ export function VideoControls({
         <button
           onClick={() => onViewModeChange("cinema")}
           data-testid="view-mode-cinema"
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-[var(--border-strong)] ${isCinema ? "bg-[var(--fg)] text-white" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-[var(--border-strong)] ${isCinema ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
           title="Cinema view — spotlight one speaker"
         >
           <Focus className="w-3.5 h-3.5" /> Cinema
