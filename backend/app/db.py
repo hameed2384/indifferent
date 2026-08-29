@@ -37,3 +37,11 @@ async def create_indexes():
     # relationship systems (follow/friend/subscribe).
     await db.follows.create_index([("follower_id", 1), ("followee_id", 1)], unique=True)
     await db.follows.create_index("followee_id")
+
+    # Friendships (routers/friends.py) — separate collection from follows, per
+    # client brief. Queried by either side of the pair, so index both.
+    await db.friendships.create_index([("user_a", 1), ("user_b", 1)], unique=True)
+    await db.friendships.create_index("user_b")
+
+    # Debater subscriptions (routers/payments.py) — £2/mo per debater.
+    await db.subscriptions_debater.create_index([("subscriber_id", 1), ("debater_id", 1)], unique=True)

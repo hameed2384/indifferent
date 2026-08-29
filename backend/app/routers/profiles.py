@@ -22,8 +22,26 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
     followers_count = await db.follows.count_documents({"followee_id": user_id})
     following_count = await db.follows.count_documents({"follower_id": user_id})
     is_following = False
+    friend_status = "none"  # none | pending_outgoing | pending_incoming | friends
+    is_subscribed = False
     if viewer:
         is_following = await db.follows.find_one({"follower_id": viewer.user_id, "followee_id": user_id}) is not None
+        friendship = await db.friendships.find_one(
+            {"$or": [{"user_a": viewer.user_id, "user_b": user_id}, {"user_a": user_id, "user_b": viewer.user_id}]},
+            {"_id": 0},
+        )
+        if friendship:
+            if friendship["status"] == "accepted":
+                friend_status = "friends"
+            elif friendship["requested_by"] == viewer.user_id:
+                friend_status = "pending_outgoing"
+            else:
+                friend_status = "pending_incoming"
+        if doc.get("is_debater"):
+            sub = await db.subscriptions_debater.find_one(
+                {"subscriber_id": viewer.user_id, "debater_id": user_id, "active": True}, {"_id": 0}
+            )
+            is_subscribed = sub is not None
     return {
         "user_id": user_id,
         "display_name": doc.get("display_name") or doc.get("name"),
@@ -31,11 +49,22 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
         "bio": doc.get("bio") or "",
         "is_debater": bool(doc.get("is_debater", False)),
         "id_verified": bool(doc.get("id_verified", False)),
+        "allow_friend_requests": bool(doc.get("allow_friend_requests", True)),
         "followers_count": followers_count,
         "following_count": following_count,
         "is_following": is_following,
+        "friend_status": friend_status,
+        "is_subscribed": is_subscribed,
         "is_self": bool(viewer and viewer.user_id == user_id),
     }
+
+
+@router.get("/users/{user_id}/topic-stances")
+async def get_topic_stances(user_id: str):
+    """Client brief #10 — the list-of-spectrums that replaces the old single
+    two-axis square map. Only topics the user has actually been scored on."""
+    docs = await db.topic_stances.find({"user_id": user_id}, {"_id": 0}).sort("updated_at", -1).to_list(200)
+    return {"topics": docs}
 
 
 @router.post("/users/me/become-debater")
