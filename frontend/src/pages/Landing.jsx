@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
+import DebateCard from "@/components/DebateCard";
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 export default function Landing() {
@@ -130,7 +131,7 @@ export default function Landing() {
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {heroDebates.map((d) => (
-                <DebatePreviewCard key={d.room_id} d={d} onClick={() => navigate(`/watch/${d.room_id}`)} />
+                <DebateCard key={d.room_id} d={d} onClick={() => navigate(`/watch/${d.room_id}`)} />
               ))}
             </div>
           )}
@@ -187,31 +188,3 @@ function SidePreview({ eyebrow, title, body, tone }) {
   );
 }
 
-function DebatePreviewCard({ d, onClick }) {
-  const isLive = d.status === "active";
-  return (
-    <button
-      onClick={onClick}
-      data-testid={`hero-debate-${d.room_id}`}
-      className="card p-5 text-left hover:border-[var(--fg)] transition-colors"
-    >
-      <div className="flex items-center justify-between text-xs">
-        {isLive ? <span className="chip-accent"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Live</span> : <span className="chip">Ended</span>}
-        <span className="text-[var(--fg-subtle)]">{d.spectator_count} watching · {d.likes} ♥</span>
-      </div>
-      <div className="mt-4 font-heading text-lg font-semibold leading-snug line-clamp-2">
-        "{d.topics?.[0] || "An unrecorded disagreement"}"
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="truncate">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--fg-subtle)]">Side A</div>
-          <div className="font-medium truncate">{d.side_a.display_name}</div>
-        </div>
-        <div className="truncate text-right">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--fg-subtle)]">Side B</div>
-          <div className="font-medium truncate">{d.side_b.display_name}</div>
-        </div>
-      </div>
-    </button>
-  );
-}
