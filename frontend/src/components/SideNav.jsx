@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, GitBranch, Users, Star, Rss, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Home, GitBranch, Users, UserPlus, Star, Rss, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -15,7 +15,7 @@ function Avatar({ picture, name, live }) {
   );
 }
 
-function Section({ title, icon: Icon, entries, collapsed, navigate, onHeaderClick, emptyHint }) {
+function Section({ title, icon: Icon, entries, collapsed, navigate, onHeaderClick, emptyHint, badge }) {
   return (
     <div className="mt-4 first:mt-0">
       <button
@@ -24,8 +24,18 @@ function Section({ title, icon: Icon, entries, collapsed, navigate, onHeaderClic
         title={title}
         data-testid={`sidenav-section-${title.toLowerCase()}`}
       >
-        <Icon className="w-4 h-4 text-[var(--fg-subtle)] shrink-0" />
-        {!collapsed && <span className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)] font-medium">{title}</span>}
+        <span className="relative shrink-0">
+          <Icon className="w-4 h-4 text-[var(--fg-subtle)]" />
+          {collapsed && badge > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-[3px] rounded-full bg-[var(--accent)] text-[var(--bg)] text-[9px] font-semibold flex items-center justify-center leading-none">{badge}</span>
+          )}
+        </span>
+        {!collapsed && (
+          <span className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)] font-medium flex items-center gap-1.5">
+            {title}
+            {badge > 0 && <span className="min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent)] text-[var(--bg)] text-[10px] font-semibold flex items-center justify-center leading-none normal-case tracking-normal">{badge}</span>}
+          </span>
+        )}
       </button>
       {!collapsed && entries.length === 0 && (
         <div className="px-3 py-1 text-xs text-[var(--fg-subtle)]">{emptyHint}</div>
@@ -64,23 +74,30 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
   const navigate = useNavigate();
   const location = useLocation();
   const [friends, setFriends] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [following, setFollowing] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
 
   useEffect(() => {
     if (!user) return;
     let mounted = true;
-    Promise.all([
-      api.get("/friends").catch(() => ({ data: { friends: [] } })),
+    const load = () => Promise.all([
+      api.get("/friends").catch(() => ({ data: { friends: [], incoming_requests: [] } })),
       api.get("/users/me/following").catch(() => ({ data: { following: [] } })),
       api.get("/users/me/subscriptions").catch(() => ({ data: { subscriptions: [] } })),
     ]).then(([f, fo, s]) => {
       if (!mounted) return;
       setFriends(f.data.friends || []);
+      setRequests(f.data.incoming_requests || []);
       setFollowing(fo.data.following || []);
       setSubscriptions(s.data.subscriptions || []);
     });
-    return () => { mounted = false; };
+    load();
+    // A pending request is time-sensitive enough (someone's waiting on you)
+    // that it shouldn't need a manual page reload to show up here — poll
+    // gently rather than only fetching once on mount.
+    const iv = setInterval(load, 30000);
+    return () => { mounted = false; clearInterval(iv); };
   }, [user]);
 
   const isHome = location.pathname === "/" || location.pathname === "/watch";
@@ -125,6 +142,9 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
           !collapsed && <p className="px-3 py-4 text-xs text-[var(--fg-subtle)]">Sign in to see friends, follows, and subscriptions here.</p>
         ) : (
           <>
+            {requests.length > 0 && (
+              <Section title="Requests" icon={UserPlus} badge={requests.length} entries={requests} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="" />
+            )}
             <Section title="Friends" icon={Users} entries={friends} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="No friends yet" />
             <Section title="Subscriptions" icon={Star} entries={subscriptions} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="Subscribe to a debater's channel" />
             <Section title="Following" icon={Rss} entries={following} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="Follow debaters to see them here" />
