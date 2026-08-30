@@ -57,7 +57,13 @@ function renderHtml({ title, description }) {
 }
 
 async function fetchJson(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+  // The backend is a Python serverless function on a cold-start-prone
+  // platform; 3s wasn't enough margin and every crawler request was timing
+  // out (confirmed live — TimeoutError, not a data/shape problem). This
+  // only runs for crawler requests, so a slower link-preview response is an
+  // acceptable tradeoff for actually getting the real content most of the
+  // time; crawlers themselves typically tolerate several seconds too.
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) return null;
   return res.json();
 }
@@ -96,13 +102,8 @@ async function middleware(request) {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
     });
-  } catch (e) {
-    // TEMPORARY: surface the real error instead of swallowing it, to debug
-    // why the crawler path isn't producing custom output in production.
-    // Safe to do unconditionally here because this whole catch block is
-    // only ever reached after the crawler-UA gate above already passed —
-    // a real visitor's request returns via next() long before this line.
-    return new Response("MIDDLEWARE_ERROR: " + (e && e.stack || e), { status: 200, headers: { "content-type": "text/plain" } });
+  } catch {
+    return next();
   }
 }
 
