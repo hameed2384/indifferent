@@ -52,3 +52,25 @@ def put_object(path: str, data: bytes, content_type: str) -> dict:
         logger.error(f"Blob upload failed ({resp.status_code}): {resp.text[:300]}")
         raise HTTPException(status_code=502, detail="Upload failed — try again")
     return {"path": path, "url": resp.json()["url"]}
+
+
+def delete_object(url_or_urls) -> None:
+    """Best-effort and silent on failure by design: this is only ever called
+    after the corresponding Mongo write has already committed, so surfacing
+    an error here would report a failure for an operation that, from the
+    caller's perspective, already succeeded — and an orphaned blob is
+    harmless (nothing points to it anymore)."""
+    urls = [url_or_urls] if isinstance(url_or_urls, str) else list(url_or_urls)
+    if not urls:
+        return
+    try:
+        resp = requests.post(
+            f"{BLOB_API_URL}/delete",
+            json={"urls": urls},
+            headers={"authorization": f"Bearer {_token()}", "x-api-version": "7"},
+            timeout=30,
+        )
+        if resp.status_code >= 400:
+            logger.error(f"Blob delete failed ({resp.status_code}): {resp.text[:300]}")
+    except Exception as e:
+        logger.error(f"Blob delete raised: {e}")

@@ -5,9 +5,11 @@ sub-argument; the tree shape is meant to mirror the debate's own structure.
 
 Deliberately simple for a first version: no visibility tiers (every clip is
 public the moment it's posted — a claim tree only means something as a
-shared, growing artifact), no editing, no deletion. Category lives only on
-the root claim; every reply inherits it so a whole tree always sorts/filters
-as one topic.
+shared, growing artifact). The uploader can edit the caption or delete the
+clip; deleting a leaf (no replies) removes it outright, deleting one with
+replies tombstones it instead so the tree stays intact for its children.
+Category lives only on the root claim; every reply inherits it so a whole
+tree always sorts/filters as one topic.
 
 Video storage uses Vercel Blob (storage.py) — public, persistent object
 storage, not the app's own serverless filesystem (which doesn't survive a
@@ -29,9 +31,9 @@ from ..categories import CATEGORIES
 from ..config import APP_NAME
 from ..db import db
 from ..deps import get_current_user, require_xhr
-from ..models import User
+from ..models import ClipCaptionUpdate, User
 from ..reactions import react_once
-from ..storage import put_object
+from ..storage import delete_object, put_object
 
 router = APIRouter()
 
@@ -54,6 +56,7 @@ def _clip_public(doc: dict, uploader: dict) -> dict:
         "dislikes": int(doc.get("dislikes", 0)),
         "reply_count": int(doc.get("reply_count", 0)),
         "created_at": doc["created_at"],
+        "deleted": bool(doc.get("deleted", False)),
     }
 
 
@@ -74,6 +77,8 @@ async def upload_clip(
         parent = await db.clips.find_one({"clip_id": parent_clip_id}, {"_id": 0})
         if not parent:
             raise HTTPException(status_code=404, detail="The clip you're replying to doesn't exist")
+        if parent.get("deleted"):
+            raise HTTPException(status_code=400, detail="Can't reply to a deleted clip")
         resolved_category = parent["category"]
         root_clip_id = parent["root_clip_id"]
     else:
@@ -111,6 +116,70 @@ async def upload_clip(
     if parent_clip_id:
         await db.clips.update_one({"clip_id": parent_clip_id}, {"$inc": {"reply_count": 1}})
     return {"clip_id": clip_id}
+
+
+def _validate_caption(caption: str) -> str:
+    caption = caption.strip()[:MAX_CAPTION]
+    if not caption:
+        raise HTTPException(status_code=400, detail="Say what your claim or rebuttal is")
+    return caption
+
+
+@router.patch("/clips/{clip_id}")
+async def edit_clip_caption(
+    clip_id: str,
+    payload: ClipCaptionUpdate,
+    user: User = Depends(get_current_user),
+    _xhr: None = Depends(require_xhr),
+):
+    doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Clip not found")
+    if doc["uploader_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your clip")
+    if doc.get("deleted"):
+        raise HTTPException(status_code=400, detail="This clip has been deleted")
+    caption = _validate_caption(payload.caption)
+    await db.clips.update_one({"clip_id": clip_id}, {"$set": {"caption": caption}})
+    return {"clip_id": clip_id, "caption": caption}
+
+
+@router.delete("/clips/{clip_id}")
+async def delete_clip(
+    clip_id: str,
+    user: User = Depends(get_current_user),
+    _xhr: None = Depends(require_xhr),
+):
+    """Hard-delete a leaf (reply_count == 0): nothing points at it as a
+    parent, so it's safe to remove outright — doc, blob, and reactions all
+    go, and the parent's reply_count is decremented. Soft-delete (tombstone)
+    anything with replies — hard-deleting it would orphan every child still
+    pointing at this clip_id as parent_clip_id/root_clip_id."""
+    doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Clip not found")
+    if doc["uploader_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your clip")
+    if doc.get("deleted"):
+        raise HTTPException(status_code=400, detail="This clip has already been deleted")
+
+    hard = int(doc.get("reply_count", 0)) == 0
+    if hard:
+        await db.clips.delete_one({"clip_id": clip_id})
+        await db.clip_reactions.delete_many({"clip_id": clip_id})
+        if doc.get("parent_clip_id"):
+            await db.clips.update_one({"clip_id": doc["parent_clip_id"]}, {"$inc": {"reply_count": -1}})
+    else:
+        await db.clips.update_one(
+            {"clip_id": clip_id},
+            {"$set": {
+                "deleted": True, "caption": "[deleted]", "video_url": None,
+                "deleted_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+    if doc.get("video_url"):
+        delete_object(doc["video_url"])
+    return {"clip_id": clip_id, "deleted": True, "hard_deleted": hard}
 
 
 @router.get("/clips/roots")
@@ -187,6 +256,8 @@ async def like_clip(clip_id: str, user: User = Depends(get_current_user)):
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")
+    if doc.get("deleted"):
+        raise HTTPException(status_code=400, detail="Can't react to a deleted clip")
     if await react_once(db.clip_reactions, "clip_id", clip_id, user.user_id, "like"):
         await db.clips.update_one({"clip_id": clip_id}, {"$inc": {"likes": 1}})
     fresh = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
@@ -198,6 +269,8 @@ async def dislike_clip(clip_id: str, user: User = Depends(get_current_user)):
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")
+    if doc.get("deleted"):
+        raise HTTPException(status_code=400, detail="Can't react to a deleted clip")
     if await react_once(db.clip_reactions, "clip_id", clip_id, user.user_id, "dislike"):
         await db.clips.update_one({"clip_id": clip_id}, {"$inc": {"dislikes": 1}})
     fresh = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})

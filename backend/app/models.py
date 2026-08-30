@@ -79,6 +79,10 @@ class ArchiveVisibility(BaseModel):
     visibility: str  # "private" | "unlisted" | "public"
 
 
+class ClipCaptionUpdate(BaseModel):
+    caption: str
+
+
 class TopicStance(BaseModel):
     """Per-(user, topic) position, generalizing StanceScores to any category.
 

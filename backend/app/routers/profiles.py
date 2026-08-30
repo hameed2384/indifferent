@@ -138,15 +138,29 @@ async def get_topic_stances(user_id: str):
 
 
 @router.get("/users/{user_id}/debates")
-async def list_user_debates(user_id: str):
+async def list_user_debates(user_id: str, viewer: Optional[User] = Depends(get_current_user_optional)):
     """A debater's public archive + live-now status — client brief #9's
     "channel page" half of a profile (topic-stances above is the other
     half). Same public/unlisted visibility rule as the main feed
     (routers/public.py), scoped to rooms this person was any kind of
-    participant in — original, party member, or approved joiner."""
+    participant in — original, party member, or approved joiner.
+
+    The owner viewing their own profile is the one exception: they see
+    every debate they've been part of regardless of archive_visibility —
+    including ended ones that are still private/unlisted, or that never
+    had archive_visibility set at all (the common case: nothing ever
+    defaults it). Without this there'd be no way to find and manage
+    visibility on a debate once it's anything other than public."""
     participant_filter = {"$or": [{"user_a": user_id}, {"user_b": user_id}, {"extra_a": user_id}, {"extra_b": user_id}]}
-    visibility_filter = {"$or": [{"is_public": True, "status": "active"}, {"archive_visibility": "public"}]}
-    docs = await db.rooms.find({"$and": [participant_filter, visibility_filter]}, {"_id": 0}).sort("published_at", -1).to_list(50)
+    is_self = bool(viewer and viewer.user_id == user_id)
+    if is_self:
+        query = participant_filter
+        sort_field = "created_at"  # published_at is absent for exactly the never-published debates we most need to surface
+    else:
+        visibility_filter = {"$or": [{"is_public": True, "status": "active"}, {"archive_visibility": "public"}]}
+        query = {"$and": [participant_filter, visibility_filter]}
+        sort_field = "published_at"
+    docs = await db.rooms.find(query, {"_id": 0}).sort(sort_field, -1).to_list(50)
     debates = [{
         "room_id": d["room_id"],
         "status": d.get("status", "active"),
@@ -154,6 +168,7 @@ async def list_user_debates(user_id: str):
         "topics": d.get("topics", []),
         "likes": int(d.get("likes", 0)),
         "published_at": d.get("published_at"),
+        "archive_visibility": d.get("archive_visibility"),
     } for d in docs]
     return {"debates": debates, "live_room_id": await find_live_room_id(user_id)}
 
@@ -172,6 +187,7 @@ async def list_user_clips(user_id: str):
         "likes": int(d.get("likes", 0)),
         "reply_count": int(d.get("reply_count", 0)),
         "created_at": d["created_at"],
+        "deleted": bool(d.get("deleted", False)),
     } for d in docs]}
 
 
