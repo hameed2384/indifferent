@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -9,9 +9,11 @@ import AccountMenu from "@/components/AccountMenu";
 import DebateCard from "@/components/DebateCard";
 import AdSlot from "@/components/AdSlot";
 import SideNav from "@/components/SideNav";
+import Logo from "@/components/Logo";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 /** Interleaves one ad card into a feed row at a fixed position, YouTube-style
  * — only when the row has enough real cards for it not to dominate. */
@@ -83,7 +85,7 @@ export default function Watch() {
       >
         Skip to content
       </a>
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
+      <nav className={STICKY_NAV}>
         <div className="px-4 sm:px-6 h-16 flex items-center gap-4">
           <button
             onClick={toggleSidebar}
@@ -94,9 +96,7 @@ export default function Watch() {
           >
             <Menu className="w-[18px] h-[18px]" />
           </button>
-          <button onClick={() => navigate("/")} className="font-heading text-xl font-semibold tracking-tight shrink-0" data-testid="nav-home">
-            indifferent
-          </button>
+          <Logo data-testid="nav-home" />
           <div className="flex-1 max-w-xl mx-auto hidden sm:block">
             <input
               data-testid="search-input"
@@ -166,7 +166,7 @@ export default function Watch() {
                 <div className="eyebrow mb-1">What is this?</div>
                 <div className="font-heading text-lg sm:text-xl font-semibold">Find someone who disagrees with you. On camera. Live.</div>
                 <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">
-                  Indifferent matches you with the sharpest opposing viewpoint for a real debate — or browse Claim Trees, video arguments that fork into video rebuttals instead of a comment section.
+                  indifferent matches you with the sharpest opposing viewpoint for a real debate — or browse Claim Trees, video arguments that fork into video rebuttals instead of a comment section.
                 </p>
               </div>
               <button onClick={startGoogleLogin} className="btn-primary text-sm shrink-0" data-testid="explainer-sign-in">Sign in to start</button>
@@ -271,10 +271,10 @@ function GoLiveModal({ categories, onClose, onStarted }) {
             <button
               key={c}
               onClick={() => setCategory(c)}
-              className={`py-2 rounded-lg border text-sm font-medium transition ${category === c ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
+              className={`py-2 rounded-lg border text-sm font-medium transition inline-flex items-center justify-center gap-1.5 ${category === c ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
               data-testid={`golive-category-${c}`}
             >
-              {c}
+              <Tag className="w-3.5 h-3.5" /> {c}
             </button>
           ))}
         </div>

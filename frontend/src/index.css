@@ -87,4 +87,8 @@ body {
   .eyebrow {
     @apply text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--fg-subtle)];
   }
+
+  .checkbox {
+    @apply w-4 h-4 rounded accent-[var(--accent)] cursor-pointer;
+  }
 }

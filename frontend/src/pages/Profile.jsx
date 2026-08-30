@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Settings as SettingsIcon, MessageCircle } from "lucide-react";
+import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2 } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import BackButton from "@/components/BackButton";
 import EditClipCaptionModal from "@/components/EditClipCaptionModal";
 import DeleteClipModal from "@/components/DeleteClipModal";
-import ArchiveVisibilityModal, { VISIBILITY_LABEL, DEFAULT_VISIBILITY } from "@/components/ArchiveVisibilityModal";
+import ArchiveVisibilityModal, { VISIBILITY_LABEL, VISIBILITY_ICON, DEFAULT_VISIBILITY } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 function formatJoinDate(iso) {
   if (!iso) return null;
@@ -82,6 +84,8 @@ function EmptyState({ title, subtitle }) {
 }
 
 function DebateCardSmall({ d, isSelf, onClick, onManageVisibility }) {
+  const visibility = d.archive_visibility || DEFAULT_VISIBILITY;
+  const VisibilityIcon = VISIBILITY_ICON[visibility];
   return (
     <div className="card p-4 relative hover:border-[var(--fg)] transition-colors" data-testid={`profile-debate-${d.room_id}`}>
       <button onClick={onClick} className="block w-full text-left">
@@ -92,15 +96,15 @@ function DebateCardSmall({ d, isSelf, onClick, onManageVisibility }) {
           {d.categories?.[0] && <span className="chip !py-0 !px-1.5">{d.categories[0]}</span>}
         </div>
         <div className="text-sm font-medium leading-snug line-clamp-2">{d.topics?.[0] || "An unrecorded disagreement"}</div>
-        <div className="text-xs text-[var(--fg-subtle)] mt-1.5">♥ {d.likes}</div>
+        <div className="text-xs text-[var(--fg-subtle)] mt-1.5 inline-flex items-center gap-1"><Heart className="w-3 h-3" /> {d.likes}</div>
       </button>
       {isSelf && d.status === "ended" && (
         <button
           onClick={() => onManageVisibility(d)}
-          className="absolute top-3 right-3 z-10 btn-outline !px-2 !py-1 !text-xs"
+          className="absolute top-3 right-3 z-10 btn-outline !px-2 !py-1 !text-xs inline-flex items-center gap-1"
           data-testid={`btn-manage-visibility-${d.room_id}`}
         >
-          {VISIBILITY_LABEL[d.archive_visibility || DEFAULT_VISIBILITY]}
+          <VisibilityIcon className="w-3 h-3" /> {VISIBILITY_LABEL[visibility]}
         </button>
       )}
     </div>
@@ -108,6 +112,7 @@ function DebateCardSmall({ d, isSelf, onClick, onManageVisibility }) {
 }
 
 function ClipCardSmall({ c, isSelf, onClick, onEdit, onDelete, onToggleVisibility }) {
+  const VisibilityIcon = VISIBILITY_ICON[c.unlisted ? "unlisted" : "public"];
   return (
     <div className="card overflow-hidden relative hover:border-[var(--fg)] transition-colors" data-testid={`profile-clip-${c.clip_id}`}>
       <button onClick={onClick} className="block w-full text-left">
@@ -127,21 +132,21 @@ function ClipCardSmall({ c, isSelf, onClick, onEdit, onDelete, onToggleVisibilit
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="chip !py-0 !px-1.5 text-[10px]">{c.category}</span>
                 {c.parent_clip_id && <span className="chip !py-0 !px-1.5 text-[10px]">Reply</span>}
-                {c.unlisted && <span className="chip !py-0 !px-1.5 text-[10px]">Unlisted</span>}
+                {c.unlisted && <span className="chip !py-0 !px-1.5 text-[10px]"><VisibilityIcon className="w-3 h-3" /> Unlisted</span>}
               </div>
               <div className="text-sm font-medium leading-snug line-clamp-2">"{c.caption}"</div>
-              <div className="text-xs text-[var(--fg-subtle)] mt-1">♥ {c.likes} · {c.reply_count} {c.reply_count === 1 ? "reply" : "replies"}</div>
+              <div className="text-xs text-[var(--fg-subtle)] mt-1 inline-flex items-center gap-1"><Heart className="w-3 h-3" /> {c.likes} · {c.reply_count} {c.reply_count === 1 ? "reply" : "replies"}</div>
             </>
           )}
         </div>
       </button>
       {isSelf && !c.deleted && (
         <div className="absolute top-2 right-2 left-2 z-10 flex flex-wrap justify-end gap-1">
-          <button onClick={() => onToggleVisibility(c)} className="btn-outline !px-2 !py-1 !text-xs" data-testid={`btn-toggle-visibility-${c.clip_id}`}>
-            {c.unlisted ? "Unlisted" : "Public"}
+          <button onClick={() => onToggleVisibility(c)} className="btn-outline !px-2 !py-1 !text-xs inline-flex items-center gap-1" data-testid={`btn-toggle-visibility-${c.clip_id}`}>
+            <VisibilityIcon className="w-3 h-3" /> {c.unlisted ? "Unlisted" : "Public"}
           </button>
-          <button onClick={() => onEdit(c)} className="btn-outline !px-2 !py-1 !text-xs" data-testid={`btn-edit-clip-${c.clip_id}`}>Edit</button>
-          <button onClick={() => onDelete(c)} className="btn-danger !px-2 !py-1 !text-xs" data-testid={`btn-delete-clip-${c.clip_id}`}>Delete</button>
+          <button onClick={() => onEdit(c)} className="btn-outline !px-2 !py-1 !text-xs inline-flex items-center gap-1" data-testid={`btn-edit-clip-${c.clip_id}`}><Pencil className="w-3 h-3" /> Edit</button>
+          <button onClick={() => onDelete(c)} className="btn-danger !px-2 !py-1 !text-xs inline-flex items-center gap-1" data-testid={`btn-delete-clip-${c.clip_id}`}><Trash2 className="w-3 h-3" /> Delete</button>
         </div>
       )}
     </div>
@@ -226,7 +231,7 @@ export default function Profile() {
     setClips((cs) => cs.map((c) => (c.clip_id === clip.clip_id ? { ...c, unlisted: next } : c)));
     try {
       await api.patch(`/clips/${clip.clip_id}`, { unlisted: next });
-      toast.success(next ? "Now unlisted." : "Now public.");
+      toast.success(next ? "Now unlisted" : "Now public");
     } catch (e) {
       setClips((cs) => cs.map((c) => (c.clip_id === clip.clip_id ? { ...c, unlisted: !next } : c)));
       toast.error(e.response?.data?.detail || "Couldn't update visibility");
@@ -259,11 +264,11 @@ export default function Profile() {
       >
         Skip to content
       </a>
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
+      <nav className={STICKY_NAV}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-          <button onClick={() => navigate(-1)} className="btn-ghost text-sm" data-testid="nav-back">← Back</button>
+          <BackButton useHistory label="Back" data-testid="nav-back" />
           <div className="flex items-center gap-2">
-            <button onClick={share} className="btn-outline text-sm" data-testid="btn-share-profile">Share</button>
+            <button onClick={share} className="btn-outline text-sm inline-flex items-center gap-1.5" data-testid="btn-share-profile"><Share2 className="w-4 h-4" /> Share</button>
             <ThemeToggle />
             {viewer
               ? <AccountMenu user={viewer} logout={logout} />

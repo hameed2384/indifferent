@@ -14,7 +14,7 @@ export default function EditClipCaptionModal({ clip, onClose, onSaved }) {
     setSaving(true);
     try {
       const { data } = await api.patch(`/clips/${clip.clip_id}`, { caption: trimmed });
-      toast.success("Caption updated.");
+      toast.success("Caption updated");
       onSaved(data.caption);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't update caption");

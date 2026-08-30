@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { Lock } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import Logo from "@/components/Logo";
+import StepDots from "@/components/StepDots";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 const LIKERT = [1, 2, 3, 4, 5];
 const LIKERT_LABELS = { 1: "Strongly disagree", 2: "Disagree", 3: "Neutral", 4: "Agree", 5: "Strongly agree" };
@@ -60,11 +64,11 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <header className="border-b border-[var(--border)]">
+      <header className={STICKY_NAV}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="font-heading text-lg font-semibold">indifferent</div>
+          <Logo size="sm" />
           <div className="flex items-center gap-3">
-            <div className="text-xs text-[var(--fg-subtle)]">Step 1 of 2 — Views</div>
+            <StepDots step={1} />
             <ThemeToggle />
           </div>
         </div>
@@ -75,9 +79,9 @@ export default function Onboarding() {
         <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold mt-2 leading-tight">
           Tell us how you actually think.
         </h1>
-        <p className="mt-4 text-[var(--fg-muted)]">
-          Be candid. The AI reads this to place you on the map and find your opposite. Only your display name and
-          stance summary are shared with your match.
+        <p className="mt-4 text-[var(--fg-muted)]">Be candid — this is how we find your opposite.</p>
+        <p className="mt-2 text-xs text-[var(--fg-subtle)] flex items-center gap-1.5">
+          <Lock className="w-3 h-3" /> Only your name and stance summary are shared with your match.
         </p>
 
         <section className="mt-10 space-y-4">

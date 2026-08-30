@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Search, UserPlus, Users, Rss } from "lucide-react";
+import { MessageCircle, Search, UserPlus, Users, Rss } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import BackButton from "@/components/BackButton";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 function Avatar({ picture, name, size = "w-9 h-9" }) {
   return picture
@@ -164,11 +166,11 @@ function RequestsAndFriends() {
                 <div className="flex gap-1.5 shrink-0">
                   <button
                     onClick={() => navigate(`/private/${f.user_id}`)}
-                    className="btn-outline !px-2 !py-1 !text-xs"
+                    className="btn-outline !px-2 !py-1 !text-xs inline-flex items-center gap-1"
                     title="Private chat/call — never seen by AI features"
                     data-testid={`btn-message-${f.user_id}`}
                   >
-                    Message
+                    <MessageCircle className="w-3.5 h-3.5" /> Message
                   </button>
                   <button
                     onClick={() => navigate("/match", { state: { friendId: f.user_id, friendName: f.display_name } })}
@@ -225,10 +227,10 @@ export default function Friends() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
+      <nav className={STICKY_NAV}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/")} className="btn-ghost text-sm shrink-0" data-testid="nav-back-home">← Home</button>
+            <BackButton to="/" label="Home" data-testid="nav-back-home" />
             <span className="font-heading text-lg font-semibold inline-flex items-center gap-1.5 truncate"><UserPlus className="w-4 h-4 shrink-0" /> Friends</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">

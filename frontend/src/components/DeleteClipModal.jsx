@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -10,7 +11,7 @@ export default function DeleteClipModal({ clip, onClose, onDeleted }) {
     setDeleting(true);
     try {
       const { data } = await api.delete(`/clips/${clip.clip_id}`);
-      toast.success("Clip deleted.");
+      toast.success("Clip deleted");
       onDeleted(data.hard_deleted);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't delete that clip");
@@ -32,7 +33,7 @@ export default function DeleteClipModal({ clip, onClose, onDeleted }) {
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button className="btn-outline" onClick={onClose} data-testid="delete-clip-cancel">Cancel</button>
           <button className="btn-danger" onClick={confirmDelete} disabled={deleting} data-testid="btn-confirm-delete-clip">
-            {deleting ? "Deleting…" : "Delete"}
+            <Trash2 className="w-4 h-4" /> {deleting ? "Deleting…" : "Delete"}
           </button>
         </div>
       </div>

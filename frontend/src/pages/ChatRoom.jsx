@@ -410,7 +410,7 @@ export default function ChatRoom() {
               </div>
             </div>
             <label className="flex items-center gap-3 mt-6 cursor-pointer">
-              <input type="checkbox" checked={mindChanged} onChange={(e) => setMindChanged(e.target.checked)} data-testid="checkbox-mind-changed" className="w-4 h-4 accent-[var(--accent)]" />
+              <input type="checkbox" checked={mindChanged} onChange={(e) => setMindChanged(e.target.checked)} data-testid="checkbox-mind-changed" className="checkbox" />
               <span className="text-sm">Did it change your mind on anything?</span>
             </label>
             <textarea data-testid="feedback-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Optional notes to yourself…" className="textarea mt-4" />

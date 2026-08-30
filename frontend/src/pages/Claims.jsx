@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Heart, Menu } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import SideNav from "@/components/SideNav";
+import Logo from "@/components/Logo";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
 import RecordClipModal from "@/components/RecordClipModal";
 import { startGoogleLogin } from "@/lib/auth";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 function ClaimCard({ clip, onClick }) {
   return (
@@ -18,8 +20,8 @@ function ClaimCard({ clip, onClick }) {
       <div className="p-4">
         <span className="chip !py-0 !px-1.5 text-[10px]">{clip.category}</span>
         <div className="font-heading text-base font-semibold mt-2 line-clamp-2">"{clip.caption}"</div>
-        <div className="text-xs text-[var(--fg-subtle)] mt-2">
-          {clip.uploader_name} · ♥ {clip.likes} · {clip.reply_count} {clip.reply_count === 1 ? "rebuttal" : "rebuttals"}
+        <div className="text-xs text-[var(--fg-subtle)] mt-2 inline-flex items-center gap-1 flex-wrap">
+          <span>{clip.uploader_name} ·</span> <Heart className="w-3 h-3" /> <span>{clip.likes} · {clip.reply_count} {clip.reply_count === 1 ? "rebuttal" : "rebuttals"}</span>
         </div>
       </div>
     </button>
@@ -63,12 +65,12 @@ export default function Claims() {
       >
         Skip to content
       </a>
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
+      <nav className={STICKY_NAV}>
         <div className="px-4 sm:px-6 h-16 flex items-center gap-4">
           <button onClick={toggleSidebar} className="btn-ghost !px-2.5 shrink-0" data-testid="btn-toggle-sidenav" aria-label="Toggle sidebar">
             <Menu className="w-[18px] h-[18px]" />
           </button>
-          <button onClick={() => navigate("/")} className="font-heading text-xl font-semibold tracking-tight shrink-0">indifferent</button>
+          <Logo />
           <div className="flex-1 max-w-xl mx-auto hidden sm:flex items-center gap-2">
             <span className="text-sm text-[var(--fg-subtle)]">Claim Trees</span>
           </div>

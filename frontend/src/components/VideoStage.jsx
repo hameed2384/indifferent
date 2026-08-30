@@ -189,8 +189,8 @@ function VideoTile({ tile, fill, compact }) {
         </div>
       )}
       {tile.audioMuted && !compact && (
-        <div className="absolute top-2 right-2 bg-[var(--danger)] text-white px-1.5 py-0.5 rounded text-[10px] font-medium">
-          Muted
+        <div className="absolute top-2 right-2 bg-[var(--danger)] text-white p-1 rounded" title="Muted">
+          <MicOff className="w-3 h-3" />
         </div>
       )}
     </div>

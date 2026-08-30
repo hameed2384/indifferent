@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/hooks/use-theme";
 import { toast } from "sonner";
+import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
+import BackButton from "@/components/BackButton";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 function Section({ title, children }) {
   return (
@@ -16,8 +19,6 @@ function Section({ title, children }) {
 
 export default function Settings() {
   const { user, setUser, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState(user?.display_name || user?.name || "");
   const [bio, setBio] = useState(user?.bio || "");
@@ -84,10 +85,16 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="btn-ghost text-sm" data-testid="nav-back-home">← Home</button>
-          <span className="font-heading text-lg font-semibold">Settings</span>
+      <nav className={STICKY_NAV}>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <BackButton to="/" label="Home" data-testid="nav-back-home" />
+            <span className="font-heading text-lg font-semibold">Settings</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <AccountMenu user={user} logout={logout} />
+          </div>
         </div>
       </nav>
 
@@ -129,31 +136,6 @@ export default function Settings() {
           </button>
         </Section>
 
-        <Section title="Appearance">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">Theme</div>
-              <div className="text-xs text-[var(--fg-subtle)]">Applies everywhere, remembered on this device.</div>
-            </div>
-            <div className="inline-flex rounded-lg border border-[var(--border-strong)] overflow-hidden">
-              <button
-                onClick={() => theme !== "light" && toggleTheme()}
-                className={`px-3 py-1.5 text-xs font-medium ${theme === "light" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
-                data-testid="settings-theme-light"
-              >
-                Light
-              </button>
-              <button
-                onClick={() => theme !== "dark" && toggleTheme()}
-                className={`px-3 py-1.5 text-xs font-medium border-l border-[var(--border-strong)] ${theme === "dark" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
-                data-testid="settings-theme-dark"
-              >
-                Dark
-              </button>
-            </div>
-          </div>
-        </Section>
-
         <Section title="Privacy">
           <label className="flex items-center justify-between cursor-pointer">
             <div>
@@ -164,7 +146,7 @@ export default function Settings() {
               type="checkbox"
               checked={allowFriendRequests}
               onChange={toggleFriendRequests}
-              className="w-4 h-4 accent-[var(--accent)]"
+              className="checkbox"
               data-testid="settings-allow-friend-requests"
             />
           </label>
@@ -195,7 +177,9 @@ export default function Settings() {
         </Section>
 
         <Section title="Account">
-          <button onClick={logout} className="btn-outline text-sm text-[var(--danger)]" data-testid="settings-sign-out">Sign out</button>
+          <button onClick={logout} className="btn-danger text-sm" data-testid="settings-sign-out">
+            <LogOut className="w-4 h-4" /> Sign out
+          </button>
         </Section>
       </main>
     </div>

@@ -1,3 +1,5 @@
+import { Heart } from "lucide-react";
+
 export default function DebateCard({ d, onClick }) {
   const isLive = d.status === "active";
   const isArchived = d.archive_visibility === "public" || d.archive_visibility === "unlisted";
@@ -11,7 +13,7 @@ export default function DebateCard({ d, onClick }) {
         {isLive
           ? <span className="chip-accent"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Live</span>
           : <span className="chip">{isArchived ? "Published" : "Ended"}</span>}
-        <span className="text-[var(--fg-subtle)] truncate">{d.spectator_count ?? 0} watching · {d.likes ?? 0} ♥</span>
+        <span className="text-[var(--fg-subtle)] truncate inline-flex items-center gap-1">{d.spectator_count ?? 0} watching · {d.likes ?? 0} <Heart className="w-3 h-3" /></span>
       </div>
       {d.categories?.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">

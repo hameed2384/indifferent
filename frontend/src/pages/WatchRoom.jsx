@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ThumbsDown } from "lucide-react";
+import { Heart, Share2, ThumbsDown } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -9,8 +9,10 @@ import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import AdSlot from "@/components/AdSlot";
+import BackButton from "@/components/BackButton";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 function ViewerOverlay({ side, navigate }) {
   const [following, setFollowing] = useState(null); // null = unknown/self/open, else bool
@@ -381,7 +383,7 @@ export default function WatchRoom() {
   const share = async () => {
     const url = window.location.href;
     try {
-      if (navigator.share) await navigator.share({ title: "Indifferent — live debate", url });
+      if (navigator.share) await navigator.share({ title: "indifferent — live debate", url });
       else { await navigator.clipboard.writeText(url); toast.success("Link copied"); }
     } catch { /* noop */ }
   };
@@ -468,9 +470,9 @@ export default function WatchRoom() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-muted)]">
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)]">
+      <nav className={STICKY_NAV}>
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-3">
-          <button onClick={() => navigate("/watch")} className="btn-ghost text-sm" data-testid="nav-back-watch">← All debates</button>
+          <BackButton to="/watch" label="All debates" data-testid="nav-back-watch" />
           <div className="flex items-center gap-3 text-sm">
             {isLive
               ? <span className="chip-accent"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Live</span>
@@ -478,7 +480,7 @@ export default function WatchRoom() {
             <span className="text-[var(--fg-subtle)] hidden sm:inline">{spectatorCount} watching</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={share} className="btn-outline text-sm" data-testid="btn-share">Share</button>
+            <button onClick={share} className="btn-outline text-sm inline-flex items-center gap-1.5" data-testid="btn-share"><Share2 className="w-4 h-4" /> Share</button>
             <ThemeToggle />
             {user
               ? <AccountMenu user={user} logout={logout} />
@@ -554,12 +556,12 @@ export default function WatchRoom() {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button onClick={like} className="btn-accent relative" data-testid="btn-like">
-                ♥ {likes}
+              <button onClick={like} className="btn-accent relative inline-flex items-center gap-1.5" data-testid="btn-like">
+                <Heart className="w-4 h-4" /> {likes}
                 {likeBurst > 0 && <span key={likeBurst} className="absolute -top-3 -right-3 text-lg text-[var(--accent)] animate-pulse">+1</span>}
               </button>
               <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike"><ThumbsDown className="w-4 h-4" /> {dislikes}</button>
-              <button onClick={share} className="btn-outline" data-testid="btn-share-2">Share</button>
+              <button onClick={share} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-share-2"><Share2 className="w-4 h-4" /> Share</button>
               {debate.opposition_score != null && (
                 <div className="text-xs text-[var(--fg-subtle)]">
                   Opposition score {debate.opposition_score?.toFixed?.(1) ?? debate.opposition_score}

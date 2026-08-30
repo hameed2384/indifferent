@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 
 /** Client brief #8 — clicking the avatar opens a dropdown with "Go to your
  * profile" (and sign out). Hand-rolled rather than the shadcn DropdownMenu
@@ -54,10 +55,10 @@ export default function AccountMenu({ user, logout }) {
           <div className="my-1 border-t border-[var(--border)]" />
           <button
             onClick={() => { setOpen(false); logout(); }}
-            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--bg-muted)] text-[var(--danger)]"
+            className="w-full text-left px-3 py-2 text-sm rounded-lg inline-flex items-center gap-2 text-[var(--danger)] hover:bg-[var(--danger-soft)]"
             data-testid="account-menu-signout"
           >
-            Sign out
+            <LogOut className="w-3.5 h-3.5" /> Sign out
           </button>
         </div>
       )}

@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { Globe, Link2, Lock } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 export const DEFAULT_VISIBILITY = "private";
 export const VISIBILITY_LABEL = { private: "Private", unlisted: "Unlisted", public: "Public" };
+// Lock/link/globe — the same metaphor Google Docs/Notion use for the same
+// three states, so it's recognizable without reading the label.
+export const VISIBILITY_ICON = { private: Lock, unlisted: Link2, public: Globe };
 
 const OPTIONS = [
-  { value: "private", label: "Private", hint: "Only participants can view it" },
-  { value: "unlisted", label: "Unlisted", hint: "Viewable via direct link only, not listed" },
-  { value: "public", label: "Public", hint: "Shows in the feed and search" },
+  { value: "private", label: "Private", hint: "Only participants can view it", Icon: Lock },
+  { value: "unlisted", label: "Unlisted", hint: "Viewable via direct link only, not listed", Icon: Link2 },
+  { value: "public", label: "Public", hint: "Shows in the feed and search", Icon: Globe },
 ];
 
 export default function ArchiveVisibilityModal({ debate, onClose, onSaved }) {
@@ -19,7 +23,7 @@ export default function ArchiveVisibilityModal({ debate, onClose, onSaved }) {
     setSaving(true);
     try {
       const { data } = await api.post(`/rooms/${debate.room_id}/archive-visibility`, { visibility });
-      toast.success("Visibility updated.");
+      toast.success("Visibility updated");
       onSaved(data.archive_visibility);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't update visibility");
@@ -41,7 +45,7 @@ export default function ArchiveVisibilityModal({ debate, onClose, onSaved }) {
               className={`w-full text-left px-4 py-3 rounded-lg border transition ${visibility === o.value ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
               data-testid={`visibility-option-${o.value}`}
             >
-              <div className="text-sm font-medium">{o.label}</div>
+              <div className="text-sm font-medium flex items-center gap-1.5"><o.Icon className="w-3.5 h-3.5" /> {o.label}</div>
               <div className={`text-xs mt-0.5 ${visibility === o.value ? "text-[var(--bg)]/70" : "text-[var(--fg-subtle)]"}`}>{o.hint}</div>
             </button>
           ))}

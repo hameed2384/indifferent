@@ -7,6 +7,8 @@ import { useLiveKit } from "@/lib/livekit";
 import { VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import BackButton from "@/components/BackButton";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 /** Client brief #14 — private friend chat/call. Its own page, its own
  * component tree: nothing here imports anything debate/coach-related, so
@@ -118,9 +120,9 @@ export default function PrivateChat() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)]">
+      <nav className={STICKY_NAV}>
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between gap-3">
-          <button onClick={() => navigate("/friends")} className="btn-ghost text-sm" data-testid="nav-back-friends">← Friends</button>
+          <BackButton to="/friends" label="Friends" data-testid="nav-back-friends" />
           <div className="text-sm font-medium truncate">{friend?.display_name || "…"}</div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

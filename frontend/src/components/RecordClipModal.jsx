@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -123,7 +124,7 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
       const ext = (blob.type || "").includes("mp4") ? "mp4" : "webm";
       form.append("video", blob, `clip.${ext}`);
       const { data } = await api.post("/clips", form);
-      toast.success("Posted.");
+      toast.success("Posted");
       onPosted(data.clip_id);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't post that clip");
@@ -169,10 +170,10 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
                       key={c}
                       type="button"
                       onClick={() => setCategory(c)}
-                      className={`py-2 rounded-lg border text-sm font-medium transition ${category === c ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
+                      className={`py-2 rounded-lg border text-sm font-medium transition inline-flex items-center justify-center gap-1.5 ${category === c ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
                       data-testid={`clip-category-${c}`}
                     >
-                      {c}
+                      <Tag className="w-3.5 h-3.5" /> {c}
                     </button>
                   ))}
                 </div>

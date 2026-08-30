@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ThumbsDown } from "lucide-react";
+import { Heart, Pencil, ThumbsDown, Trash2 } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import BackButton from "@/components/BackButton";
 import RecordClipModal from "@/components/RecordClipModal";
 import EditClipCaptionModal from "@/components/EditClipCaptionModal";
 import DeleteClipModal from "@/components/DeleteClipModal";
+import { VISIBILITY_ICON } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
+import { STICKY_NAV } from "@/lib/navChrome";
 
 export default function ClaimTree() {
   const { clipId } = useParams();
@@ -48,6 +51,11 @@ export default function ClaimTree() {
   }
 
   const isOwner = !!user && clip.uploader_id === user.user_id;
+  // The chip shows the clip's CURRENT state; the toggle button is an action
+  // verb ("Make public"/"Make unlisted"), so its icon previews the TARGET
+  // state instead — the two are deliberately not the same lookup.
+  const CurrentVisibilityIcon = VISIBILITY_ICON.unlisted;
+  const TargetVisibilityIcon = VISIBILITY_ICON[clip.unlisted ? "public" : "unlisted"];
 
   const onCaptionSaved = (newCaption) => { setClip((c) => ({ ...c, caption: newCaption })); setShowEditModal(false); };
   const onClipDeleted = (hardDeleted) => {
@@ -60,7 +68,7 @@ export default function ClaimTree() {
     setClip((c) => ({ ...c, unlisted: next }));
     try {
       await api.patch(`/clips/${clipId}`, { unlisted: next });
-      toast.success(next ? "Now unlisted." : "Now public.");
+      toast.success(next ? "Now unlisted" : "Now public");
     } catch (e) {
       setClip((c) => ({ ...c, unlisted: !next }));
       toast.error(e.response?.data?.detail || "Couldn't update visibility");
@@ -69,9 +77,9 @@ export default function ClaimTree() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
+      <nav className={STICKY_NAV}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-          <button onClick={() => navigate("/claims")} className="btn-ghost text-sm" data-testid="nav-back-claims">← Claims</button>
+          <BackButton to="/claims" label="Claims" data-testid="nav-back-claims" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             {user
@@ -98,23 +106,25 @@ export default function ClaimTree() {
             {!clip.deleted && (
               <div className="flex items-center gap-1.5">
                 <span className="chip !py-0 !px-1.5 text-[10px]">{clip.category}</span>
-                {clip.unlisted && <span className="chip !py-0 !px-1.5 text-[10px]">Unlisted</span>}
+                {clip.unlisted && (
+                  <span className="chip !py-0 !px-1.5 text-[10px]"><CurrentVisibilityIcon className="w-3 h-3" /> Unlisted</span>
+                )}
               </div>
             )}
             <h1 className="font-heading text-xl font-semibold mt-2">"{clip.caption}"</h1>
             <button onClick={() => navigate(`/u/${clip.uploader_id}`)} className="text-sm text-[var(--fg-subtle)] hover:underline mt-1">{clip.uploader_name}</button>
             {!clip.deleted && (
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button onClick={like} className="btn-accent" data-testid="btn-like-clip">♥ {clip.likes}</button>
+                <button onClick={like} className="btn-accent inline-flex items-center gap-1.5" data-testid="btn-like-clip"><Heart className="w-4 h-4" /> {clip.likes}</button>
                 <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike-clip"><ThumbsDown className="w-4 h-4" /> {clip.dislikes}</button>
                 <button onClick={openReply} className="btn-primary" data-testid="btn-reply-clip">Reply with video</button>
                 {isOwner && (
                   <>
-                    <button onClick={toggleVisibility} className="btn-outline" data-testid="btn-toggle-clip-visibility">
-                      {clip.unlisted ? "Make public" : "Make unlisted"}
+                    <button onClick={toggleVisibility} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-toggle-clip-visibility">
+                      <TargetVisibilityIcon className="w-4 h-4" /> {clip.unlisted ? "Make public" : "Make unlisted"}
                     </button>
-                    <button onClick={() => setShowEditModal(true)} className="btn-outline" data-testid="btn-edit-clip">Edit caption</button>
-                    <button onClick={() => setShowDeleteModal(true)} className="btn-danger" data-testid="btn-delete-clip">Delete</button>
+                    <button onClick={() => setShowEditModal(true)} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-edit-clip"><Pencil className="w-4 h-4" /> Edit caption</button>
+                    <button onClick={() => setShowDeleteModal(true)} className="btn-danger inline-flex items-center gap-1.5" data-testid="btn-delete-clip"><Trash2 className="w-4 h-4" /> Delete</button>
                   </>
                 )}
               </div>
@@ -135,9 +145,12 @@ export default function ClaimTree() {
                 )}
                 <div className="p-3">
                   <div className="text-sm font-medium line-clamp-2">{r.deleted ? "Deleted" : `"${r.caption}"`}</div>
-                  <div className="text-[11px] text-[var(--fg-subtle)] mt-1">
-                    {r.uploader_name} · ♥ {r.likes} · {r.reply_count} {r.reply_count === 1 ? "reply" : "replies"}
-                    {r.unlisted && !r.deleted && " · Unlisted"}
+                  <div className="text-[11px] text-[var(--fg-subtle)] mt-1 inline-flex items-center gap-1 flex-wrap">
+                    <span>{r.uploader_name} ·</span>
+                    <Heart className="w-3 h-3" /> <span>{r.likes} · {r.reply_count} {r.reply_count === 1 ? "reply" : "replies"}</span>
+                    {r.unlisted && !r.deleted && (
+                      <span className="inline-flex items-center gap-0.5">· <CurrentVisibilityIcon className="w-3 h-3" /> Unlisted</span>
+                    )}
                   </div>
                 </div>
               </button>
