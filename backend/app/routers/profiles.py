@@ -2,6 +2,7 @@
 one of three deliberately separate relationship systems: follows here,
 friends and subscriptions land with the rest of Phase 3/4).
 """
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -19,6 +20,63 @@ router = APIRouter()
 class ProfileUpdate(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
+
+
+@router.get("/users/search")
+async def search_users(q: str, user: User = Depends(get_current_user)):
+    """Powers the Friends page's "find people" box. Registered before
+    /users/{user_id} on purpose — both are single-segment paths, and FastAPI
+    matches static routes in registration order (same reasoning as
+    /clips/roots vs /clips/{clip_id}). Requires auth: every profile this
+    returns is already public via /u/{id}, but gating the search itself is
+    a cheap, standard deterrent against a script trawling the user list."""
+    term = q.strip()
+    if len(term) < 2:
+        return {"users": []}
+    pattern = re.escape(term[:100])
+    docs = await db.users.find(
+        {
+            "user_id": {"$ne": user.user_id},
+            "$or": [
+                {"display_name": {"$regex": pattern, "$options": "i"}},
+                {"name": {"$regex": pattern, "$options": "i"}},
+            ],
+        },
+        {"_id": 0, "user_id": 1, "display_name": 1, "name": 1, "picture": 1, "is_debater": 1, "id_verified": 1},
+    ).to_list(20)
+
+    ids = [d["user_id"] for d in docs]
+    following_ids = set()
+    friend_status_by_id = {}
+    if ids:
+        following_ids = {
+            f["followee_id"]
+            async for f in db.follows.find(
+                {"follower_id": user.user_id, "followee_id": {"$in": ids}}, {"_id": 0, "followee_id": 1}
+            )
+        }
+        friendship_docs = await db.friendships.find(
+            {"$or": [{"user_a": user.user_id, "user_b": {"$in": ids}}, {"user_a": {"$in": ids}, "user_b": user.user_id}]},
+            {"_id": 0},
+        ).to_list(len(ids))
+        for fdoc in friendship_docs:
+            other = fdoc["user_b"] if fdoc["user_a"] == user.user_id else fdoc["user_a"]
+            if fdoc["status"] == "accepted":
+                friend_status_by_id[other] = "friends"
+            elif fdoc["requested_by"] == user.user_id:
+                friend_status_by_id[other] = "pending_outgoing"
+            else:
+                friend_status_by_id[other] = "pending_incoming"
+
+    return {"users": [{
+        "user_id": d["user_id"],
+        "display_name": d.get("display_name") or d.get("name"),
+        "picture": d.get("picture"),
+        "is_debater": bool(d.get("is_debater")),
+        "id_verified": bool(d.get("id_verified")),
+        "is_following": d["user_id"] in following_ids,
+        "friend_status": friend_status_by_id.get(d["user_id"], "none"),
+    } for d in docs]}
 
 
 @router.get("/users/{user_id}")

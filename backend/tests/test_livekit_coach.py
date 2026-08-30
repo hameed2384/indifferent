@@ -370,7 +370,9 @@ class TestLiveKitAndCoach:
         r = requests.get(api(f"/rooms/{rid}"), headers=HA, timeout=30)
         assert r.status_code == 200, r.text
         assert r.json()["my_role"] in ("a", "b")
-        s = requests.get(api("/dashboard/stats"), headers=HA, timeout=30)
+        # /dashboard/stats was removed along with the Dashboard page — same
+        # fields are covered by /auth/me.
+        s = requests.get(api("/auth/me"), headers=HA, timeout=30)
         assert s.status_code == 200, s.text
-        for key in ("debates", "minds_changed", "stance", "recent_feedback"):
+        for key in ("debates", "minds_changed", "stance"):
             assert key in s.json()

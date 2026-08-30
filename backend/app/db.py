@@ -73,8 +73,10 @@ async def create_indexes():
     await db.clips.create_index([("parent_clip_id", 1), ("likes", -1)])
     await db.clips.create_index([("category", 1), ("parent_clip_id", 1), ("created_at", -1)])
 
-    # Post-debate feedback (routers/rooms.py) — dashboard stats reads a
-    # user's recent feedback history.
+    # Post-debate feedback (routers/rooms.py) — write-only for now (rating/
+    # notes aren't surfaced anywhere yet; mind_changed's aggregate effect
+    # already lands on the user doc directly), kept indexed for whenever a
+    # feedback history view gets built.
     await db.feedback.create_index([("user_id", 1), ("created_at", -1)])
 
     # "Is this person live right now" (room_utils.find_live_room_id) fans out

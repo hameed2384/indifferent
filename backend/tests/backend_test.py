@@ -342,10 +342,13 @@ class TestWatchFeature:
         q = requests.get(api("/onboarding/questions"), timeout=30)
         assert q.status_code == 200, q.text
         assert len(q.json()["questions"]) == 8
-        s = requests.get(api("/dashboard/stats"), headers=HA, timeout=30)
+        # /dashboard/stats was removed along with the Dashboard page — its
+        # fields (debates, minds_changed, stance) live directly on the user
+        # doc and are already covered by /auth/me.
+        s = requests.get(api("/auth/me"), headers=HA, timeout=30)
         assert s.status_code == 200, s.text
         body = s.json()
-        for key in ("debates", "minds_changed", "stance", "recent_feedback"):
+        for key in ("debates", "minds_changed", "stance"):
             assert key in body, body
 
     def test_22_regression_feedback_and_room_403(self):

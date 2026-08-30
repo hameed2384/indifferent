@@ -40,8 +40,8 @@ async def checkout_platform(user: User = Depends(get_current_user)):
         line_items=[{"price": STRIPE_PRICE_ID_PLATFORM, "quantity": 1}],
         client_reference_id=user.user_id,
         metadata={"kind": "platform_ad_free", "user_id": user.user_id},
-        success_url=f"{FRONTEND_URL}/dashboard?upgraded=1",
-        cancel_url=f"{FRONTEND_URL}/dashboard",
+        success_url=f"{FRONTEND_URL}/settings?upgraded=1",
+        cancel_url=f"{FRONTEND_URL}/settings",
     )
     return {"checkout_url": session.url}
 
@@ -61,8 +61,8 @@ async def checkout_debater(debater_user_id: str, user: User = Depends(get_curren
         line_items=[{"price": STRIPE_PRICE_ID_DEBATER, "quantity": 1}],
         client_reference_id=user.user_id,
         metadata={"kind": "debater_subscription", "user_id": user.user_id, "debater_id": debater_user_id},
-        success_url=f"{FRONTEND_URL}/dashboard?subscribed={debater_user_id}",
-        cancel_url=f"{FRONTEND_URL}/dashboard",
+        success_url=f"{FRONTEND_URL}/u/{debater_user_id}?subscribed=1",
+        cancel_url=f"{FRONTEND_URL}/u/{debater_user_id}",
     )
     return {"checkout_url": session.url}
 

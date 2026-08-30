@@ -382,12 +382,3 @@ async def retract_kick_vote(room_id: str, target_user_id: str, user: User = Depe
     return {"status": "ok"}
 
 
-@router.get("/dashboard/stats")
-async def dashboard_stats(user: User = Depends(get_current_user)):
-    recent = await db.feedback.find({"user_id": user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(10)
-    return {
-        "debates": user.debates,
-        "minds_changed": user.minds_changed,
-        "stance": user.stance.model_dump() if user.stance else None,
-        "recent_feedback": recent,
-    }
