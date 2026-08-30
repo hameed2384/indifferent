@@ -6126,10 +6126,10 @@ fast-levenshtein@^2.0.6:
   resolved "https://registry.yarnpkg.com/fast-levenshtein/-/fast-levenshtein-2.0.6.tgz#3d8a5c66883a16a30ca8643e851f19baa7797917"
   integrity sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==
 
-fast-uri@3.1.2, fast-uri@^3.0.1:
-  version "3.1.2"
-  resolved "https://registry.yarnpkg.com/fast-uri/-/fast-uri-3.1.2.tgz#8af3d4fc9d3e71b11572cc2673b514a7d1a8c8ec"
-  integrity sha512-rVjf7ArG3LTk+FS6Yw81V1DLuZl1bRbNrev6Tmd/9RaroeeRRJhAt7jg/6YFxbvAQXUCavSoZhPPj6oOx+5KjQ==
+fast-uri@3.1.5, fast-uri@^3.0.1:
+  version "3.1.5"
+  resolved "https://registry.yarnpkg.com/fast-uri/-/fast-uri-3.1.5.tgz#610f37419a030270430cecd68d74e3d4d96725d0"
+  integrity sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==
 
 fastq@^1.6.0:
   version "1.20.1"
@@ -9614,17 +9614,17 @@ react-resizable-panels@3.0.1:
   resolved "https://registry.yarnpkg.com/react-resizable-panels/-/react-resizable-panels-3.0.1.tgz#857f29509e9afb7895dcbe076f19748576d93f51"
   integrity sha512-6ruCEyw0iqXRcXEktPQn1HL553DNhrdLisCyEdSpzhkmo9bPqZxskJZ+aGeFqJ1qPvIWxuAiag82kvLSb2JZTQ==
 
-react-router-dom@7.15.0:
-  version "7.15.0"
-  resolved "https://registry.yarnpkg.com/react-router-dom/-/react-router-dom-7.15.0.tgz#a4b95c4402d896c2ad437014aff9076b94673063"
-  integrity sha512-VcrVg64Fo8nwBvDscajG8gRTLIuTC6N50nb22l2HOOV4PTOHgoGp8mUjy9wLiHYoYTSYI36tUnXZgasSRFZorQ==
+react-router-dom@7.18.3:
+  version "7.18.3"
+  resolved "https://registry.yarnpkg.com/react-router-dom/-/react-router-dom-7.18.3.tgz#0688c91b4b376c8b0dcaf0a0064975d52a32e0f7"
+  integrity sha512-ytVbyBBM7vMfRCam25r0WMhSVSom909A8p+8m0/f1w853dz/xfFu6etAT2SEbVoSnI+ZoPRDqIsQXVT89gp7kg==
   dependencies:
-    react-router "7.15.0"
+    react-router "7.18.3"
 
-react-router@7.15.0, react-router@7.15.1:
-  version "7.15.1"
-  resolved "https://registry.yarnpkg.com/react-router/-/react-router-7.15.1.tgz#0a12fece05887a47c54970480745385c793bcaac"
-  integrity sha512-R8rl9HhgikFYoPJymnUtPXWbnDb3oget6lQnfIoupbt61aT9aOhRkDsY2XRhZRyX1Z/8a5sL74fXmFNm3NRK5A==
+react-router@7.18.3:
+  version "7.18.3"
+  resolved "https://registry.yarnpkg.com/react-router/-/react-router-7.18.3.tgz#2a3257aa7c5edd5a71f878063e4c7f3fcfc4b76a"
+  integrity sha512-gyXgtdr5uACJ5b1Q4udzjVV+tb/rlHIMJKuJ0e89R4Kzgz47z/rgP0dIKxktqIEUhDHluGTPJJH/wRha7CyqsA==
   dependencies:
     cookie "^1.0.1"
     set-cookie-parser "^2.6.0"

@@ -355,6 +355,7 @@ export default function WatchRoom() {
   };
 
   const like = () => {
+    if (!user) { toast.info("Sign in to like"); return; }
     api.post(`/public/debates/${roomId}/like`).then(({ data }) => {
       setLikes(data.likes);
       setLikeBurst((b) => b + 1);
@@ -362,6 +363,7 @@ export default function WatchRoom() {
   };
 
   const dislike = () => {
+    if (!user) { toast.info("Sign in to react"); return; }
     api.post(`/public/debates/${roomId}/dislike`).then(({ data }) => setDislikes(data.dislikes)).catch(() => {});
   };
 

@@ -25,8 +25,14 @@ export default function ClaimTree() {
   };
   useEffect(load, [clipId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const like = () => api.post(`/clips/${clipId}/like`).then(({ data }) => setClip((c) => ({ ...c, likes: data.likes }))).catch(() => {});
-  const dislike = () => api.post(`/clips/${clipId}/dislike`).then(({ data }) => setClip((c) => ({ ...c, dislikes: data.dislikes }))).catch(() => {});
+  const like = () => {
+    if (!user) { toast.info("Sign in to like"); return; }
+    api.post(`/clips/${clipId}/like`).then(({ data }) => setClip((c) => ({ ...c, likes: data.likes }))).catch(() => {});
+  };
+  const dislike = () => {
+    if (!user) { toast.info("Sign in to react"); return; }
+    api.post(`/clips/${clipId}/dislike`).then(({ data }) => setClip((c) => ({ ...c, dislikes: data.dislikes }))).catch(() => {});
+  };
 
   const openReply = () => {
     if (!user) { toast.info("Sign in to reply"); return; }
