@@ -72,6 +72,12 @@ export default function Watch() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--fg)] focus:text-[var(--bg)] focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
         <div className="px-4 sm:px-6 h-16 flex items-center gap-4">
           <button
@@ -148,7 +154,7 @@ export default function Watch() {
           <SideNav collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebar} />
         </div>
 
-        <main className="flex-1 min-w-0 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <main id="main-content" className="flex-1 min-w-0 max-w-7xl mx-auto px-4 sm:px-6 py-8">
           {!user && (
             <div className="card p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-testid="explainer-banner">
               <div>

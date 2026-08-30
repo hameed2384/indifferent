@@ -183,6 +183,12 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--fg)] focus:text-[var(--bg)] focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <button onClick={() => navigate(-1)} className="btn-ghost text-sm" data-testid="nav-back">← Back</button>
@@ -209,7 +215,7 @@ export default function Profile() {
 
       {/* Cover banner + avatar, YouTube/Twitter-channel style */}
       <div className="h-32 sm:h-44 bg-gradient-to-br from-[var(--accent-soft)] via-[var(--bg-muted)] to-[var(--bg-muted)]" />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+      <div id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6">
         <div className="-mt-12 sm:-mt-16 flex items-end gap-4 sm:gap-5">
           {profile.picture
             ? <img src={profile.picture} alt="" className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover ring-4 ring-[var(--bg)] shrink-0" />

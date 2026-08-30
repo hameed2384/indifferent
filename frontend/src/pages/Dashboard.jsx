@@ -167,6 +167,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--fg)] focus:text-[var(--bg)] focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <button onClick={() => navigate("/")} className="font-heading text-lg font-semibold tracking-tight" data-testid="brand-mark">
@@ -181,7 +187,7 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-14">
+      <main id="main-content" className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-14">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <div className="eyebrow">{firstName ? `Welcome back, ${firstName}` : "Your dashboard"}</div>
