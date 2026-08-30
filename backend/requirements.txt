@@ -1,7 +1,13 @@
 # Runtime dependencies only — this is what Vercel installs and deploys.
 # Dev-only tooling (linters, test runner, formatters) lives in
 # requirements-dev.txt so it never ships in the serverless bundle.
-fastapi==0.110.1
+#
+# fastapi/starlette are pinned together and above CVE-2026-48710 ("BadHost")
+# on purpose: starlette <1.0.1 rebuilds request.url from an unsanitized Host
+# header, which can desync request.url.path from the route that actually
+# dispatched. Do not let starlette drift back below 1.0.1.
+fastapi==0.141.1
+starlette==1.6.0
 uvicorn==0.25.0
 motor==3.3.1
 pymongo==4.6.3
