@@ -49,6 +49,7 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
                 {"subscriber_id": viewer.user_id, "debater_id": user_id, "active": True}, {"_id": 0}
             )
             is_subscribed = sub is not None
+    clips_count = await db.clips.count_documents({"uploader_id": user_id})
     return {
         "user_id": user_id,
         "display_name": doc.get("display_name") or doc.get("name"),
@@ -59,6 +60,10 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
         "allow_friend_requests": bool(doc.get("allow_friend_requests", True)),
         "followers_count": followers_count,
         "following_count": following_count,
+        "debates_count": int(doc.get("debates", 0)),
+        "minds_changed": int(doc.get("minds_changed", 0)),
+        "clips_count": clips_count,
+        "created_at": doc.get("created_at"),
         "is_following": is_following,
         "friend_status": friend_status,
         "is_subscribed": is_subscribed,
@@ -93,6 +98,23 @@ async def list_user_debates(user_id: str):
         "published_at": d.get("published_at"),
     } for d in docs]
     return {"debates": debates, "live_room_id": await find_live_room_id(user_id)}
+
+
+@router.get("/users/{user_id}/clips")
+async def list_user_clips(user_id: str):
+    """Claim Trees content this person has posted — root claims and replies
+    alike, for the profile's Claims tab (the async-video counterpart to the
+    Debates tab above)."""
+    docs = await db.clips.find({"uploader_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"clips": [{
+        "clip_id": d["clip_id"],
+        "parent_clip_id": d.get("parent_clip_id"),
+        "category": d["category"],
+        "caption": d["caption"],
+        "likes": int(d.get("likes", 0)),
+        "reply_count": int(d.get("reply_count", 0)),
+        "created_at": d["created_at"],
+    } for d in docs]}
 
 
 @router.get("/users/me/following")
