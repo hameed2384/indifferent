@@ -8,12 +8,16 @@ Deleting a leaf (no replies) removes it outright, deleting one with replies
 tombstones it instead so the tree stays intact for its children. Unlisted is
 deliberately just one flag, not a full private/unlisted/public tier system
 like a debate's archive_visibility: a clip can have other people's replies
-depending on it being reachable, so "unlisted" only pulls it out of the
-public feed/search (list_root_claims) — it stays fully visible via the
-uploader's profile, direct links, and its place in the reply tree. There is
-no fully-private tier because that could hide a clip out from under a reply
-that points at it. Category lives only on the root claim; every reply
-inherits it so a whole tree always sorts/filters as one topic.
+depending on it being reachable, so "unlisted" only pulls it out of
+discovery/browsing surfaces — the main feed/search (list_root_claims here)
+and, for non-owner visitors, the uploader's profile (routers/profiles.py's
+list_user_clips). It stays fully visible via a direct link and its place in
+the reply tree ("already have the link" / "already part of the thread" are
+not discovery), and the owner still sees it on their own profile so they
+can find and manage it. There is no fully-private tier because that could
+hide a clip out from under a reply that points at it. Category lives only
+on the root claim; every reply inherits it so a whole tree always
+sorts/filters as one topic.
 
 Video storage uses Vercel Blob (storage.py) — public, persistent object
 storage, not the app's own serverless filesystem (which doesn't survive a

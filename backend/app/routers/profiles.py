@@ -107,7 +107,10 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
                 {"subscriber_id": viewer.user_id, "debater_id": user_id, "active": True}, {"_id": 0}
             )
             is_subscribed = sub is not None
-    clips_count = await db.clips.count_documents({"uploader_id": user_id})
+    clips_query = {"uploader_id": user_id}
+    if not (viewer and viewer.user_id == user_id):
+        clips_query["unlisted"] = {"$ne": True}
+    clips_count = await db.clips.count_documents(clips_query)
     return {
         "user_id": user_id,
         "display_name": doc.get("display_name") or doc.get("name"),
@@ -174,11 +177,23 @@ async def list_user_debates(user_id: str, viewer: Optional[User] = Depends(get_c
 
 
 @router.get("/users/{user_id}/clips")
-async def list_user_clips(user_id: str):
+async def list_user_clips(user_id: str, viewer: Optional[User] = Depends(get_current_user_optional)):
     """Claim Trees content this person has posted — root claims and replies
     alike, for the profile's Claims tab (the async-video counterpart to the
-    Debates tab above)."""
-    docs = await db.clips.find({"uploader_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    Debates tab above).
+
+    Owner sees everything, including unlisted, so they can find and manage
+    it; everyone else only sees what's actually listed. "Unlisted" is meant
+    to pull a clip out of browsing/discovery surfaces — the profile's Claims
+    tab is one of those for a non-owner visitor, same as list_root_claims
+    (routers/clips.py) is for the main feed. Direct links and the reply
+    tree are deliberately NOT gated this way (get_clip/list_replies), since
+    those are "already have the link/already part of the thread," not
+    discovery."""
+    query = {"uploader_id": user_id}
+    if not (viewer and viewer.user_id == user_id):
+        query["unlisted"] = {"$ne": True}
+    docs = await db.clips.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"clips": [{
         "clip_id": d["clip_id"],
         "parent_clip_id": d.get("parent_clip_id"),
