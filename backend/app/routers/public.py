@@ -198,8 +198,19 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
     the response's server_time as the next `since`). Replaces the old WS
     'debate-chat' mirror / 'comment' / 'like' / 'spectator-count' pushes.
     Also doubles as this spectator's presence heartbeat when client_id is
-    given — no separate endpoint needed for that."""
-    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
+    given — no separate endpoint needed for that.
+
+    Visibility check must match get_public_debate()'s exactly (is_public OR
+    archived public/unlisted) — this used to only match is_public, which
+    404'd every single poll for an ended/archived debate a few seconds after
+    the initial (correctly permissive) fetch had already loaded it, and the
+    frontend treats a 404 here as "the debate ended, go back" — silently
+    kicking anyone watching a recording back to the feed within ~3 seconds
+    of opening it."""
+    r = await db.rooms.find_one({"room_id": room_id, "$or": [
+        {"is_public": True},
+        {"archive_visibility": {"$in": ["public", "unlisted"]}},
+    ]}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Debate not public or not found")
     await _touch_heartbeat(room_id, client_id)
@@ -231,7 +242,7 @@ async def poll_public_updates(room_id: str, since: Optional[str] = None, client_
     return {
         "events": events,
         "categories": r.get("categories", []),
-        "is_public": True,
+        "is_public": bool(r.get("is_public", False)),
         "likes": int(r.get("likes", 0)),
         "dislikes": int(r.get("dislikes", 0)),
         **tally,

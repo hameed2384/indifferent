@@ -34,6 +34,8 @@ export default function ChatRoom() {
   const startedAtRef = useRef(Date.now());
   const messagesEndRef = useRef(null);
 
+  // Initial fetch: a real failure here means the room genuinely isn't
+  // accessible (not a participant, doesn't exist) — leaving is correct.
   const loadRoom = () => api.get(`/rooms/${roomId}`).then(({ data }) => setRoom(data)).catch(() => {
     toast.error("Room not accessible"); navigate("/dashboard");
   });
@@ -43,9 +45,16 @@ export default function ChatRoom() {
   // Roster/governance can change without a chat message ever being sent (a
   // join request gets approved, a kick vote lands) — poll the room doc
   // itself on its own cadence, separate from the chat/coach poll below.
+  // This must NOT navigate away on failure like the initial loadRoom does:
+  // it was previously reusing loadRoom directly, so a single transient
+  // network blip mid-debate — a cold start, a momentary 5xx — would boot a
+  // participant out of their own live debate. A poll miss here just skips
+  // this cycle; the next tick tries again.
+  const pollRoom = () => api.get(`/rooms/${roomId}`).then(({ data }) => setRoom(data)).catch(() => {});
+
   useEffect(() => {
     if (!room) return;
-    const iv = setInterval(loadRoom, 4000);
+    const iv = setInterval(pollRoom, 4000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, roomId]);
@@ -142,7 +151,7 @@ export default function ChatRoom() {
     setDecidingId(requesterId);
     try {
       await api.post(`/rooms/${roomId}/join-requests/${requesterId}/decide`, { approve });
-      loadRoom();
+      pollRoom();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't record your decision");
     } finally {
@@ -154,7 +163,7 @@ export default function ChatRoom() {
     try {
       const { data } = await api.post(`/rooms/${roomId}/kick-votes`, { target_user_id: targetUserId });
       toast(data.status === "kicked" ? "Removed from the debate." : `Vote recorded (${data.votes?.length || 0}/${data.needed?.length || "?"})`);
-      loadRoom();
+      pollRoom();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't cast vote");
     }

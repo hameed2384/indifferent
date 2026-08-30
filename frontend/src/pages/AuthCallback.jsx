@@ -43,8 +43,8 @@ export default function AuthCallback() {
   }, [location.search, navigate, setUser]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-[#f4f4f0]">
-      <div className="font-mono-ui text-sm tracking-widest uppercase">Establishing session…</div>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--fg)]">
+      <div className="font-mono-ui text-sm tracking-widest uppercase text-[var(--fg-subtle)]">Establishing session…</div>
     </div>
   );
 }
