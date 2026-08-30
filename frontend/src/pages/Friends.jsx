@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Search, UserPlus, Users, Rss } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "@/components/AccountMenu";
 
 function Avatar({ picture, name, size = "w-9 h-9" }) {
   return picture
@@ -218,13 +221,20 @@ function FollowingSection() {
 
 export default function Friends() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="btn-ghost text-sm" data-testid="nav-back-home">← Home</button>
-          <span className="font-heading text-lg font-semibold inline-flex items-center gap-1.5"><UserPlus className="w-4 h-4" /> Friends</span>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate("/")} className="btn-ghost text-sm shrink-0" data-testid="nav-back-home">← Home</button>
+            <span className="font-heading text-lg font-semibold inline-flex items-center gap-1.5 truncate"><UserPlus className="w-4 h-4 shrink-0" /> Friends</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <ThemeToggle />
+            <AccountMenu user={user} logout={logout} />
+          </div>
         </div>
       </nav>
 
