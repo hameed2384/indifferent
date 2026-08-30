@@ -125,9 +125,15 @@ async def list_root_claims(category: Optional[str] = None, q: Optional[str] = No
     if q:
         query["caption"] = {"$regex": re.escape(q.strip()[:200]), "$options": "i"}
     docs = await db.clips.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    # Batched instead of one find_one() per claim — this feeds the Claims
+    # feed page every visitor loads, so up to 100 sequential round-trips
+    # per page load was a real, hot N+1, not a minor one.
+    uploader_ids = list({d["uploader_id"] for d in docs})
+    uploaders = await db.users.find({"user_id": {"$in": uploader_ids}}, {"_id": 0}).to_list(len(uploader_ids)) if uploader_ids else []
+    uploader_by_id = {u["user_id"]: u for u in uploaders}
     out = []
     for d in docs:
-        uploader = await db.users.find_one({"user_id": d["uploader_id"]}, {"_id": 0}) or {}
+        uploader = uploader_by_id.get(d["uploader_id"], {})
         out.append(_clip_public(d, uploader))
     return {"claims": out}
 
@@ -150,10 +156,10 @@ async def get_clip(clip_id: str):
 @router.get("/clips/{clip_id}/replies")
 async def list_replies(clip_id: str):
     docs = await db.clips.find({"parent_clip_id": clip_id}, {"_id": 0}).sort("likes", -1).to_list(100)
-    out = []
-    for d in docs:
-        uploader = await db.users.find_one({"user_id": d["uploader_id"]}, {"_id": 0}) or {}
-        out.append(_clip_public(d, uploader))
+    uploader_ids = list({d["uploader_id"] for d in docs})
+    uploaders = await db.users.find({"user_id": {"$in": uploader_ids}}, {"_id": 0}).to_list(len(uploader_ids)) if uploader_ids else []
+    uploader_by_id = {u["user_id"]: u for u in uploaders}
+    out = [_clip_public(d, uploader_by_id.get(d["uploader_id"], {})) for d in docs]
     return {"replies": out}
 
 

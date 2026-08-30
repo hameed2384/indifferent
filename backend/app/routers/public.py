@@ -23,6 +23,20 @@ async def _spectator_count(room_id: str) -> int:
     return await db.spectator_heartbeats.count_documents({"room_id": room_id})
 
 
+async def _spectator_counts_batch(room_ids: list) -> dict:
+    """room_id -> count, for many rooms in one aggregation instead of one
+    count_documents() per room (see list_public_debates, which used to do
+    that inside a per-room loop — up to 50 sequential round-trips for a
+    single feed load)."""
+    if not room_ids:
+        return {}
+    cursor = db.spectator_heartbeats.aggregate([
+        {"$match": {"room_id": {"$in": room_ids}}},
+        {"$group": {"_id": "$room_id", "count": {"$sum": 1}}},
+    ])
+    return {doc["_id"]: doc["count"] async for doc in cursor}
+
+
 async def _touch_heartbeat(room_id: str, client_id: Optional[str]):
     if not client_id:
         return
@@ -54,6 +68,21 @@ async def _participant_docs(room: dict) -> dict:
     for uid in side_members(room, "a") + side_members(room, "b"):
         docs[uid] = await db.users.find_one({"user_id": uid}, {"_id": 0}) or {}
     return docs
+
+
+async def _participant_docs_batch(rooms: list) -> dict:
+    """user_id -> user doc, across every member of every given room, in one
+    query instead of one find_one() per member per room (see
+    list_public_debates, which used to call _participant_docs() — itself
+    already a small per-room loop — inside its own per-room loop: up to
+    ~200 sequential round-trips for a single 50-room feed page)."""
+    all_ids = set()
+    for r in rooms:
+        all_ids.update(side_members(r, "a") + side_members(r, "b"))
+    if not all_ids:
+        return {}
+    docs = await db.users.find({"user_id": {"$in": list(all_ids)}}, {"_id": 0}).to_list(len(all_ids))
+    return {d["user_id"]: d for d in docs}
 
 
 def _extra_sides(room: dict, docs: dict, side: str) -> list:
@@ -129,9 +158,14 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
         ]}]}
 
     rooms = await db.rooms.find(query, {"_id": 0}).sort("published_at", -1).to_list(50)
+    # Batched instead of per-room lookups (see _participant_docs_batch /
+    # _spectator_counts_batch docstrings) — this endpoint feeds the main
+    # feed page every visitor loads, so an N+1 here was the hottest one
+    # in the app, not a minor one.
+    docs = await _participant_docs_batch(rooms)
+    spectator_counts = await _spectator_counts_batch([r["room_id"] for r in rooms])
     out = []
     for r in rooms:
-        docs = await _participant_docs(r)
         out.append({
             "room_id": r["room_id"],
             "status": r.get("status", "active"),
@@ -139,7 +173,7 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
             "topics": r.get("topics", []),
             "categories": r.get("categories", []),
             "likes": int(r.get("likes", 0)),
-            "spectator_count": await _spectator_count(r["room_id"]),
+            "spectator_count": spectator_counts.get(r["room_id"], 0),
             "published_at": r.get("published_at"),
             "archive_visibility": r.get("archive_visibility"),
             "side_a": _side(docs.get(r["user_a"]), r["user_a"], "Debater A"),
