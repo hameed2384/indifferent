@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
-/** Client brief #3/#29 — ad slots that disappear for £9/mo ad-free
- * subscribers. No third-party ad network is wired up yet (that needs the
- * client's own AdSense/network account, a business decision, not something
- * to sign up for on their behalf) — this renders an honest house placement
- * that also pitches the upgrade, and is the single place a real network's
- * tag would get dropped in later without touching any page that uses it. */
+/** Client brief #3/#29 — ad slots that disappear for £9/mo members
+ * (routers/payments.py: "membership," not "subscription" — that word is
+ * reserved for the separate £2/mo per-debater relationship). AdSense
+ * site-verification is done (public/index.html), but real ad units aren't
+ * wired in yet — that needs actual ad-unit/slot IDs, which only exist once
+ * Google approves the site. Until then this renders an honest house
+ * placement that also pitches membership, and is the single place a real
+ * ad unit would get dropped in later without touching any page that uses it. */
 export default function AdSlot({ variant = "card" }) {
   const { user } = useAuth();
   const navigate = useNavigate();

@@ -73,12 +73,12 @@ export default function Settings() {
     }
   };
 
-  const upgradeAdFree = async () => {
+  const becomeMember = async () => {
     try {
-      const { data } = await api.post("/payments/checkout/platform");
+      const { data } = await api.post("/payments/checkout/membership");
       window.location.href = data.checkout_url;
     } catch (e) {
-      toast.error(e.response?.status === 503 ? "Ad-free isn't live yet" : "Couldn't start checkout");
+      toast.error(e.response?.status === 503 ? "Membership isn't live yet" : "Couldn't start checkout");
     }
   };
 
@@ -183,13 +183,13 @@ export default function Settings() {
           )}
         </Section>
 
-        <Section title="Subscription">
+        <Section title="Membership">
           {user.ad_free ? (
-            <p className="text-sm text-[var(--accent)] font-medium">You're ad-free ✓</p>
+            <p className="text-sm text-[var(--accent)] font-medium">You're a member — no ads anywhere ✓</p>
           ) : (
             <>
-              <p className="text-sm text-[var(--fg-muted)] mb-3">Remove ads everywhere on the site for £9/mo.</p>
-              <button onClick={upgradeAdFree} className="btn-outline text-sm" data-testid="settings-upgrade-ad-free">Upgrade — £9/mo</button>
+              <p className="text-sm text-[var(--fg-muted)] mb-3">Members get no ads anywhere on the site, £9/mo. This is separate from subscribing to a specific debater (from their profile) — membership is about your own experience of the whole platform, not supporting any one person.</p>
+              <button onClick={becomeMember} className="btn-outline text-sm" data-testid="settings-become-member">Become a member — £9/mo</button>
             </>
           )}
         </Section>
