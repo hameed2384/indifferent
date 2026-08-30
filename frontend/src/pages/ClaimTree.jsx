@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import RecordClipModal from "@/components/RecordClipModal";
+import EditClipCaptionModal from "@/components/EditClipCaptionModal";
+import DeleteClipModal from "@/components/DeleteClipModal";
 import { startGoogleLogin } from "@/lib/auth";
 
 export default function ClaimTree() {
@@ -16,6 +18,8 @@ export default function ClaimTree() {
   const [clip, setClip] = useState(null);
   const [replies, setReplies] = useState([]);
   const [showReplyModal, setShowReplyModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const load = () => {
     api.get(`/clips/${clipId}`).then(({ data }) => setClip(data)).catch(() => {
@@ -43,6 +47,15 @@ export default function ClaimTree() {
     return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-sm text-[var(--fg-subtle)]">Loading…</div>;
   }
 
+  const isOwner = !!user && clip.uploader_id === user.user_id;
+
+  const onCaptionSaved = (newCaption) => { setClip((c) => ({ ...c, caption: newCaption })); setShowEditModal(false); };
+  const onClipDeleted = (hardDeleted) => {
+    if (hardDeleted) { navigate("/claims"); return; }
+    setClip((c) => ({ ...c, deleted: true, caption: "[deleted]" }));
+    setShowDeleteModal(false);
+  };
+
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
@@ -65,16 +78,28 @@ export default function ClaimTree() {
         )}
 
         <div className="card overflow-hidden">
-          <video key={clip.clip_id} src={`${API}/clips/${clip.clip_id}/video`} controls className="w-full aspect-video bg-black" data-testid="claim-video" />
+          {clip.deleted ? (
+            <div className="p-10 text-center text-sm text-[var(--fg-subtle)]">This clip was deleted by its creator.</div>
+          ) : (
+            <video key={clip.clip_id} src={`${API}/clips/${clip.clip_id}/video`} controls className="w-full aspect-video bg-black" data-testid="claim-video" />
+          )}
           <div className="p-5">
-            <span className="chip !py-0 !px-1.5 text-[10px]">{clip.category}</span>
+            {!clip.deleted && <span className="chip !py-0 !px-1.5 text-[10px]">{clip.category}</span>}
             <h1 className="font-heading text-xl font-semibold mt-2">"{clip.caption}"</h1>
             <button onClick={() => navigate(`/u/${clip.uploader_id}`)} className="text-sm text-[var(--fg-subtle)] hover:underline mt-1">{clip.uploader_name}</button>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button onClick={like} className="btn-accent" data-testid="btn-like-clip">♥ {clip.likes}</button>
-              <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike-clip"><ThumbsDown className="w-4 h-4" /> {clip.dislikes}</button>
-              <button onClick={openReply} className="btn-primary" data-testid="btn-reply-clip">Reply with video</button>
-            </div>
+            {!clip.deleted && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button onClick={like} className="btn-accent" data-testid="btn-like-clip">♥ {clip.likes}</button>
+                <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike-clip"><ThumbsDown className="w-4 h-4" /> {clip.dislikes}</button>
+                <button onClick={openReply} className="btn-primary" data-testid="btn-reply-clip">Reply with video</button>
+                {isOwner && (
+                  <>
+                    <button onClick={() => setShowEditModal(true)} className="btn-outline" data-testid="btn-edit-clip">Edit caption</button>
+                    <button onClick={() => setShowDeleteModal(true)} className="btn-danger" data-testid="btn-delete-clip">Delete</button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -84,9 +109,13 @@ export default function ClaimTree() {
           <div className="grid sm:grid-cols-2 gap-4">
             {replies.map((r) => (
               <button key={r.clip_id} onClick={() => navigate(`/claims/${r.clip_id}`)} className="card overflow-hidden text-left hover:border-[var(--fg)] transition-colors" data-testid={`reply-card-${r.clip_id}`}>
-                <video src={`${API}/clips/${r.clip_id}/video`} muted preload="metadata" className="w-full aspect-video object-cover bg-black" />
+                {r.deleted ? (
+                  <div className="w-full aspect-video bg-[var(--bg-muted)] flex items-center justify-center text-xs text-[var(--fg-subtle)]">Deleted</div>
+                ) : (
+                  <video src={`${API}/clips/${r.clip_id}/video`} muted preload="metadata" className="w-full aspect-video object-cover bg-black" />
+                )}
                 <div className="p-3">
-                  <div className="text-sm font-medium line-clamp-2">"{r.caption}"</div>
+                  <div className="text-sm font-medium line-clamp-2">{r.deleted ? "Deleted" : `"${r.caption}"`}</div>
                   <div className="text-[11px] text-[var(--fg-subtle)] mt-1">{r.uploader_name} · ♥ {r.likes} · {r.reply_count} {r.reply_count === 1 ? "reply" : "replies"}</div>
                 </div>
               </button>
@@ -103,6 +132,8 @@ export default function ClaimTree() {
           onPosted={(id) => { setShowReplyModal(false); navigate(`/claims/${id}`); }}
         />
       )}
+      {showEditModal && <EditClipCaptionModal clip={clip} onClose={() => setShowEditModal(false)} onSaved={onCaptionSaved} />}
+      {showDeleteModal && <DeleteClipModal clip={clip} onClose={() => setShowDeleteModal(false)} onDeleted={onClipDeleted} />}
     </div>
   );
 }

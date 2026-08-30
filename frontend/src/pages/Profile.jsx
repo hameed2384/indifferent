@@ -6,6 +6,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import EditClipCaptionModal from "@/components/EditClipCaptionModal";
+import DeleteClipModal from "@/components/DeleteClipModal";
+import ArchiveVisibilityModal, { VISIBILITY_LABEL, DEFAULT_VISIBILITY } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
 
 function formatJoinDate(iso) {
@@ -78,34 +81,66 @@ function EmptyState({ title, subtitle }) {
   );
 }
 
-function DebateCardSmall({ d, onClick }) {
+function DebateCardSmall({ d, isSelf, onClick, onManageVisibility }) {
   return (
-    <button onClick={onClick} className="card p-4 text-left hover:border-[var(--fg)] transition-colors" data-testid={`profile-debate-${d.room_id}`}>
-      <div className="flex items-center gap-1.5 mb-1.5">
-        {d.status === "active"
-          ? <span className="chip-accent !py-0 !px-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" /> Live</span>
-          : <span className="chip !py-0 !px-1.5">Published</span>}
-        {d.categories?.[0] && <span className="chip !py-0 !px-1.5">{d.categories[0]}</span>}
-      </div>
-      <div className="text-sm font-medium leading-snug line-clamp-2">{d.topics?.[0] || "An unrecorded disagreement"}</div>
-      <div className="text-xs text-[var(--fg-subtle)] mt-1.5">♥ {d.likes}</div>
-    </button>
+    <div className="card p-4 relative hover:border-[var(--fg)] transition-colors" data-testid={`profile-debate-${d.room_id}`}>
+      <button onClick={onClick} className="block w-full text-left">
+        <div className={`flex items-center gap-1.5 mb-1.5 ${isSelf && d.status === "ended" ? "pr-20" : ""}`}>
+          {d.status === "active"
+            ? <span className="chip-accent !py-0 !px-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" /> Live</span>
+            : <span className="chip !py-0 !px-1.5">Published</span>}
+          {d.categories?.[0] && <span className="chip !py-0 !px-1.5">{d.categories[0]}</span>}
+        </div>
+        <div className="text-sm font-medium leading-snug line-clamp-2">{d.topics?.[0] || "An unrecorded disagreement"}</div>
+        <div className="text-xs text-[var(--fg-subtle)] mt-1.5">♥ {d.likes}</div>
+      </button>
+      {isSelf && d.status === "ended" && (
+        <button
+          onClick={() => onManageVisibility(d)}
+          className="absolute top-3 right-3 z-10 btn-outline !px-2 !py-1 !text-xs"
+          data-testid={`btn-manage-visibility-${d.room_id}`}
+        >
+          {VISIBILITY_LABEL[d.archive_visibility || DEFAULT_VISIBILITY]}
+        </button>
+      )}
+    </div>
   );
 }
 
-function ClipCardSmall({ c, onClick }) {
+function ClipCardSmall({ c, isSelf, onClick, onEdit, onDelete }) {
   return (
-    <button onClick={onClick} className="card overflow-hidden text-left hover:border-[var(--fg)] transition-colors" data-testid={`profile-clip-${c.clip_id}`}>
-      <video src={`${API}/clips/${c.clip_id}/video`} muted preload="metadata" className="w-full aspect-video object-cover bg-black" />
-      <div className="p-3">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="chip !py-0 !px-1.5 text-[10px]">{c.category}</span>
-          {c.parent_clip_id && <span className="chip !py-0 !px-1.5 text-[10px]">Reply</span>}
+    <div className="card overflow-hidden relative hover:border-[var(--fg)] transition-colors" data-testid={`profile-clip-${c.clip_id}`}>
+      <button onClick={onClick} className="block w-full text-left">
+        {c.deleted ? (
+          <div className="w-full aspect-video bg-[var(--bg-muted)] flex items-center justify-center text-xs text-[var(--fg-subtle)]">Deleted</div>
+        ) : (
+          <video src={`${API}/clips/${c.clip_id}/video`} muted preload="metadata" className="w-full aspect-video object-cover bg-black" />
+        )}
+        <div className="p-3">
+          {c.deleted ? (
+            <>
+              <div className="text-sm text-[var(--fg-subtle)] italic">Deleted</div>
+              {c.reply_count > 0 && <div className="text-xs text-[var(--fg-subtle)] mt-1">{c.reply_count} {c.reply_count === 1 ? "reply" : "replies"} still visible</div>}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="chip !py-0 !px-1.5 text-[10px]">{c.category}</span>
+                {c.parent_clip_id && <span className="chip !py-0 !px-1.5 text-[10px]">Reply</span>}
+              </div>
+              <div className="text-sm font-medium leading-snug line-clamp-2">"{c.caption}"</div>
+              <div className="text-xs text-[var(--fg-subtle)] mt-1">♥ {c.likes} · {c.reply_count} {c.reply_count === 1 ? "reply" : "replies"}</div>
+            </>
+          )}
         </div>
-        <div className="text-sm font-medium leading-snug line-clamp-2">"{c.caption}"</div>
-        <div className="text-xs text-[var(--fg-subtle)] mt-1">♥ {c.likes} · {c.reply_count} {c.reply_count === 1 ? "reply" : "replies"}</div>
-      </div>
-    </button>
+      </button>
+      {isSelf && !c.deleted && (
+        <div className="absolute top-2 right-2 z-10 flex gap-1 bg-[var(--surface)]/90 backdrop-blur rounded-lg p-1">
+          <button onClick={() => onEdit(c)} className="btn-outline !px-2 !py-1 !text-xs" data-testid={`btn-edit-clip-${c.clip_id}`}>Edit</button>
+          <button onClick={() => onDelete(c)} className="btn-danger !px-2 !py-1 !text-xs" data-testid={`btn-delete-clip-${c.clip_id}`}>Delete</button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -127,6 +162,9 @@ export default function Profile() {
   const [notFound, setNotFound] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
   const [tab, setTab] = useState("debates");
+  const [editingClip, setEditingClip] = useState(null);
+  const [deletingClip, setDeletingClip] = useState(null);
+  const [visibilityDebate, setVisibilityDebate] = useState(null);
 
   const load = () => {
     api.get(`/users/${userId}`).then(({ data }) => setProfile(data)).catch(() => setNotFound(true));
@@ -161,6 +199,23 @@ export default function Profile() {
     } finally {
       setSubLoading(false);
     }
+  };
+
+  const onClipEdited = (newCaption) => {
+    setClips((cs) => cs.map((c) => (c.clip_id === editingClip.clip_id ? { ...c, caption: newCaption } : c)));
+    setEditingClip(null);
+  };
+  const onClipDeleted = (hardDeleted) => {
+    const id = deletingClip.clip_id;
+    setClips((cs) => hardDeleted
+      ? cs.filter((c) => c.clip_id !== id)
+      : cs.map((c) => (c.clip_id === id ? { ...c, deleted: true, caption: "[deleted]" } : c)));
+    setDeletingClip(null);
+  };
+  const onVisibilitySaved = (visibility) => {
+    const id = visibilityDebate.room_id;
+    setDebates((ds) => ds.map((d) => (d.room_id === id ? { ...d, archive_visibility: visibility } : d)));
+    setVisibilityDebate(null);
   };
 
   const share = async () => {
@@ -303,7 +358,15 @@ export default function Profile() {
               <EmptyState title="No debates yet" subtitle={profile.is_self ? "Find your opposite from the home page to start one." : "Nothing public here yet."} />
             ) : (
               <div className="grid sm:grid-cols-2 gap-4">
-                {debates.map((d) => <DebateCardSmall key={d.room_id} d={d} onClick={() => navigate(`/watch/${d.room_id}`)} />)}
+                {debates.map((d) => (
+                  <DebateCardSmall
+                    key={d.room_id}
+                    d={d}
+                    isSelf={profile.is_self}
+                    onClick={() => navigate(`/watch/${d.room_id}`)}
+                    onManageVisibility={setVisibilityDebate}
+                  />
+                ))}
               </div>
             )
           )}
@@ -313,7 +376,16 @@ export default function Profile() {
               <EmptyState title="No claims yet" subtitle={profile.is_self ? "State a claim on video from the Claims page to start a tree." : "Nothing posted here yet."} />
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {clips.map((c) => <ClipCardSmall key={c.clip_id} c={c} onClick={() => navigate(`/claims/${c.clip_id}`)} />)}
+                {clips.map((c) => (
+                  <ClipCardSmall
+                    key={c.clip_id}
+                    c={c}
+                    isSelf={profile.is_self}
+                    onClick={() => navigate(`/claims/${c.clip_id}`)}
+                    onEdit={setEditingClip}
+                    onDelete={setDeletingClip}
+                  />
+                ))}
               </div>
             )
           )}
@@ -332,6 +404,10 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      {editingClip && <EditClipCaptionModal clip={editingClip} onClose={() => setEditingClip(null)} onSaved={onClipEdited} />}
+      {deletingClip && <DeleteClipModal clip={deletingClip} onClose={() => setDeletingClip(null)} onDeleted={onClipDeleted} />}
+      {visibilityDebate && <ArchiveVisibilityModal debate={visibilityDebate} onClose={() => setVisibilityDebate(null)} onSaved={onVisibilitySaved} />}
     </div>
   );
 }
