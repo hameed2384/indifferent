@@ -22,7 +22,7 @@ export default function Verify() {
       await api.post("/verify/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
       await checkAuth();
       toast.success("Verified. Welcome.");
-      navigate("/dashboard");
+      navigate("/match");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Upload failed. Try again.");
     } finally {
@@ -35,7 +35,7 @@ export default function Verify() {
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/dashboard")} className="btn-ghost text-sm shrink-0" data-testid="nav-back-dashboard">← Dashboard</button>
+            <button onClick={() => navigate("/")} className="btn-ghost text-sm shrink-0" data-testid="nav-back-home">← Home</button>
             <span className="font-heading text-lg font-semibold truncate">Verify</span>
           </div>
           <div className="flex items-center gap-3 shrink-0">

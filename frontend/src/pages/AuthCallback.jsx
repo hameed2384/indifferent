@@ -33,7 +33,8 @@ export default function AuthCallback() {
         setUser(data.user);
         // Onboarded users land back on the feed (home), same as YouTube/Twitch
         // return you to the feed after signing in rather than a separate
-        // account page — Dashboard is still one click away via the avatar menu.
+        // account page — profile/friends/settings are still one click away
+        // via the avatar menu.
         const target = data.user.onboarded ? "/" : "/onboarding";
         navigate(target, { replace: true, state: { user: data.user } });
       } catch (e) {

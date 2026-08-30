@@ -86,7 +86,7 @@ export default function Settings() {
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <button onClick={() => navigate("/dashboard")} className="btn-ghost text-sm" data-testid="nav-back-dashboard">← Dashboard</button>
+          <button onClick={() => navigate("/")} className="btn-ghost text-sm" data-testid="nav-back-home">← Home</button>
           <span className="font-heading text-lg font-semibold">Settings</span>
         </div>
       </nav>

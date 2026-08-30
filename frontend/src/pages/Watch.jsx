@@ -35,6 +35,11 @@ export default function Watch() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  const findMatch = () => {
+    if (!user.id_verified) return navigate("/verify");
+    navigate("/match");
+  };
+
   useEffect(() => {
     api.get("/categories").then(({ data }) => setCategories(data.categories || [])).catch(() => {});
   }, []);
@@ -165,6 +170,17 @@ export default function Watch() {
                 </p>
               </div>
               <button onClick={startGoogleLogin} className="btn-primary text-sm shrink-0" data-testid="explainer-sign-in">Sign in to start</button>
+            </div>
+          )}
+
+          {user && (
+            <div className="card p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-testid="match-banner">
+              <div>
+                <div className="eyebrow mb-1">Ready when you are</div>
+                <div className="font-heading text-lg sm:text-xl font-semibold">Find your sharpest opposing viewpoint.</div>
+                <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">One click and we'll match you with someone who disagrees, for a real debate.</p>
+              </div>
+              <button onClick={findMatch} className="btn-accent text-sm shrink-0" data-testid="btn-find-match">Find my opposite</button>
             </div>
           )}
 

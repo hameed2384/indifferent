@@ -58,7 +58,7 @@ export default function Match() {
   const cancel = async () => {
     if (pollRef.current) clearInterval(pollRef.current);
     try { await api.post("/match/cancel"); } catch { /* noop */ }
-    navigate("/dashboard");
+    navigate("/");
   };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);

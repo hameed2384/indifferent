@@ -12,7 +12,7 @@ export default function AdSlot({ variant = "card" }) {
   const navigate = useNavigate();
   if (user?.ad_free) return null;
 
-  const goUpgrade = () => navigate(user ? "/dashboard" : "/");
+  const goUpgrade = () => navigate(user ? "/settings" : "/");
 
   if (variant === "banner") {
     return (

@@ -38,7 +38,7 @@ export default function ChatRoom() {
   // Initial fetch: a real failure here means the room genuinely isn't
   // accessible (not a participant, doesn't exist) — leaving is correct.
   const loadRoom = () => api.get(`/rooms/${roomId}`).then(({ data }) => setRoom(data)).catch(() => {
-    toast.error("Room not accessible"); navigate("/dashboard");
+    toast.error("Room not accessible"); navigate("/");
   });
 
   useEffect(() => { loadRoom(); }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -144,7 +144,7 @@ export default function ChatRoom() {
     try {
       await api.post(`/rooms/${roomId}/feedback`, { room_id: roomId, rating, mind_changed: mindChanged, notes });
       toast.success("Thanks. That's how discourse gets better.");
-      navigate("/dashboard");
+      navigate("/");
     } catch { toast.error("Feedback failed"); }
   };
 

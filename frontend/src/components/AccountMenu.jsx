@@ -38,10 +38,11 @@ export default function AccountMenu({ user, logout }) {
             Go to your profile
           </button>
           <button
-            onClick={() => { setOpen(false); navigate("/dashboard"); }}
+            onClick={() => { setOpen(false); navigate("/friends"); }}
             className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--bg-muted)]"
+            data-testid="account-menu-friends"
           >
-            Dashboard
+            Friends
           </button>
           <button
             onClick={() => { setOpen(false); navigate("/settings"); }}

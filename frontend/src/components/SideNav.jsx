@@ -125,9 +125,9 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
           !collapsed && <p className="px-3 py-4 text-xs text-[var(--fg-subtle)]">Sign in to see friends, follows, and subscriptions here.</p>
         ) : (
           <>
-            <Section title="Friends" icon={Users} entries={friends} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/dashboard"); onClose?.(); }} emptyHint="No friends yet" />
-            <Section title="Subscriptions" icon={Star} entries={subscriptions} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/dashboard"); onClose?.(); }} emptyHint="Subscribe to a debater's channel" />
-            <Section title="Following" icon={Rss} entries={following} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/dashboard"); onClose?.(); }} emptyHint="Follow debaters to see them here" />
+            <Section title="Friends" icon={Users} entries={friends} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="No friends yet" />
+            <Section title="Subscriptions" icon={Star} entries={subscriptions} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="Subscribe to a debater's channel" />
+            <Section title="Following" icon={Rss} entries={following} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="Follow debaters to see them here" />
           </>
         )}
       </div>

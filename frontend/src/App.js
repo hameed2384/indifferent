@@ -3,7 +3,7 @@ import { Toaster } from "sonner";
 import { useTheme } from "@/hooks/use-theme";
 import "@/App.css";
 import AuthCallback from "@/pages/AuthCallback";
-import Dashboard from "@/pages/Dashboard";
+import Friends from "@/pages/Friends";
 import Onboarding from "@/pages/Onboarding";
 import Verify from "@/pages/Verify";
 import Match from "@/pages/Match";
@@ -32,7 +32,7 @@ function RouterInner() {
       <Route path="/claims/:clipId" element={<ClaimTree />} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/verify" element={<ProtectedRoute requireOnboarded><Verify /></ProtectedRoute>} />
-      <Route path="/dashboard" element={<ProtectedRoute requireOnboarded><Dashboard /></ProtectedRoute>} />
+      <Route path="/friends" element={<ProtectedRoute requireOnboarded><Friends /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute requireOnboarded><Settings /></ProtectedRoute>} />
       <Route path="/match" element={<ProtectedRoute requireOnboarded requireVerified><Match /></ProtectedRoute>} />
       <Route path="/room/:roomId" element={<ProtectedRoute requireOnboarded requireVerified><ChatRoom /></ProtectedRoute>} />

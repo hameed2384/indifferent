@@ -104,7 +104,7 @@ export default function PrivateChat() {
       <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-4 text-center px-6">
         <div className="eyebrow">Private chat</div>
         <p className="text-[var(--fg-muted)]">This chat is friends-only, and you two aren't friends.</p>
-        <Link to="/dashboard" className="btn-outline text-sm">Back to dashboard</Link>
+        <Link to="/friends" className="btn-outline text-sm">Back to friends</Link>
       </div>
     );
   }
@@ -120,7 +120,7 @@ export default function PrivateChat() {
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)]">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between gap-3">
-          <button onClick={() => navigate("/dashboard")} className="btn-ghost text-sm" data-testid="nav-back-dashboard">← Dashboard</button>
+          <button onClick={() => navigate("/friends")} className="btn-ghost text-sm" data-testid="nav-back-friends">← Friends</button>
           <div className="text-sm font-medium truncate">{friend?.display_name || "…"}</div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

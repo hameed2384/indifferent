@@ -1,6 +1,6 @@
 User-agent: *
 Allow: /
-Disallow: /dashboard
+Disallow: /friends
 Disallow: /settings
 Disallow: /verify
 Disallow: /onboarding
