@@ -76,3 +76,23 @@ async def create_indexes():
     # Post-debate feedback (routers/rooms.py) — dashboard stats reads a
     # user's recent feedback history.
     await db.feedback.create_index([("user_id", 1), ("created_at", -1)])
+
+    # "Is this person live right now" (room_utils.find_live_room_id) fans out
+    # across profiles/friends/follows/subscriptions sidebars — was an
+    # unindexed full scan on every one of those.
+    await db.rooms.create_index("user_a")
+    await db.rooms.create_index("user_b")
+    await db.rooms.create_index("extra_a")
+    await db.rooms.create_index("extra_b")
+
+    # Per-user reactions (app/reactions.py) — one like/dislike per (item,
+    # user, kind); the uniqueness is what makes vote-stuffing impossible,
+    # not just a lookup optimization.
+    await db.clip_reactions.create_index([("clip_id", 1), ("user_id", 1), ("kind", 1)], unique=True)
+    await db.room_reactions.create_index([("room_id", 1), ("user_id", 1), ("kind", 1)], unique=True)
+
+    # Profile view (routers/profiles.py) counts/lists a user's own clips on
+    # every visit; list_root_claims' default (no-category) browse sorts by
+    # created_at, which (parent_clip_id, likes) alone can't serve.
+    await db.clips.create_index([("uploader_id", 1), ("created_at", -1)])
+    await db.clips.create_index([("parent_clip_id", 1), ("created_at", -1)])

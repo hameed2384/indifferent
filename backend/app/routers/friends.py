@@ -6,9 +6,10 @@ these three stay separate systems, not a unified "relationship" table.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from pymongo.errors import DuplicateKeyError
 
 from ..db import db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_xhr
 from ..models import User
 from ..room_utils import find_live_room_id
 
@@ -20,7 +21,7 @@ def _pair_query(a: str, b: str) -> dict:
 
 
 @router.post("/friends/request/{user_id}")
-async def send_friend_request(user_id: str, user: User = Depends(get_current_user)):
+async def send_friend_request(user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     if user_id == user.user_id:
         raise HTTPException(status_code=400, detail="Can't friend yourself")
     target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
@@ -32,15 +33,26 @@ async def send_friend_request(user_id: str, user: User = Depends(get_current_use
     if existing:
         raise HTTPException(status_code=400, detail=f"Already {existing['status']}")
     now = datetime.now(timezone.utc).isoformat()
-    await db.friendships.insert_one({
-        "user_a": user.user_id, "user_b": user_id, "status": "pending",
-        "requested_by": user.user_id, "created_at": now, "responded_at": None,
-    })
+    # Store the pair in a canonical (sorted) order so the (user_a, user_b)
+    # unique index actually enforces "one row per pair" — who requested is
+    # tracked separately via requested_by, never inferred from a/b order, so
+    # this doesn't change any read site's meaning. Without this, A requesting
+    # B and B requesting A in the same race window (both find_one checks
+    # above racing past each other) can each pass the "not existing" check
+    # and insert two reversed-order rows the unique index can't catch.
+    lo, hi = sorted([user.user_id, user_id])
+    try:
+        await db.friendships.insert_one({
+            "user_a": lo, "user_b": hi, "status": "pending",
+            "requested_by": user.user_id, "created_at": now, "responded_at": None,
+        })
+    except DuplicateKeyError:
+        raise HTTPException(status_code=400, detail="A request between you two already exists")
     return {"status": "pending"}
 
 
 @router.post("/friends/accept/{user_id}")
-async def accept_friend_request(user_id: str, user: User = Depends(get_current_user)):
+async def accept_friend_request(user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     doc = await db.friendships.find_one(_pair_query(user.user_id, user_id), {"_id": 0})
     if not doc or doc["status"] != "pending":
         raise HTTPException(status_code=404, detail="No pending request")
@@ -54,7 +66,7 @@ async def accept_friend_request(user_id: str, user: User = Depends(get_current_u
 
 
 @router.post("/friends/reject/{user_id}")
-async def reject_friend_request(user_id: str, user: User = Depends(get_current_user)):
+async def reject_friend_request(user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     doc = await db.friendships.find_one(_pair_query(user.user_id, user_id), {"_id": 0})
     if not doc or doc["status"] != "pending":
         raise HTTPException(status_code=404, detail="No pending request")
@@ -63,7 +75,7 @@ async def reject_friend_request(user_id: str, user: User = Depends(get_current_u
 
 
 @router.delete("/friends/{user_id}")
-async def remove_friend(user_id: str, user: User = Depends(get_current_user)):
+async def remove_friend(user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     await db.friendships.delete_one(_pair_query(user.user_id, user_id))
     return {"status": "none"}
 
@@ -88,7 +100,7 @@ async def list_friends(user: User = Depends(get_current_user)):
 
 
 @router.post("/users/me/friend-privacy")
-async def set_friend_privacy(allow: bool, user: User = Depends(get_current_user)):
+async def set_friend_privacy(allow: bool, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """Client brief #5 — disable friend requests entirely."""
     await db.users.update_one({"user_id": user.user_id}, {"$set": {"allow_friend_requests": allow}})
     return {"allow_friend_requests": allow}

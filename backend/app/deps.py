@@ -48,3 +48,20 @@ async def get_current_user_optional(
         return await get_current_user(request, authorization, session_token)
     except HTTPException:
         return None
+
+
+async def require_xhr(x_requested_with: Optional[str] = Header(None)):
+    """CSRF mitigation for cookie-authenticated, body-less mutating endpoints
+    (a plain cross-site <form method=POST> can't set a custom header). The
+    session cookie is SameSite=None in production (required for the
+    cross-origin frontend/backend split — see config.COOKIE_SECURE), so it's
+    sent on any third-party site's request; a simple request with no custom
+    headers and no non-form Content-Type needs no CORS preflight at all, so
+    CORS's origin allowlist never even gets consulted. Requiring this header
+    forces a preflight, and *that* is what the origin allowlist blocks for
+    everything except the real frontend. lib/api.js sets this on every
+    request; nothing else needs to opt in per-call. Endpoints that already
+    take a real JSON body are already preflighted (implicitly protected) and
+    don't need this."""
+    if not x_requested_with:
+        raise HTTPException(status_code=403, detail="Missing required header")

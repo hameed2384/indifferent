@@ -30,7 +30,8 @@ def quiz_to_scores(answers: Dict[str, int]) -> tuple[float, float]:
         raw = answers.get(q["id"])
         if raw is None:
             continue
-        v = (int(raw) - 3) * 5  # 1..5 -> -10..10
+        raw = max(1, min(5, int(raw)))  # clamp: a bogus answer shouldn't be able to blow the -10..10 stance range
+        v = (raw - 3) * 5  # 1..5 -> -10..10
         if q["invert"]:
             v = -v
         (econ_vals if q["axis"] == "economic" else soc_vals).append(v)
@@ -41,17 +42,18 @@ def quiz_to_scores(answers: Dict[str, int]) -> tuple[float, float]:
 
 @router.post("/onboarding/submit", response_model=User)
 async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_current_user)):
+    free_text = (payload.free_text or "")[:3000]
     econ_q, soc_q = quiz_to_scores(payload.quiz_answers or {})
-    ai_stance = await analyze_free_text(payload.free_text or "")
+    ai_stance = await analyze_free_text(free_text)
     # Blend: 60% AI free-text (if provided) + 40% quiz. If no free text, 100% quiz.
-    if payload.free_text and payload.free_text.strip():
+    if free_text.strip():
         econ = 0.6 * ai_stance.economic + 0.4 * econ_q
         soc = 0.6 * ai_stance.social + 0.4 * soc_q
     else:
         econ, soc = econ_q, soc_q
     final = StanceScores(
-        economic=round(econ, 2),
-        social=round(soc, 2),
+        economic=round(max(-10.0, min(10.0, econ)), 2),
+        social=round(max(-10.0, min(10.0, soc)), 2),
         summary=ai_stance.summary or "Stance derived from quiz answers.",
         tags=ai_stance.tags,
     )

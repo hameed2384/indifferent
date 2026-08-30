@@ -6,14 +6,14 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from ..config import STORAGE_DIR
 from ..db import db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_xhr
 from ..models import User
 
 router = APIRouter()
 
 
 @router.post("/verify/upload")
-async def upload_id(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+async def upload_id(file: UploadFile = File(...), user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """Local-disk storage on purpose, not the shared Vercel Blob store
     clips.py uses: that store is public (anyone with the URL), and an ID
     document is exactly the kind of thing that must never end up on a
@@ -23,7 +23,7 @@ async def upload_id(file: UploadFile = File(...), user: User = Depends(get_curre
     if one gets built later. Same "doesn't survive a cold start on
     serverless" caveat as before applies, but with no read path, that's
     inert rather than a live bug."""
-    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin"
     if ext not in {"jpg", "jpeg", "png", "webp", "pdf"}:
         raise HTTPException(status_code=400, detail="Unsupported file type")
     data = await file.read()

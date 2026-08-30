@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -5,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..db import db
-from ..deps import get_current_user, get_current_user_optional
+from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..llm import analyze_vote_reasoning
 from ..models import User
+from ..reactions import react_once
 from ..room_utils import MAX_PER_SIDE, is_participant, member_side, side_members
 from ..topic_stances import upsert_topic_stance
 
@@ -62,7 +64,7 @@ def _extra_sides(room: dict, docs: dict, side: str) -> list:
 
 
 @router.post("/rooms/{room_id}/publish")
-async def toggle_publish(room_id: str, user: User = Depends(get_current_user)):
+async def toggle_publish(room_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """Either ORIGINAL debater flips their consent — party partners and any
     subscriber who joined later don't get a vote on publishing, same as they
     don't get a vote on kicking (client brief #13). Room goes public when
@@ -116,9 +118,14 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
     if category:
         query = {"$and": [query, {"categories": category}]}
     if q:
+        # re.escape: q is user-supplied free text, not regex syntax — without
+        # this, a caller can hand Mongo their own regex metacharacters
+        # (nested quantifiers etc.) and force pathological, expensive
+        # matching server-side.
+        pattern = re.escape(q.strip()[:200])
         query = {"$and": [query, {"$or": [
-            {"topics": {"$regex": q, "$options": "i"}},
-            {"categories": {"$regex": q, "$options": "i"}},
+            {"topics": {"$regex": pattern, "$options": "i"}},
+            {"categories": {"$regex": pattern, "$options": "i"}},
         ]}]}
 
     rooms = await db.rooms.find(query, {"_id": 0}).sort("published_at", -1).to_list(50)
@@ -274,21 +281,23 @@ async def post_comment(room_id: str, payload: SpectatorCommentIn, user: Optional
 
 
 @router.post("/public/debates/{room_id}/like")
-async def like_debate(room_id: str):
+async def like_debate(room_id: str, user: User = Depends(get_current_user)):
     r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
-    await db.rooms.update_one({"room_id": room_id}, {"$inc": {"likes": 1}})
+    if await react_once(db.room_reactions, "room_id", room_id, user.user_id, "like"):
+        await db.rooms.update_one({"room_id": room_id}, {"$inc": {"likes": 1}})
     fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     return {"likes": int(fresh.get("likes", 0))}
 
 
 @router.post("/public/debates/{room_id}/dislike")
-async def dislike_debate(room_id: str):
+async def dislike_debate(room_id: str, user: User = Depends(get_current_user)):
     r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
-    await db.rooms.update_one({"room_id": room_id}, {"$inc": {"dislikes": 1}})
+    if await react_once(db.room_reactions, "room_id", room_id, user.user_id, "dislike"):
+        await db.rooms.update_one({"room_id": room_id}, {"$inc": {"dislikes": 1}})
     fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     return {"dislikes": int(fresh.get("dislikes", 0))}
 

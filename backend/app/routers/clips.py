@@ -17,6 +17,7 @@ body limit is the real constraint here, not an arbitrary product choice) —
 in practice that's roughly a 15-20 second clip at a modest bitrate, which
 the recording UI enforces client-side.
 """
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -27,8 +28,9 @@ from fastapi.responses import RedirectResponse
 from ..categories import CATEGORIES
 from ..config import APP_NAME
 from ..db import db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_xhr
 from ..models import User
+from ..reactions import react_once
 from ..storage import put_object
 
 router = APIRouter()
@@ -62,6 +64,7 @@ async def upload_clip(
     parent_clip_id: Optional[str] = Form(None),
     video: UploadFile = File(...),
     user: User = Depends(get_current_user),
+    _xhr: None = Depends(require_xhr),
 ):
     caption = caption.strip()[:MAX_CAPTION]
     if not caption:
@@ -120,7 +123,7 @@ async def list_root_claims(category: Optional[str] = None, q: Optional[str] = No
     if category:
         query["category"] = category
     if q:
-        query["caption"] = {"$regex": q, "$options": "i"}
+        query["caption"] = {"$regex": re.escape(q.strip()[:200]), "$options": "i"}
     docs = await db.clips.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     out = []
     for d in docs:
@@ -174,20 +177,22 @@ async def get_clip_video(clip_id: str):
 
 
 @router.post("/clips/{clip_id}/like")
-async def like_clip(clip_id: str):
+async def like_clip(clip_id: str, user: User = Depends(get_current_user)):
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")
-    await db.clips.update_one({"clip_id": clip_id}, {"$inc": {"likes": 1}})
+    if await react_once(db.clip_reactions, "clip_id", clip_id, user.user_id, "like"):
+        await db.clips.update_one({"clip_id": clip_id}, {"$inc": {"likes": 1}})
     fresh = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     return {"likes": int(fresh.get("likes", 0))}
 
 
 @router.post("/clips/{clip_id}/dislike")
-async def dislike_clip(clip_id: str):
+async def dislike_clip(clip_id: str, user: User = Depends(get_current_user)):
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")
-    await db.clips.update_one({"clip_id": clip_id}, {"$inc": {"dislikes": 1}})
+    if await react_once(db.clip_reactions, "clip_id", clip_id, user.user_id, "dislike"):
+        await db.clips.update_one({"clip_id": clip_id}, {"$inc": {"dislikes": 1}})
     fresh = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     return {"dislikes": int(fresh.get("dislikes", 0))}

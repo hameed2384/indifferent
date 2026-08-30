@@ -4,10 +4,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from pymongo import ReturnDocument
 
 from ..categories import CATEGORIES
 from ..db import db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_xhr
 from ..hubs import maybe_detect_topic_drift, maybe_run_coach
 from ..models import (
     ArchiveVisibility,
@@ -188,12 +189,16 @@ async def poll_messages(room_id: str, since: Optional[str] = None, user: User = 
 
 @router.post("/rooms/{room_id}/feedback")
 async def submit_feedback(room_id: str, fb: MatchFeedback, user: User = Depends(get_current_user)):
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_participant(room, user.user_id)
+    rating = max(1, min(5, fb.rating))
+    notes = (fb.notes or "")[:1000]
     await db.feedback.insert_one({
         "room_id": room_id,
         "user_id": user.user_id,
-        "rating": fb.rating,
+        "rating": rating,
         "mind_changed": fb.mind_changed,
-        "notes": fb.notes,
+        "notes": notes,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     inc = {"debates": 1}
@@ -281,21 +286,52 @@ async def decide_join_request(room_id: str, requester_id: str, payload: JoinRequ
         await db.room_join_requests.delete_one({"room_id": room_id, "user_id": requester_id})
         return {"status": "rejected"}
 
-    approvals = list(set(req.get("approvals", []) + [user.user_id]))
+    # $addToSet on find_one_and_update is a single atomic document op — unlike
+    # read-array/append-in-Python/$set-whole-array, two founders approving
+    # within the same instant can't clobber each other's vote (each request
+    # returning the post-update doc means "approvals" always reflects every
+    # write that's actually landed, not a stale Python-side snapshot).
+    updated = await db.room_join_requests.find_one_and_update(
+        {"room_id": room_id, "user_id": requester_id},
+        {"$addToSet": {"approvals": user.user_id}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="No pending request")
+    approvals = updated.get("approvals", [])
     founding = founding_members(room)
     if not set(founding).issubset(approvals):
-        await db.room_join_requests.update_one(
-            {"room_id": room_id, "user_id": requester_id}, {"$set": {"approvals": approvals}}
-        )
         return {"status": "pending", "approvals": approvals, "needed": founding}
 
-    # Unanimous — seat them and clear the request.
+    # Unanimous — seat them and clear the request. find_one_and_delete is the
+    # atomic "am I the one who gets to seat them" gate: if two founders' final
+    # votes both observe unanimity, only whichever one actually deletes the
+    # request document proceeds past this point.
+    deleted = await db.room_join_requests.find_one_and_delete({"room_id": room_id, "user_id": requester_id})
+    if not deleted:
+        return {"status": "approved"}
     side = req["side"]
-    if len(side_members(room, side)) >= MAX_PER_SIDE:
-        await db.room_join_requests.delete_one({"room_id": room_id, "user_id": requester_id})
+    # The capacity check and the seat-add must be one atomic operation, not a
+    # read-then-write — two different requesters approved to unanimity for
+    # the same side within the same instant would otherwise both pass a
+    # capacity check against a stale `room` snapshot and together overfill it.
+    side_field, extra_field = f"user_{side}", f"extra_{side}"
+    room_after = await db.rooms.find_one_and_update(
+        {
+            "room_id": room_id,
+            "$expr": {"$lt": [
+                {"$add": [
+                    {"$cond": [{"$ifNull": [f"${side_field}", False]}, 1, 0]},
+                    {"$size": {"$ifNull": [f"${extra_field}", []]}},
+                ]},
+                MAX_PER_SIDE,
+            ]},
+        },
+        {"$addToSet": {extra_field: requester_id}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not room_after:
         raise HTTPException(status_code=400, detail="That side filled up while this request was pending")
-    await db.rooms.update_one({"room_id": room_id}, {"$addToSet": {f"extra_{side}": requester_id}})
-    await db.room_join_requests.delete_one({"room_id": room_id, "user_id": requester_id})
     return {"status": "approved"}
 
 
@@ -310,25 +346,36 @@ async def cast_kick_vote(room_id: str, payload: KickVoteCreate, user: User = Dep
     if payload.target_user_id in founding or not is_participant(room, payload.target_user_id):
         raise HTTPException(status_code=400, detail="Target must be a non-founding participant")
 
-    doc = await db.room_kick_votes.find_one({"room_id": room_id, "target_user_id": payload.target_user_id}, {"_id": 0})
-    votes = list(set((doc.get("votes", []) if doc else []) + [user.user_id]))
+    # $addToSet, not read-array/append/$set-whole-array — see the identical
+    # reasoning on join-request approvals above; this was the same
+    # lost-update shape (two founders voting within the same instant could
+    # clobber each other's vote and a unanimous kick would never complete).
+    updated = await db.room_kick_votes.find_one_and_update(
+        {"room_id": room_id, "target_user_id": payload.target_user_id},
+        {
+            "$addToSet": {"votes": user.user_id},
+            "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()},
+        },
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    votes = updated.get("votes", [])
 
     if not set(founding).issubset(votes):
-        await db.room_kick_votes.update_one(
-            {"room_id": room_id, "target_user_id": payload.target_user_id},
-            {"$set": {"votes": votes, "created_at": doc.get("created_at") if doc else datetime.now(timezone.utc).isoformat()}},
-            upsert=True,
-        )
         return {"status": "pending", "votes": votes, "needed": founding}
 
+    # Unanimous — only whichever concurrent request actually deletes the vote
+    # doc proceeds to kick (same atomic single-actor gate as join-requests).
+    deleted = await db.room_kick_votes.find_one_and_delete({"room_id": room_id, "target_user_id": payload.target_user_id})
+    if not deleted:
+        return {"status": "kicked"}
     side = member_side(room, payload.target_user_id)
     await db.rooms.update_one({"room_id": room_id}, {"$pull": {f"extra_{side}": payload.target_user_id}})
-    await db.room_kick_votes.delete_one({"room_id": room_id, "target_user_id": payload.target_user_id})
     return {"status": "kicked"}
 
 
 @router.delete("/rooms/{room_id}/kick-votes/{target_user_id}")
-async def retract_kick_vote(room_id: str, target_user_id: str, user: User = Depends(get_current_user)):
+async def retract_kick_vote(room_id: str, target_user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     await db.room_kick_votes.update_one(
         {"room_id": room_id, "target_user_id": target_user_id}, {"$pull": {"votes": user.user_id}}
     )

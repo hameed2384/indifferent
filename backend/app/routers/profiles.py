@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..db import db
-from ..deps import get_current_user, get_current_user_optional
+from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..models import User
 from ..room_utils import find_live_room_id
 
@@ -176,7 +176,7 @@ async def update_my_profile(payload: ProfileUpdate, user: User = Depends(get_cur
 
 
 @router.post("/users/me/become-debater")
-async def become_debater(user: User = Depends(get_current_user)):
+async def become_debater(user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """One account, no separate viewer/debater signup (client brief #15) — a
     self-service toggle, same MVP posture as ID verification auto-approving:
     the only gate on actually going live is being onboarded + ID-verified."""
@@ -185,7 +185,7 @@ async def become_debater(user: User = Depends(get_current_user)):
 
 
 @router.post("/users/{user_id}/follow")
-async def follow_user(user_id: str, user: User = Depends(get_current_user)):
+async def follow_user(user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     if user_id == user.user_id:
         raise HTTPException(status_code=400, detail="Can't follow yourself")
     target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
@@ -203,6 +203,6 @@ async def follow_user(user_id: str, user: User = Depends(get_current_user)):
 
 
 @router.delete("/users/{user_id}/follow")
-async def unfollow_user(user_id: str, user: User = Depends(get_current_user)):
+async def unfollow_user(user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     await db.follows.delete_one({"follower_id": user.user_id, "followee_id": user_id})
     return {"following": False}

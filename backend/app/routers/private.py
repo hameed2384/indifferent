@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 from ..config import LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL
 from ..db import db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_xhr
 from ..llm import generate_topics
 from ..models import StanceScores, User
 
@@ -117,7 +117,7 @@ async def private_call_token(friend_id: str, user: User = Depends(get_current_us
 
 
 @router.post("/private/calls/{friend_id}/go-public")
-async def go_public(friend_id: str, user: User = Depends(get_current_user)):
+async def go_public(friend_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """Either friend can turn the call into a normal public debate. This
     literally creates a normal rooms doc and hands off to the EXISTING
     /rooms/{id}/publish dual-consent flow from that point on — creating it
@@ -151,7 +151,7 @@ async def go_public(friend_id: str, user: User = Depends(get_current_user)):
 
 
 @router.post("/private/calls/{friend_id}/clear")
-async def clear_call_flag(friend_id: str, user: User = Depends(get_current_user)):
+async def clear_call_flag(friend_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """Dismiss the "your friend went public" prompt after joining or passing,
     so a stale room_id doesn't keep re-surfacing it."""
     await db.private_calls.delete_one({"pair_key": _pair_key(user.user_id, friend_id)})
