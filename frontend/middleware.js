@@ -96,8 +96,13 @@ async function middleware(request) {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
     });
-  } catch {
-    return next();
+  } catch (e) {
+    // TEMPORARY: surface the real error instead of swallowing it, to debug
+    // why the crawler path isn't producing custom output in production.
+    // Safe to do unconditionally here because this whole catch block is
+    // only ever reached after the crawler-UA gate above already passed —
+    // a real visitor's request returns via next() long before this line.
+    return new Response("MIDDLEWARE_ERROR: " + (e && e.stack || e), { status: 200, headers: { "content-type": "text/plain" } });
   }
 }
 
