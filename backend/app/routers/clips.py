@@ -9,27 +9,27 @@ shared, growing artifact), no editing, no deletion. Category lives only on
 the root claim; every reply inherits it so a whole tree always sorts/filters
 as one topic.
 
-Video storage reuses the same interim local-disk object store as ID
-verification (storage.py) — same swap-for-real-cloud-storage caveat applies
-before this handles real production volume. Clips are capped at 4MB, which
-is what keeps them uploadable through a single Vercel serverless request at
-all (the platform's request body limit is the real constraint here, not an
-arbitrary product choice) — in practice that's roughly a 15-20 second clip
-at a modest bitrate, which the recording UI enforces client-side.
+Video storage uses Vercel Blob (storage.py) — public, persistent object
+storage, not the app's own serverless filesystem (which doesn't survive a
+cold start). Clips are capped at 4MB, which is what keeps them uploadable
+through a single Vercel serverless request at all (the platform's request
+body limit is the real constraint here, not an arbitrary product choice) —
+in practice that's roughly a 15-20 second clip at a modest bitrate, which
+the recording UI enforces client-side.
 """
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse
 
 from ..categories import CATEGORIES
 from ..config import APP_NAME
 from ..db import db
 from ..deps import get_current_user
 from ..models import User
-from ..storage import get_object, put_object
+from ..storage import put_object
 
 router = APIRouter()
 
@@ -91,8 +91,7 @@ async def upload_clip(
     clip_id = f"clip_{uuid.uuid4().hex[:12]}"
     if root_clip_id is None:
         root_clip_id = clip_id
-    video_path = f"{APP_NAME}/clips/{clip_id}.{ext}"
-    put_object(video_path, data, video.content_type or "video/webm")
+    result = put_object(f"{APP_NAME}/clips/{clip_id}.{ext}", data, video.content_type or "video/webm")
 
     now = datetime.now(timezone.utc).isoformat()
     await db.clips.insert_one({
@@ -102,7 +101,7 @@ async def upload_clip(
         "root_clip_id": root_clip_id,
         "category": resolved_category,
         "caption": caption,
-        "video_path": video_path,
+        "video_url": result["url"],
         "likes": 0, "dislikes": 0, "reply_count": 0,
         "created_at": now,
     })
@@ -157,11 +156,21 @@ async def list_replies(clip_id: str):
 
 @router.get("/clips/{clip_id}/video")
 async def get_clip_video(clip_id: str):
+    """Redirects straight to the blob's own public CDN URL rather than
+    proxying bytes through this function — the browser hits Vercel's CDN
+    directly, same as the docs recommend for public storage, and it keeps
+    this a stable, stringable <video src> for every caller regardless of
+    where the bytes actually live."""
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")
-    data, content_type = get_object(doc["video_path"])
-    return Response(content=data, media_type=content_type)
+    video_url = doc.get("video_url")
+    if not video_url:
+        # Uploaded before the switch to Vercel Blob — those bytes lived on
+        # the app's own serverless filesystem, which doesn't survive a cold
+        # start, and are gone for good.
+        raise HTTPException(status_code=404, detail="This clip's video is no longer available")
+    return RedirectResponse(video_url, status_code=302)
 
 
 @router.post("/clips/{clip_id}/like")
