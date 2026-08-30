@@ -56,10 +56,12 @@ LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
 # Vercel's Linux runtime (/tmp), unlike a hardcoded "/tmp".
 STORAGE_DIR = os.environ.get("STORAGE_DIR", "") or str(Path(tempfile.gettempdir()) / "indifferent-uploads")
 
-# Stripe — two separate products (see routers/payments.py): a £9/mo platform
-# ad-free subscription and a £2/mo per-debater subscription. Empty by default;
-# endpoints 503 until real keys/price ids are set, same convention as LiveKit above.
+# Stripe — two separate products (see routers/payments.py): a £9/mo site-wide
+# membership (not called a "subscription" — that word is reserved for the
+# £2/mo per-debater one) and a £2/mo per-debater subscription. Empty by
+# default; endpoints 503 until real keys/price ids are set, same convention
+# as LiveKit above.
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRICE_ID_PLATFORM = os.environ.get("STRIPE_PRICE_ID_PLATFORM", "")
+STRIPE_PRICE_ID_MEMBERSHIP = os.environ.get("STRIPE_PRICE_ID_MEMBERSHIP", "")
 STRIPE_PRICE_ID_DEBATER = os.environ.get("STRIPE_PRICE_ID_DEBATER", "")

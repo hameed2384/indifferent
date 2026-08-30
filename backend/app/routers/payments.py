@@ -1,8 +1,16 @@
-"""Stripe scaffold — two separate products, deliberately never conflated (client
-brief #29): a £9/mo site-wide ad-free subscription and a £2/mo per-debater
-subscription. No frontend wiring yet (that's Phase 3/5 of the delivery plan) —
-this just gets the checkout + webhook plumbing in place, 503'ing like the
-LiveKit integration does until real Stripe keys/price ids are configured.
+"""Stripe — two deliberately separate relationships, never conflated (client
+brief #29):
+
+- Membership (£9/mo, site-wide): affects the member's OWN experience of the
+  whole platform — currently just "no ads anywhere," more perks may land
+  later. This is NOT a "subscription" in this codebase's vocabulary, on
+  purpose — that word is reserved for the other one, below, and using it
+  for both was a real, confusing naming collision (Settings used to title
+  this section "Subscription" too).
+- Subscription (£2/mo, per-debater): supports one specific debater and
+  unlocks perks tied to THEM specifically (TBD). Free-and-unpaid "follow"
+  is a third, separate relationship again (routers/profiles.py) — just
+  more of that debater in your feed, no money, no perks.
 """
 from datetime import datetime, timezone
 
@@ -12,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from ..config import (
     FRONTEND_URL,
     STRIPE_PRICE_ID_DEBATER,
-    STRIPE_PRICE_ID_PLATFORM,
+    STRIPE_PRICE_ID_MEMBERSHIP,
     STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET,
 )
@@ -29,17 +37,19 @@ def _require_stripe():
     stripe.api_key = STRIPE_SECRET_KEY
 
 
-@router.post("/payments/checkout/platform")
-async def checkout_platform(user: User = Depends(get_current_user)):
-    """£9/mo site-wide ad-free subscription."""
+@router.post("/payments/checkout/membership")
+async def checkout_membership(user: User = Depends(get_current_user)):
+    """£9/mo site-wide membership — removes ads everywhere. Not a
+    "subscription": see this module's docstring for why that word is
+    reserved for checkout_debater below."""
     _require_stripe()
-    if not STRIPE_PRICE_ID_PLATFORM:
-        raise HTTPException(status_code=503, detail="Platform price not configured")
+    if not STRIPE_PRICE_ID_MEMBERSHIP:
+        raise HTTPException(status_code=503, detail="Membership price not configured")
     session = stripe.checkout.Session.create(
         mode="subscription",
-        line_items=[{"price": STRIPE_PRICE_ID_PLATFORM, "quantity": 1}],
+        line_items=[{"price": STRIPE_PRICE_ID_MEMBERSHIP, "quantity": 1}],
         client_reference_id=user.user_id,
-        metadata={"kind": "platform_ad_free", "user_id": user.user_id},
+        metadata={"kind": "membership", "user_id": user.user_id},
         success_url=f"{FRONTEND_URL}/settings?upgraded=1",
         cancel_url=f"{FRONTEND_URL}/settings",
     )
@@ -48,8 +58,8 @@ async def checkout_platform(user: User = Depends(get_current_user)):
 
 @router.post("/payments/checkout/debater/{debater_user_id}")
 async def checkout_debater(debater_user_id: str, user: User = Depends(get_current_user)):
-    """£2/mo subscription to one specific debater — separate product from the
-    platform ad-free subscription above."""
+    """£2/mo subscription to one specific debater — separate product from
+    the £9/mo site-wide membership above."""
     _require_stripe()
     if not STRIPE_PRICE_ID_DEBATER:
         raise HTTPException(status_code=503, detail="Debater price not configured")
@@ -81,7 +91,7 @@ async def payments_webhook(request: Request):
         session = event["data"]["object"]
         meta = session.get("metadata", {})
         now = datetime.now(timezone.utc).isoformat()
-        if meta.get("kind") == "platform_ad_free":
+        if meta.get("kind") == "membership":
             await db.users.update_one(
                 {"user_id": meta["user_id"]},
                 {"$set": {"ad_free": True, "stripe_platform_sub_id": session.get("subscription")}},
