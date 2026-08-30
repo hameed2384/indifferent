@@ -11,6 +11,10 @@ async def create_indexes():
     await db.users.create_index("email", unique=True)
     await db.user_sessions.create_index("session_token", unique=True)
     await db.match_queue.create_index("user_id", unique=True)
+    # Upserted by _create_room() for every non-caller founding member — unique
+    # so a race between two concurrent matches for the same user can't leave
+    # two pending_rooms docs (only the most recent match should ever win).
+    await db.pending_rooms.create_index("user_id", unique=True)
     await db.rooms.create_index("room_id", unique=True)
     # Generalized per-topic stance model (see models.TopicStance) — one row per
     # (user, topic), topic being e.g. "Politics: Economic" or "Anime".
@@ -68,3 +72,7 @@ async def create_indexes():
     await db.clips.create_index("clip_id", unique=True)
     await db.clips.create_index([("parent_clip_id", 1), ("likes", -1)])
     await db.clips.create_index([("category", 1), ("parent_clip_id", 1), ("created_at", -1)])
+
+    # Post-debate feedback (routers/rooms.py) — dashboard stats reads a
+    # user's recent feedback history.
+    await db.feedback.create_index([("user_id", 1), ("created_at", -1)])
