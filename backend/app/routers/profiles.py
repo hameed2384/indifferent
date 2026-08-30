@@ -188,6 +188,7 @@ async def list_user_clips(user_id: str):
         "reply_count": int(d.get("reply_count", 0)),
         "created_at": d["created_at"],
         "deleted": bool(d.get("deleted", False)),
+        "unlisted": bool(d.get("unlisted", False)),
     } for d in docs]}
 
 

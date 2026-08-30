@@ -3,13 +3,17 @@ branching tree instead of a flat comment section. A reply forks off its
 parent because a rebuttal-to-a-rebuttal is a genuinely different
 sub-argument; the tree shape is meant to mirror the debate's own structure.
 
-Deliberately simple for a first version: no visibility tiers (every clip is
-public the moment it's posted — a claim tree only means something as a
-shared, growing artifact). The uploader can edit the caption or delete the
-clip; deleting a leaf (no replies) removes it outright, deleting one with
-replies tombstones it instead so the tree stays intact for its children.
-Category lives only on the root claim; every reply inherits it so a whole
-tree always sorts/filters as one topic.
+The uploader can edit the caption, delete the clip, or mark it unlisted.
+Deleting a leaf (no replies) removes it outright, deleting one with replies
+tombstones it instead so the tree stays intact for its children. Unlisted is
+deliberately just one flag, not a full private/unlisted/public tier system
+like a debate's archive_visibility: a clip can have other people's replies
+depending on it being reachable, so "unlisted" only pulls it out of the
+public feed/search (list_root_claims) — it stays fully visible via the
+uploader's profile, direct links, and its place in the reply tree. There is
+no fully-private tier because that could hide a clip out from under a reply
+that points at it. Category lives only on the root claim; every reply
+inherits it so a whole tree always sorts/filters as one topic.
 
 Video storage uses Vercel Blob (storage.py) — public, persistent object
 storage, not the app's own serverless filesystem (which doesn't survive a
@@ -31,7 +35,7 @@ from ..categories import CATEGORIES
 from ..config import APP_NAME
 from ..db import db
 from ..deps import get_current_user, require_xhr
-from ..models import ClipCaptionUpdate, User
+from ..models import ClipUpdate, User
 from ..reactions import react_once
 from ..storage import delete_object, put_object
 
@@ -57,6 +61,7 @@ def _clip_public(doc: dict, uploader: dict) -> dict:
         "reply_count": int(doc.get("reply_count", 0)),
         "created_at": doc["created_at"],
         "deleted": bool(doc.get("deleted", False)),
+        "unlisted": bool(doc.get("unlisted", False)),
     }
 
 
@@ -126,12 +131,14 @@ def _validate_caption(caption: str) -> str:
 
 
 @router.patch("/clips/{clip_id}")
-async def edit_clip_caption(
+async def update_clip(
     clip_id: str,
-    payload: ClipCaptionUpdate,
+    payload: ClipUpdate,
     user: User = Depends(get_current_user),
     _xhr: None = Depends(require_xhr),
 ):
+    """Both fields are optional and independent — the Edit-caption modal
+    sends only `caption`, the visibility toggle sends only `unlisted`."""
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")
@@ -139,9 +146,17 @@ async def edit_clip_caption(
         raise HTTPException(status_code=403, detail="Not your clip")
     if doc.get("deleted"):
         raise HTTPException(status_code=400, detail="This clip has been deleted")
-    caption = _validate_caption(payload.caption)
-    await db.clips.update_one({"clip_id": clip_id}, {"$set": {"caption": caption}})
-    return {"clip_id": clip_id, "caption": caption}
+
+    update = {}
+    if payload.caption is not None:
+        update["caption"] = _validate_caption(payload.caption)
+    if payload.unlisted is not None:
+        update["unlisted"] = payload.unlisted
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+
+    await db.clips.update_one({"clip_id": clip_id}, {"$set": update})
+    return {"clip_id": clip_id, **update}
 
 
 @router.delete("/clips/{clip_id}")
@@ -187,8 +202,11 @@ async def list_root_claims(category: Optional[str] = None, q: Optional[str] = No
     """Registered before /clips/{clip_id} on purpose — both are single-segment
     paths, and FastAPI matches static routes in registration order, so this
     would otherwise never be reached (every request would match {clip_id}
-    with "roots" as the id)."""
-    query: dict = {"parent_clip_id": None}
+    with "roots" as the id). Unlisted roots are excluded here — this is the
+    one surface "unlisted" actually hides a clip from; $ne (not $eq False)
+    so it still matches the vast majority of docs that never set the field
+    at all, not just ones explicitly set to False."""
+    query: dict = {"parent_clip_id": None, "unlisted": {"$ne": True}}
     if category:
         query["category"] = category
     if q:

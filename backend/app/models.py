@@ -79,8 +79,9 @@ class ArchiveVisibility(BaseModel):
     visibility: str  # "private" | "unlisted" | "public"
 
 
-class ClipCaptionUpdate(BaseModel):
-    caption: str
+class ClipUpdate(BaseModel):
+    caption: Optional[str] = None
+    unlisted: Optional[bool] = None
 
 
 class TopicStance(BaseModel):
