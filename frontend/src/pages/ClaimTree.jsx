@@ -55,6 +55,17 @@ export default function ClaimTree() {
     setClip((c) => ({ ...c, deleted: true, caption: "[deleted]" }));
     setShowDeleteModal(false);
   };
+  const toggleVisibility = async () => {
+    const next = !clip.unlisted;
+    setClip((c) => ({ ...c, unlisted: next }));
+    try {
+      await api.patch(`/clips/${clipId}`, { unlisted: next });
+      toast.success(next ? "Now unlisted." : "Now public.");
+    } catch (e) {
+      setClip((c) => ({ ...c, unlisted: !next }));
+      toast.error(e.response?.data?.detail || "Couldn't update visibility");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -84,7 +95,12 @@ export default function ClaimTree() {
             <video key={clip.clip_id} src={`${API}/clips/${clip.clip_id}/video`} controls className="w-full aspect-video bg-black" data-testid="claim-video" />
           )}
           <div className="p-5">
-            {!clip.deleted && <span className="chip !py-0 !px-1.5 text-[10px]">{clip.category}</span>}
+            {!clip.deleted && (
+              <div className="flex items-center gap-1.5">
+                <span className="chip !py-0 !px-1.5 text-[10px]">{clip.category}</span>
+                {clip.unlisted && <span className="chip !py-0 !px-1.5 text-[10px]">Unlisted</span>}
+              </div>
+            )}
             <h1 className="font-heading text-xl font-semibold mt-2">"{clip.caption}"</h1>
             <button onClick={() => navigate(`/u/${clip.uploader_id}`)} className="text-sm text-[var(--fg-subtle)] hover:underline mt-1">{clip.uploader_name}</button>
             {!clip.deleted && (
@@ -94,6 +110,9 @@ export default function ClaimTree() {
                 <button onClick={openReply} className="btn-primary" data-testid="btn-reply-clip">Reply with video</button>
                 {isOwner && (
                   <>
+                    <button onClick={toggleVisibility} className="btn-outline" data-testid="btn-toggle-clip-visibility">
+                      {clip.unlisted ? "Make public" : "Make unlisted"}
+                    </button>
                     <button onClick={() => setShowEditModal(true)} className="btn-outline" data-testid="btn-edit-clip">Edit caption</button>
                     <button onClick={() => setShowDeleteModal(true)} className="btn-danger" data-testid="btn-delete-clip">Delete</button>
                   </>
@@ -116,7 +135,10 @@ export default function ClaimTree() {
                 )}
                 <div className="p-3">
                   <div className="text-sm font-medium line-clamp-2">{r.deleted ? "Deleted" : `"${r.caption}"`}</div>
-                  <div className="text-[11px] text-[var(--fg-subtle)] mt-1">{r.uploader_name} · ♥ {r.likes} · {r.reply_count} {r.reply_count === 1 ? "reply" : "replies"}</div>
+                  <div className="text-[11px] text-[var(--fg-subtle)] mt-1">
+                    {r.uploader_name} · ♥ {r.likes} · {r.reply_count} {r.reply_count === 1 ? "reply" : "replies"}
+                    {r.unlisted && !r.deleted && " · Unlisted"}
+                  </div>
                 </div>
               </button>
             ))}

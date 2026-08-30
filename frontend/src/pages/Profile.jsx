@@ -107,7 +107,7 @@ function DebateCardSmall({ d, isSelf, onClick, onManageVisibility }) {
   );
 }
 
-function ClipCardSmall({ c, isSelf, onClick, onEdit, onDelete }) {
+function ClipCardSmall({ c, isSelf, onClick, onEdit, onDelete, onToggleVisibility }) {
   return (
     <div className="card overflow-hidden relative hover:border-[var(--fg)] transition-colors" data-testid={`profile-clip-${c.clip_id}`}>
       <button onClick={onClick} className="block w-full text-left">
@@ -127,6 +127,7 @@ function ClipCardSmall({ c, isSelf, onClick, onEdit, onDelete }) {
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="chip !py-0 !px-1.5 text-[10px]">{c.category}</span>
                 {c.parent_clip_id && <span className="chip !py-0 !px-1.5 text-[10px]">Reply</span>}
+                {c.unlisted && <span className="chip !py-0 !px-1.5 text-[10px]">Unlisted</span>}
               </div>
               <div className="text-sm font-medium leading-snug line-clamp-2">"{c.caption}"</div>
               <div className="text-xs text-[var(--fg-subtle)] mt-1">♥ {c.likes} · {c.reply_count} {c.reply_count === 1 ? "reply" : "replies"}</div>
@@ -135,7 +136,10 @@ function ClipCardSmall({ c, isSelf, onClick, onEdit, onDelete }) {
         </div>
       </button>
       {isSelf && !c.deleted && (
-        <div className="absolute top-2 right-2 z-10 flex gap-1 bg-[var(--surface)]/90 backdrop-blur rounded-lg p-1">
+        <div className="absolute top-2 right-2 left-2 z-10 flex flex-wrap justify-end gap-1">
+          <button onClick={() => onToggleVisibility(c)} className="btn-outline !px-2 !py-1 !text-xs" data-testid={`btn-toggle-visibility-${c.clip_id}`}>
+            {c.unlisted ? "Unlisted" : "Public"}
+          </button>
           <button onClick={() => onEdit(c)} className="btn-outline !px-2 !py-1 !text-xs" data-testid={`btn-edit-clip-${c.clip_id}`}>Edit</button>
           <button onClick={() => onDelete(c)} className="btn-danger !px-2 !py-1 !text-xs" data-testid={`btn-delete-clip-${c.clip_id}`}>Delete</button>
         </div>
@@ -216,6 +220,17 @@ export default function Profile() {
     const id = visibilityDebate.room_id;
     setDebates((ds) => ds.map((d) => (d.room_id === id ? { ...d, archive_visibility: visibility } : d)));
     setVisibilityDebate(null);
+  };
+  const toggleClipVisibility = async (clip) => {
+    const next = !clip.unlisted;
+    setClips((cs) => cs.map((c) => (c.clip_id === clip.clip_id ? { ...c, unlisted: next } : c)));
+    try {
+      await api.patch(`/clips/${clip.clip_id}`, { unlisted: next });
+      toast.success(next ? "Now unlisted." : "Now public.");
+    } catch (e) {
+      setClips((cs) => cs.map((c) => (c.clip_id === clip.clip_id ? { ...c, unlisted: !next } : c)));
+      toast.error(e.response?.data?.detail || "Couldn't update visibility");
+    }
   };
 
   const share = async () => {
@@ -384,6 +399,7 @@ export default function Profile() {
                     onClick={() => navigate(`/claims/${c.clip_id}`)}
                     onEdit={setEditingClip}
                     onDelete={setDeletingClip}
+                    onToggleVisibility={toggleClipVisibility}
                   />
                 ))}
               </div>
