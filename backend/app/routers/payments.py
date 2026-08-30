@@ -88,8 +88,14 @@ async def payments_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
     if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        meta = session.get("metadata", {})
+        # .to_dict(): the installed stripe SDK (15.x) returns a typed Session
+        # object here, not a plain dict — session.get(...) throws
+        # AttributeError ("'get' is a dict method, but a Session is not a
+        # dict"). Confirmed live: this crashed every real webhook delivery
+        # with a 500 until this fix, so membership/subscription perks never
+        # actually applied after a real payment despite checkout succeeding.
+        session = event["data"]["object"].to_dict()
+        meta = session.get("metadata") or {}
         now = datetime.now(timezone.utc).isoformat()
         if meta.get("kind") == "membership":
             await db.users.update_one(
