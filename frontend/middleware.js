@@ -1,4 +1,14 @@
-import { next } from "@vercel/functions";
+"use strict";
+// CommonJS on purpose (require/module.exports, not import/export): the
+// project has no "type": "module" in package.json, and craco.config.js /
+// postcss.config.js / tailwind.config.js at this same root all rely on
+// staying CommonJS — this file matches them rather than forcing a
+// project-wide module-type change for one feature. (An earlier version of
+// this file was middleware.mjs using ESM syntax; Vercel's default
+// auto-detection only looks for middleware.js/middleware.ts at the project
+// root, so that file was silently never picked up at all — this replaces
+// it.)
+const { next } = require("@vercel/functions");
 
 // This is a static SPA (CRA) — every route serves the same index.html with
 // one fixed, site-wide og:title/og:description/og:image (see public/
@@ -56,7 +66,7 @@ async function fetchJson(url) {
   return res.json();
 }
 
-export default async function middleware(request) {
+async function middleware(request) {
   try {
     const ua = request.headers.get("user-agent") || "";
     if (!CRAWLER_UA.test(ua)) return next();
@@ -95,6 +105,10 @@ export default async function middleware(request) {
   }
 }
 
-export const config = {
+const config = {
   matcher: ["/watch/:id", "/u/:id"],
 };
+
+module.exports = middleware;
+module.exports.default = middleware;
+module.exports.config = config;
