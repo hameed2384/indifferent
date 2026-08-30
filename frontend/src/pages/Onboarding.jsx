@@ -12,15 +12,27 @@ export default function Onboarding() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
+  const [questionsError, setQuestionsError] = useState(false);
   const [answers, setAnswers] = useState({});
   const [freeText, setFreeText] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    api.get("/onboarding/questions").then(({ data }) => setQuestions(data.questions)).catch(() => {});
-  }, []);
+  const loadQuestions = () => {
+    setQuestionsLoading(true);
+    setQuestionsError(false);
+    api.get("/onboarding/questions")
+      .then(({ data }) => setQuestions(data.questions))
+      // Previously silently swallowed: a failure here left questions=[]
+      // with canSubmit permanently false and zero explanation — a dead end
+      // on a mandatory gate. Now it's a visible, retryable error instead.
+      .catch(() => setQuestionsError(true))
+      .finally(() => setQuestionsLoading(false));
+  };
+
+  useEffect(loadQuestions, []);
 
   const canSubmit = displayName.trim().length >= 2 &&
     questions.length > 0 &&
@@ -96,6 +108,15 @@ export default function Onboarding() {
         <section className="mt-10">
           <div className="eyebrow mb-2">Quick calibration</div>
           <p className="text-sm text-[var(--fg-muted)] mb-4">Eight statements. Rate each to sharpen the mapping.</p>
+          {questionsError && (
+            <div className="card p-5 text-center">
+              <p className="text-sm text-[var(--fg-muted)] mb-3">Couldn't load the calibration questions.</p>
+              <button onClick={loadQuestions} className="btn-outline text-sm" data-testid="btn-retry-questions">Try again</button>
+            </div>
+          )}
+          {questionsLoading && !questionsError && (
+            <div className="text-sm text-[var(--fg-subtle)]">Loading questions…</div>
+          )}
           <div className="space-y-4">
             {questions.map((q, i) => (
               <div key={q.id} className="card p-5">

@@ -148,7 +148,7 @@ function JoinRequestPanel({ roomId, debate, navigate }) {
   );
 }
 
-function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel }) {
+function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel, sideBOpen }) {
   const [reasoning, setReasoning] = useState("");
   const [picked, setPicked] = useState(votes.my_vote);
   const [submitting, setSubmitting] = useState(false);
@@ -186,7 +186,15 @@ function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel }) {
         <>
           <div className="flex gap-2 mb-3">
             <button onClick={() => setPicked("a")} className={picked === "a" ? "btn-accent flex-1" : "btn-outline flex-1"} data-testid="vote-side-a">{sideALabel}</button>
-            <button onClick={() => setPicked("b")} className={picked === "b" ? "btn-accent flex-1" : "btn-outline flex-1"} data-testid="vote-side-b">{sideBLabel}</button>
+            <button
+              onClick={() => setPicked("b")}
+              disabled={sideBOpen}
+              className={`${picked === "b" ? "btn-accent" : "btn-outline"} flex-1 disabled:opacity-40`}
+              title={sideBOpen ? "Nobody's taken this side yet" : undefined}
+              data-testid="vote-side-b"
+            >
+              {sideBLabel}
+            </button>
           </div>
           {picked && (
             <>
@@ -562,6 +570,7 @@ export default function WatchRoom() {
               signedIn={!!user}
               sideALabel={debate.side_a.display_name}
               sideBLabel={debate.side_b.open ? "Side B" : debate.side_b.display_name}
+              sideBOpen={debate.side_b.open}
             />
           </div>
 

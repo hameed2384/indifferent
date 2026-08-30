@@ -39,7 +39,14 @@ for module in (health, auth, onboarding, verify, match, rooms, public, livekit, 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    # Wildcard + credentials is invalid per the CORS spec — browsers reject
+    # it outright, which is exactly what happens if CORS_ORIGINS is ever
+    # unset (a new environment, an accidentally-cleared var): every request
+    # fails auth with nothing but an opaque browser network error to go on.
+    # Defaulting to localhost instead keeps local dev working out of the box
+    # while making a missing var in any real deployment fail loudly and
+    # immediately (every cross-origin request blocked) rather than silently.
+    allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )

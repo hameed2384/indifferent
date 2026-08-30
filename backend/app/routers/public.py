@@ -314,6 +314,12 @@ async def vote_on_debate(room_id: str, payload: VoteIn, user: User = Depends(get
     r = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
     if not r or not (r.get("is_public") or r.get("archive_visibility") in ("public", "unlisted")):
         raise HTTPException(status_code=404, detail="Debate not public or not found")
+    if not side_members(r, payload.side):
+        # A solo go-live room can have a genuinely empty side (the open
+        # seat) — agreeing with nobody produces a meaningless vote and
+        # would still feed a fabricated signal into the voter's own
+        # topic-stance profile below.
+        raise HTTPException(status_code=400, detail="That side doesn't have a debater yet")
 
     now = datetime.now(timezone.utc).isoformat()
     reasoning = (payload.reasoning or "").strip()[:1000]

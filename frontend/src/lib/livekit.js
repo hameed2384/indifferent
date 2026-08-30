@@ -46,7 +46,7 @@ export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
       setRemoteParticipants((prev) => prev.filter((p) => p.identity !== identity));
     };
 
-    room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+    room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
       const el = track.attach();
       el.autoplay = true;
       el.playsInline = true;
@@ -56,11 +56,17 @@ export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
           name: participant.name || participant.identity,
           videoEl: el,
           hasVideo: true,
+          // Seed from the publication's actual current state — previously
+          // only later Mute/Unmute *events* updated this, so a spectator
+          // joining after a participant had already muted saw them as
+          // unmuted (no badge) until the next toggle.
+          videoMuted: !!pub?.isMuted,
         });
       } else {
         upsertParticipant(participant.identity, {
           name: participant.name || participant.identity,
           audioEl: el,
+          audioMuted: !!pub?.isMuted,
         });
       }
     });
@@ -79,7 +85,21 @@ export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
       if (pub.kind === Track.Kind.Audio) upsertParticipant(participant.identity, { audioMuted: false });
     });
     room.on(RoomEvent.ParticipantDisconnected, (p) => removeParticipant(p.identity));
-    room.on(RoomEvent.Disconnected, () => setStatus("idle"));
+    room.on(RoomEvent.Disconnected, () => {
+      // LiveKit's own client already retries transient network blips
+      // internally (RoomEvent.Reconnecting/Reconnected) — this only fires
+      // once it's given up or the server ended the session. Previously left
+      // status at "idle" (indistinguishable from "never connected") with
+      // stale remote tiles still on screen and zero indication anything had
+      // gone wrong. There's no safe automatic rejoin from here (the token
+      // may need refreshing, the room may be gone) — surface it clearly
+      // instead of leaving the call frozen and silent.
+      if (cancelled) return;
+      setStatus("disconnected");
+      setRemoteParticipants([]);
+      setLocalVideoEl(null);
+      if (mode === "participant") toast.error("Video call disconnected. Reload to rejoin.");
+    });
 
     (async () => {
       try {

@@ -14,6 +14,7 @@ export default function Verify() {
 
   const upload = async () => {
     if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast.error("File too large (8MB max)"); return; }
     setUploading(true);
     try {
       const fd = new FormData();
@@ -22,8 +23,8 @@ export default function Verify() {
       await checkAuth();
       toast.success("Verified. Welcome.");
       navigate("/dashboard");
-    } catch {
-      toast.error("Upload failed. Try again.");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Upload failed. Try again.");
     } finally {
       setUploading(false);
     }
