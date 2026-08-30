@@ -4,11 +4,35 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#0a0a0a" />
-        <meta name="description" content="Indifferent — find the sharpest opposing viewpoint and debate it, on camera." />
+        <meta name="description" content="Find someone who disagrees with you. On camera. Live." />
+        <link rel="icon" href="%PUBLIC_URL%/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+        <link rel="canonical" href="https://indifferent.hameed.pro/" />
+
+        <!-- Open Graph / Twitter Card — a static SPA can't vary these per
+             room/profile without server-side rendering, so this is one
+             consistent branded preview for every shared link (still a real
+             improvement over the no-tags-at-all baseline: without these,
+             pasting any link into iMessage/Slack/Discord/X showed nothing
+             or a broken card). -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="indifferent" />
+        <meta property="og:title" content="indifferent — live video debate" />
+        <meta property="og:description" content="Find someone who disagrees with you. On camera. Live." />
+        <meta property="og:image" content="https://indifferent.hameed.pro/og-image.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:url" content="https://indifferent.hameed.pro/" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="indifferent — live video debate" />
+        <meta name="twitter:description" content="Find someone who disagrees with you. On camera. Live." />
+        <meta name="twitter:image" content="https://indifferent.hameed.pro/og-image.png" />
+
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <title>Indifferent</title>
+        <title>indifferent — live video debate</title>
         <script>
             // Applies the dark class before the CSS/JS bundle even loads, so a
             // dark-mode visitor never sees a flash of the light theme on load —
