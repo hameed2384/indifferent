@@ -68,12 +68,43 @@ async function fetchJson(url) {
   return res.json();
 }
 
+function xmlEscape(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
+}
+
+function urlEntry(loc, lastmod) {
+  return `<url><loc>${xmlEscape(loc)}</loc>${lastmod ? `<lastmod>${xmlEscape(lastmod.slice(0, 10))}</lastmod>` : ""}</url>`;
+}
+
+async function buildSitemap() {
+  // Best-effort: static routes always go in; the two dynamic lists degrade
+  // independently (one backend hiccup shouldn't drop the other, and a
+  // sitemap missing some entries is a much smaller problem than a sitemap
+  // that 500s and gets Search Console to stop trusting it).
+  const staticUrls = [urlEntry(`${SITE}/`), urlEntry(`${SITE}/watch`), urlEntry(`${SITE}/claims`)];
+
+  const debates = await fetchJson(`${BACKEND}/api/public/debates`).catch(() => null);
+  const debateUrls = (debates?.debates || []).map((d) => urlEntry(`${SITE}/watch/${d.room_id}`, d.published_at));
+
+  const claims = await fetchJson(`${BACKEND}/api/clips/roots`).catch(() => null);
+  const claimUrls = (claims?.claims || []).map((c) => urlEntry(`${SITE}/claims/${c.clip_id}`, c.created_at));
+
+  const body = [...staticUrls, ...debateUrls, ...claimUrls].join("");
+  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</urlset>`;
+}
+
 async function middleware(request) {
   try {
+    const { pathname } = new URL(request.url);
+
+    if (pathname === "/sitemap.xml") {
+      const xml = await buildSitemap();
+      return new Response(xml, { status: 200, headers: { "content-type": "application/xml; charset=utf-8" } });
+    }
+
     const ua = request.headers.get("user-agent") || "";
     if (!CRAWLER_UA.test(ua)) return next();
 
-    const { pathname } = new URL(request.url);
     const [, section, id] = pathname.split("/");
     if (!id) return next();
 

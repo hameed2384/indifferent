@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /verify
+Disallow: /onboarding
+Disallow: /match
+Disallow: /room/
+Disallow: /private/
+Disallow: /auth/
+
+Sitemap: https://indifferent.hameed.pro/sitemap.xml
