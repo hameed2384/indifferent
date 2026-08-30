@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "proxy": {
+    "entrypoint": "middleware.js",
+    "matcher": ["/watch/:id", "/u/:id"]
+  }
+}
