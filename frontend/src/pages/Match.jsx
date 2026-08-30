@@ -67,7 +67,7 @@ export default function Match() {
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <header className="border-b border-[var(--border)]">
-        <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="font-heading text-lg font-semibold">indifferent</div>
           <div className="flex items-center gap-2">
             <button onClick={cancel} className="btn-ghost text-sm" data-testid="btn-cancel-match">Cancel</button>
@@ -77,7 +77,7 @@ export default function Match() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-20">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-20">
         <div className="max-w-xl w-full text-center">
           {error ? (
             <div className="chip mx-auto mb-6 !border-[var(--danger)] !text-[var(--danger)]">Couldn't enter the queue</div>

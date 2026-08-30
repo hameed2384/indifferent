@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { Swords, Sparkles, ShieldCheck, Calendar } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import { toast } from "sonner";
+
+function formatJoinDate(iso) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  } catch {
+    return null;
+  }
+}
 
 function StanceMap({ stance }) {
   if (!stance) return null;
@@ -44,7 +54,15 @@ function FriendsCard() {
   const navigate = useNavigate();
   const load = () => api.get("/friends").then(({ data }) => setData(data)).catch(() => {});
   useEffect(() => { load(); }, []);
-  if (!data) return null;
+
+  if (!data) {
+    return (
+      <div className="card p-5 mt-6">
+        <div className="eyebrow mb-3">Friends</div>
+        <p className="text-sm text-[var(--fg-subtle)]">Loading friends…</p>
+      </div>
+    );
+  }
 
   const respond = async (endpoint, userId) => {
     try { await api.post(`/friends/${endpoint}/${userId}`); load(); } catch { toast.error("Couldn't update request"); }
@@ -144,10 +162,13 @@ export default function Dashboard() {
     }
   };
 
+  const firstName = (user.display_name || user.name || "").split(" ")[0];
+  const joinDate = formatJoinDate(user.created_at);
+
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <nav className="sticky top-0 z-40 bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)]">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <button onClick={() => navigate("/")} className="font-heading text-lg font-semibold tracking-tight" data-testid="brand-mark">
             indifferent
           </button>
@@ -160,10 +181,10 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-10 md:py-14">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-14">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <div className="eyebrow">Your dashboard</div>
+            <div className="eyebrow">{firstName ? `Welcome back, ${firstName}` : "Your dashboard"}</div>
             <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold mt-2 leading-tight">
               Ready for someone<br />who disagrees?
             </h1>
@@ -183,12 +204,19 @@ export default function Dashboard() {
                 </button>
               )}
             </div>
+            <button
+              onClick={() => navigate(`/u/${user.user_id}`)}
+              className="mt-4 text-sm text-[var(--fg-subtle)] hover:text-[var(--fg)] transition-colors"
+              data-testid="link-view-profile"
+            >
+              View your public profile →
+            </button>
 
             <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <StatCard label="Debates" value={stats?.debates ?? 0} testid="stat-debates" />
-              <StatCard label="Minds changed" value={stats?.minds_changed ?? 0} testid="stat-minds" />
-              <StatCard label="Verified" value={user.id_verified ? "Yes" : "No"} accent={user.id_verified} />
-              <StatCard label="Sign in" value={user.email?.split("@")[0]} small />
+              <StatCard icon={Swords} label="Debates" value={stats?.debates ?? 0} testid="stat-debates" />
+              <StatCard icon={Sparkles} label="Minds changed" value={stats?.minds_changed ?? 0} testid="stat-minds" />
+              <StatCard icon={ShieldCheck} label="Verification" value={user.id_verified ? "Verified" : "Not yet"} accent={user.id_verified} testid="stat-verified" />
+              <StatCard icon={Calendar} label="Member since" value={joinDate || "—"} testid="stat-member-since" />
             </div>
 
             {user.stance?.tags?.length > 0 && (
@@ -233,11 +261,14 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ label, value, testid, accent, small }) {
+function StatCard({ icon: Icon, label, value, testid, accent }) {
   return (
-    <div className="card p-4">
-      <div className="text-[11px] text-[var(--fg-subtle)] uppercase tracking-wider">{label}</div>
-      <div className={`font-heading font-semibold mt-1 ${small ? "text-base truncate" : "text-2xl"} ${accent ? "text-[var(--accent)]" : ""}`} data-testid={testid}>
+    <div className="card p-4" data-testid={testid}>
+      <div className="flex items-center gap-1.5 text-[11px] text-[var(--fg-subtle)] uppercase tracking-wider">
+        <Icon className="w-3.5 h-3.5 shrink-0" />
+        <span className="truncate">{label}</span>
+      </div>
+      <div className={`font-heading font-semibold mt-1.5 text-xl sm:text-2xl truncate ${accent ? "text-[var(--accent)]" : ""}`}>
         {value}
       </div>
     </div>

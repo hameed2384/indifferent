@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ThumbsDown } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -65,7 +66,7 @@ export default function ClaimTree() {
             <button onClick={() => navigate(`/u/${clip.uploader_id}`)} className="text-sm text-[var(--fg-subtle)] hover:underline mt-1">{clip.uploader_name}</button>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button onClick={like} className="btn-accent" data-testid="btn-like-clip">♥ {clip.likes}</button>
-              <button onClick={dislike} className="btn-outline" data-testid="btn-dislike-clip">👎 {clip.dislikes}</button>
+              <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike-clip"><ThumbsDown className="w-4 h-4" /> {clip.dislikes}</button>
               <button onClick={openReply} className="btn-primary" data-testid="btn-reply-clip">Reply with video</button>
             </div>
           </div>

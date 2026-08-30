@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function AuthCallback() {
 
     const params = new URLSearchParams(location.search);
     const code = params.get("code");
-    if (!code) { navigate("/", { replace: true }); return; }
+    if (!code) { toast.error("Sign-in link was invalid — try again."); navigate("/", { replace: true }); return; }
 
     // Must be the exact redirect_uri Google was sent in the initial authorize
     // request (lib/auth.js's startGoogleLogin stashed it — Google's token
@@ -37,6 +38,7 @@ export default function AuthCallback() {
         navigate(target, { replace: true, state: { user: data.user } });
       } catch (e) {
         console.error("Auth callback failed", e);
+        toast.error("Sign-in failed — try again.");
         navigate("/", { replace: true });
       }
     })();

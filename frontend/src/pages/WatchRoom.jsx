@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ThumbsDown } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -555,7 +556,7 @@ export default function WatchRoom() {
                 ♥ {likes}
                 {likeBurst > 0 && <span key={likeBurst} className="absolute -top-3 -right-3 text-lg text-[var(--accent)] animate-pulse">+1</span>}
               </button>
-              <button onClick={dislike} className="btn-outline" data-testid="btn-dislike">👎 {dislikes}</button>
+              <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike"><ThumbsDown className="w-4 h-4" /> {dislikes}</button>
               <button onClick={share} className="btn-outline" data-testid="btn-share-2">Share</button>
               {debate.opposition_score != null && (
                 <div className="text-xs text-[var(--fg-subtle)]">

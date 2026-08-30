@@ -61,7 +61,7 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <header className="border-b border-[var(--border)]">
-        <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="font-heading text-lg font-semibold">indifferent</div>
           <div className="flex items-center gap-3">
             <div className="text-xs text-[var(--fg-subtle)]">Step 1 of 2 — Views</div>
@@ -70,7 +70,7 @@ export default function Onboarding() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-12">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
         <div className="eyebrow">Declare your views</div>
         <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold mt-2 leading-tight">
           Tell us how you actually think.
@@ -144,7 +144,7 @@ export default function Onboarding() {
         </section>
 
         <div className="mt-10 flex items-center justify-between flex-wrap gap-3">
-          <div className="text-xs text-[var(--fg-subtle)]">Gemini 3.1 Pro will map you on two axes.</div>
+          <div className="text-xs text-[var(--fg-subtle)]">Our AI will map you on two axes.</div>
           <button data-testid="btn-submit-onboarding" className="btn-accent" onClick={submit} disabled={!canSubmit || submitting}>
             {submitting ? "Analyzing…" : "Map my stance"}
           </button>

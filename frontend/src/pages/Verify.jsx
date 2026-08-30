@@ -32,17 +32,20 @@ export default function Verify() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <header className="border-b border-[var(--border)]">
-        <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="font-heading text-lg font-semibold">indifferent</div>
-          <div className="flex items-center gap-3">
-            <div className="text-xs text-[var(--fg-subtle)]">Step 2 of 2 — Verify</div>
+      <nav className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)]">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate("/dashboard")} className="btn-ghost text-sm shrink-0" data-testid="nav-back-dashboard">← Dashboard</button>
+            <span className="font-heading text-lg font-semibold truncate">Verify</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-xs text-[var(--fg-subtle)] hidden sm:block">Step 2 of 2</div>
             <ThemeToggle />
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-2xl mx-auto px-6 py-12">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
         <div className="eyebrow">Prove you're a person</div>
         <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold mt-2 leading-tight">
           One human, one voice.
@@ -74,7 +77,7 @@ export default function Verify() {
             {uploading ? "Uploading…" : "Verify identity"}
           </button>
           <div className="text-xs text-[var(--fg-subtle)] max-w-sm">
-            MVP note — approval is instant while human review is on the roadmap.
+            Approval is instant for now — we're adding manual review soon.
           </div>
         </div>
 

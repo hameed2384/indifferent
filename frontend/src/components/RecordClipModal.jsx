@@ -163,9 +163,19 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
             <button onClick={reset} className="btn-ghost text-xs mt-2" data-testid="btn-retake">Retake</button>
             <div className="mt-4 space-y-3">
               {!lockCategory && (
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className="field" data-testid="clip-category-select">
-                  {(categories || []).map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto" data-testid="clip-category-picker">
+                  {(categories || []).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCategory(c)}
+                      className={`py-2 rounded-lg border text-sm font-medium transition ${category === c ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
+                      data-testid={`clip-category-${c}`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
               )}
               <textarea
                 value={caption}

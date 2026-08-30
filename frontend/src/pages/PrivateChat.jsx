@@ -103,7 +103,7 @@ export default function PrivateChat() {
     return (
       <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-4 text-center px-6">
         <div className="eyebrow">Private chat</div>
-        <p className="text-[var(--fg-muted)]">You're only friends-only here — this thread isn't available.</p>
+        <p className="text-[var(--fg-muted)]">This chat is friends-only, and you two aren't friends.</p>
         <Link to="/dashboard" className="btn-outline text-sm">Back to dashboard</Link>
       </div>
     );
