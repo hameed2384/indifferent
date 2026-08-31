@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, Search, Tag } from "lucide-react";
+import { Menu, Radio, Search, Shuffle, Swords, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -59,6 +59,16 @@ export default function Watch() {
   const findMatch = () => {
     if (!user.id_verified) return navigate("/verify");
     navigate("/match");
+  };
+
+  const goLive = () => {
+    if (!user.id_verified) return navigate("/verify");
+    if (!user.is_debater) {
+      toast.info("Become a debater in Settings first");
+      navigate("/settings");
+      return;
+    }
+    setShowGoLive(true);
   };
 
   useEffect(() => {
@@ -140,9 +150,7 @@ export default function Watch() {
             />
           </div>
           <div className="flex items-center gap-2 ml-auto shrink-0">
-            {user?.is_debater && (
-              <button onClick={() => setShowGoLive(true)} className="btn-accent text-sm" data-testid="btn-go-live">Go Live</button>
-            )}
+            {user && <StartDebateMenu onGoLive={goLive} onFindMatch={findMatch} />}
             <ThemeToggle />
             {user
               ? <AccountMenu user={user} logout={logout} />
@@ -267,6 +275,62 @@ export default function Watch() {
           onClose={() => setShowGoLive(false)}
           onStarted={(roomId) => navigate(`/room/${roomId}`)}
         />
+      )}
+    </div>
+  );
+}
+
+/** Icon-only trigger, mirrors AccountMenu's hand-rolled dropdown (same
+ * click-outside behavior and styling) rather than the two actions
+ * competing for nav space as separate buttons — one is a debater-only
+ * broadcast, the other is matchmaking anyone can use, and both start
+ * a debate, so they share one entry point instead of two. */
+function StartDebateMenu({ onGoLive, onFindMatch }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="btn-accent !px-2.5"
+        title="Start a debate"
+        aria-label="Start a debate"
+        data-testid="btn-start-debate-menu"
+      >
+        <Swords className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-64 card p-1 shadow-lg z-50" data-testid="start-debate-menu">
+          <button
+            onClick={() => { setOpen(false); onGoLive(); }}
+            className="w-full text-left px-3 py-2 rounded-lg hover:bg-[var(--bg-muted)] inline-flex items-start gap-2.5"
+            data-testid="menu-go-live"
+          >
+            <Radio className="w-4 h-4 text-[var(--fg-subtle)] mt-0.5 shrink-0" />
+            <span>
+              <span className="block text-sm font-medium">Go live</span>
+              <span className="block text-xs text-[var(--fg-subtle)]">Broadcast now, no matching</span>
+            </span>
+          </button>
+          <button
+            onClick={() => { setOpen(false); onFindMatch(); }}
+            className="w-full text-left px-3 py-2 rounded-lg hover:bg-[var(--bg-muted)] inline-flex items-start gap-2.5"
+            data-testid="menu-find-match"
+          >
+            <Shuffle className="w-4 h-4 text-[var(--fg-subtle)] mt-0.5 shrink-0" />
+            <span>
+              <span className="block text-sm font-medium">Find your match</span>
+              <span className="block text-xs text-[var(--fg-subtle)]">We'll pair you with someone who disagrees</span>
+            </span>
+          </button>
+        </div>
       )}
     </div>
   );
