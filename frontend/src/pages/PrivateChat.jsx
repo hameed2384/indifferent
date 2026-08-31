@@ -63,7 +63,10 @@ export default function PrivateChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friendId, notFriends]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  // block: "nearest" — see WatchRoom.jsx's identical fix: the default
+  // ("start") drags every scrollable ancestor, including the page itself,
+  // toward aligning this element to the top, not just the chat panel.
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [messages]);
 
   const send = async () => {
     const t = text.trim();

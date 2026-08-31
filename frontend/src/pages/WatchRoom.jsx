@@ -340,8 +340,14 @@ export default function WatchRoom() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debate, roomId, collapsed]);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chat]);
-  useEffect(() => { commentEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments.length]);
+  // block: "nearest" is load-bearing, not cosmetic: the default ("start")
+  // walks up every scrollable ancestor trying to align this element to the
+  // top of each, including the page itself — which reliably auto-scrolled
+  // the whole page ~300px on load, shoving the video tiles (and the follow
+  // button on them) off-screen the moment chat/comments first populated.
+  // "nearest" keeps the scroll scoped to the panel's own overflow-y-auto.
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [chat]);
+  useEffect(() => { commentEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [comments.length]);
   useEffect(() => () => clearTimeout(collapseTimerRef.current), []);
 
   const sendComment = async () => {

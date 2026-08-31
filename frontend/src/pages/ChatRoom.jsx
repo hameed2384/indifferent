@@ -66,7 +66,10 @@ export default function ChatRoom() {
     const iv = setInterval(() => setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000)), 1000);
     return () => clearInterval(iv);
   }, []);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  // block: "nearest" — see WatchRoom.jsx's identical fix: the default
+  // ("start") drags every scrollable ancestor, including the page itself,
+  // toward aligning this element to the top, not just the chat panel.
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [messages]);
 
   const wasPublicRef = useRef(false);
 
