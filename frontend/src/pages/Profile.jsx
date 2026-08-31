@@ -299,6 +299,7 @@ export default function Profile() {
               </div>}
           <div className="min-w-0 pb-2 flex-1">
             <h1 className="font-heading text-2xl sm:text-3xl font-semibold truncate">{profile.display_name}</h1>
+            {profile.handle && <div className="text-sm text-[var(--fg-subtle)] truncate" data-testid="profile-handle">@{profile.handle}</div>}
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               {profile.is_debater && <span className="chip-accent">Debater</span>}
               {profile.id_verified && <span className="chip">Verified</span>}

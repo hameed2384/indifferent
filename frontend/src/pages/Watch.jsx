@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, Tag } from "lucide-react";
+import { Menu, Search, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -25,11 +25,29 @@ function withAd(cards, afterIndex = 2) {
   return out;
 }
 
+function PersonCard({ p, onClick }) {
+  return (
+    <button onClick={onClick} className="card p-4 flex items-center gap-3 text-left hover:border-[var(--fg)] transition-colors" data-testid={`person-result-${p.user_id}`}>
+      {p.picture
+        ? <img src={p.picture} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
+        : <span className="w-11 h-11 rounded-full bg-[var(--bg-muted)] shrink-0 flex items-center justify-center font-medium text-[var(--fg-subtle)]">{(p.display_name || "?")[0]?.toUpperCase()}</span>}
+      <div className="min-w-0">
+        <div className="text-sm font-medium truncate flex items-center gap-1.5">
+          {p.display_name}
+          {p.is_debater && <span className="chip-accent !py-0 !px-1.5 text-[10px] shrink-0">Debater</span>}
+        </div>
+        {p.handle && <div className="text-xs text-[var(--fg-subtle)] truncate">@{p.handle}</div>}
+      </div>
+    </button>
+  );
+}
+
 export default function Watch() {
   const [debates, setDebates] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [people, setPeople] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [excluded] = useState(readNotInterested);
   const [showGoLive, setShowGoLive] = useState(false);
@@ -45,6 +63,19 @@ export default function Watch() {
   useEffect(() => {
     api.get("/categories").then(({ data }) => setCategories(data.categories || [])).catch(() => {});
   }, []);
+
+  // Separate from the debate feed's own load effect below on purpose: this
+  // doesn't care about activeCategory, and shouldn't re-run on that feed's
+  // 8s live poll — a person's name/handle isn't going to change that fast.
+  useEffect(() => {
+    const term = search.trim();
+    if (term.length < 2) { setPeople([]); return; }
+    let mounted = true;
+    api.get("/users/search", { params: { q: term } })
+      .then(({ data }) => { if (mounted) setPeople(data.users || []); })
+      .catch(() => { if (mounted) setPeople([]); });
+    return () => { mounted = false; };
+  }, [search]);
 
   useEffect(() => {
     let mounted = true;
@@ -97,13 +128,14 @@ export default function Watch() {
             <Menu className="w-[18px] h-[18px]" />
           </button>
           <Logo data-testid="nav-home" />
-          <div className="flex-1 max-w-xl mx-auto hidden sm:block">
+          <div className="flex-1 max-w-xl mx-auto hidden sm:block relative">
+            <Search className="w-4 h-4 text-[var(--fg-subtle)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               data-testid="search-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search debates…"
-              className="field !py-2 w-full !rounded-full"
+              placeholder="Search debates or people…"
+              className="field !py-2 !pl-9 w-full !rounded-full"
             />
           </div>
           <div className="flex items-center gap-2 ml-auto shrink-0">
@@ -116,14 +148,16 @@ export default function Watch() {
               : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}
           </div>
         </div>
-        <input
-          data-testid="search-input-mobile"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search debates…"
-          className="field !py-1.5 !rounded-full w-full sm:hidden mx-4 mb-3"
-          style={{ width: "calc(100% - 2rem)" }}
-        />
+        <div className="relative sm:hidden mx-4 mb-3">
+          <Search className="w-4 h-4 text-[var(--fg-subtle)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            data-testid="search-input-mobile"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search debates or people…"
+            className="field !py-1.5 !pl-9 !rounded-full w-full"
+          />
+        </div>
         {categories.length > 0 && (
           <div className="px-4 sm:px-6 pb-3 flex gap-2 overflow-x-auto">
             <button
@@ -198,6 +232,12 @@ export default function Watch() {
                 </p>
               )}
             </div>
+          )}
+
+          {people.length > 0 && (
+            <Row title="People">
+              {people.map((p) => <PersonCard key={p.user_id} p={p} onClick={() => navigate(`/u/${p.user_id}`)} />)}
+            </Row>
           )}
 
           {live.length > 0 && (

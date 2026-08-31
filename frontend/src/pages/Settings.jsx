@@ -21,6 +21,7 @@ export default function Settings() {
   const { user, setUser, logout } = useAuth();
 
   const [displayName, setDisplayName] = useState(user?.display_name || user?.name || "");
+  const [handle, setHandle] = useState(user?.handle || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [savingProfile, setSavingProfile] = useState(false);
   const [allowFriendRequests, setAllowFriendRequests] = useState(user?.allow_friend_requests ?? true);
@@ -29,6 +30,7 @@ export default function Settings() {
   useEffect(() => {
     if (!user) return;
     setDisplayName(user.display_name || user.name || "");
+    setHandle(user.handle || "");
     setBio(user.bio || "");
     setAllowFriendRequests(user.allow_friend_requests ?? true);
   }, [user]);
@@ -39,7 +41,11 @@ export default function Settings() {
     if (!displayName.trim()) { toast.error("Display name can't be empty"); return; }
     setSavingProfile(true);
     try {
-      const { data } = await api.post("/users/me/profile", { display_name: displayName.trim(), bio });
+      const payload = { display_name: displayName.trim(), bio };
+      // Only sent when actually changed — an unset handle stays unset
+      // rather than round-tripping "" through validation on every save.
+      if (handle.trim() !== (user.handle || "")) payload.handle = handle.trim();
+      const { data } = await api.post("/users/me/profile", payload);
       setUser(data);
       toast.success("Profile updated");
     } catch (e) {
@@ -118,6 +124,21 @@ export default function Settings() {
               className="field"
               data-testid="settings-display-name"
             />
+          </label>
+          <label className="block mb-3">
+            <span className="text-xs font-medium text-[var(--fg-muted)] mb-1 block">Handle</span>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--fg-subtle)] text-sm pointer-events-none">@</span>
+              <input
+                value={handle}
+                onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ""))}
+                maxLength={20}
+                placeholder="yourhandle"
+                className="field !pl-7"
+                data-testid="settings-handle"
+              />
+            </div>
+            <div className="text-xs text-[var(--fg-subtle)] mt-1">Unique — how people find you in search. Letters, numbers, underscores, periods.</div>
           </label>
           <label className="block mb-4">
             <span className="text-xs font-medium text-[var(--fg-muted)] mb-1 block">Bio</span>

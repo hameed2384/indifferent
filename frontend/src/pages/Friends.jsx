@@ -44,6 +44,7 @@ function SearchResultRow({ result, onChange }) {
         <Avatar picture={result.picture} name={result.display_name} />
         <span className="min-w-0">
           <span className="block text-sm font-medium truncate">{result.display_name}</span>
+          {result.handle && <span className="block text-xs text-[var(--fg-subtle)] truncate">@{result.handle}</span>}
           {result.is_debater && <span className="chip !py-0 !px-1.5 text-[10px] mt-0.5 inline-block">Debater</span>}
         </span>
       </button>
