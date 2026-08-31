@@ -8,6 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from pymongo.errors import DuplicateKeyError
 
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
@@ -16,54 +17,68 @@ from ..room_utils import find_live_room_id
 
 router = APIRouter()
 
+HANDLE_RE = re.compile(r"^[a-z0-9_.]{3,20}$")
+# Matches this app's own top-level route segments — not load-bearing for
+# routing today (profiles are only ever reached via /u/{user_id}, never
+# /u/{handle}), but blocking them anyway is cheap and avoids the confusing
+# "@settings" or "@watch" showing up as someone's real handle.
+RESERVED_HANDLES = {
+    "u", "watch", "claims", "friends", "settings", "verify", "onboarding",
+    "match", "room", "private", "auth", "api", "admin",
+}
+
 
 class ProfileUpdate(BaseModel):
     display_name: Optional[str] = None
+    handle: Optional[str] = None
     bio: Optional[str] = None
 
 
 @router.get("/users/search")
-async def search_users(q: str, user: User = Depends(get_current_user)):
-    """Powers the Friends page's "find people" box. Registered before
+async def search_users(q: str, viewer: Optional[User] = Depends(get_current_user_optional)):
+    """Powers the Friends page's "find people" box AND the home feed's main
+    search bar (client brief #9's discovery half — searching for a person,
+    not just a debate). Public: works for anonymous callers the same way
+    debate search already does, not gated like the rest of this file's
+    friend-graph endpoints, since every profile this returns is already
+    public via /u/{id} regardless of who's asking. Registered before
     /users/{user_id} on purpose — both are single-segment paths, and FastAPI
     matches static routes in registration order (same reasoning as
-    /clips/roots vs /clips/{clip_id}). Requires auth: every profile this
-    returns is already public via /u/{id}, but gating the search itself is
-    a cheap, standard deterrent against a script trawling the user list."""
+    /clips/roots vs /clips/{clip_id})."""
     term = q.strip()
     if len(term) < 2:
         return {"users": []}
-    pattern = re.escape(term[:100])
+    pattern = re.escape(term.lstrip("@")[:100])
+    match: dict = {"$or": [
+        {"display_name": {"$regex": pattern, "$options": "i"}},
+        {"name": {"$regex": pattern, "$options": "i"}},
+        {"handle": {"$regex": pattern, "$options": "i"}},
+    ]}
+    query = {"$and": [{"user_id": {"$ne": viewer.user_id}}, match]} if viewer else match
     docs = await db.users.find(
-        {
-            "user_id": {"$ne": user.user_id},
-            "$or": [
-                {"display_name": {"$regex": pattern, "$options": "i"}},
-                {"name": {"$regex": pattern, "$options": "i"}},
-            ],
-        },
-        {"_id": 0, "user_id": 1, "display_name": 1, "name": 1, "picture": 1, "is_debater": 1, "id_verified": 1},
+        query,
+        {"_id": 0, "user_id": 1, "display_name": 1, "name": 1, "handle": 1, "picture": 1, "is_debater": 1, "id_verified": 1},
     ).to_list(20)
 
     ids = [d["user_id"] for d in docs]
     following_ids = set()
     friend_status_by_id = {}
-    if ids:
+    if ids and viewer:
         following_ids = {
             f["followee_id"]
             async for f in db.follows.find(
-                {"follower_id": user.user_id, "followee_id": {"$in": ids}}, {"_id": 0, "followee_id": 1}
+                {"follower_id": viewer.user_id, "followee_id": {"$in": ids}}, {"_id": 0, "followee_id": 1}
             )
         }
         friendship_docs = await db.friendships.find(
-            {"$or": [{"user_a": user.user_id, "user_b": {"$in": ids}}, {"user_a": {"$in": ids}, "user_b": user.user_id}]},
+            {"$or": [{"user_a": viewer.user_id, "user_b": {"$in": ids}}, {"user_a": {"$in": ids}, "user_b": viewer.user_id}]},
             {"_id": 0},
         ).to_list(len(ids))
         for fdoc in friendship_docs:
-            other = fdoc["user_b"] if fdoc["user_a"] == user.user_id else fdoc["user_a"]
+            other = fdoc["user_b"] if fdoc["user_a"] == viewer.user_id else fdoc["user_a"]
             if fdoc["status"] == "accepted":
                 friend_status_by_id[other] = "friends"
-            elif fdoc["requested_by"] == user.user_id:
+            elif fdoc["requested_by"] == viewer.user_id:
                 friend_status_by_id[other] = "pending_outgoing"
             else:
                 friend_status_by_id[other] = "pending_incoming"
@@ -71,6 +86,7 @@ async def search_users(q: str, user: User = Depends(get_current_user)):
     return {"users": [{
         "user_id": d["user_id"],
         "display_name": d.get("display_name") or d.get("name"),
+        "handle": d.get("handle"),
         "picture": d.get("picture"),
         "is_debater": bool(d.get("is_debater")),
         "id_verified": bool(d.get("id_verified")),
@@ -114,6 +130,7 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
     return {
         "user_id": user_id,
         "display_name": doc.get("display_name") or doc.get("name"),
+        "handle": doc.get("handle"),
         "picture": doc.get("picture"),
         "bio": doc.get("bio") or "",
         "is_debater": bool(doc.get("is_debater", False)),
@@ -248,19 +265,35 @@ async def list_subscriptions(user: User = Depends(get_current_user)):
 
 @router.post("/users/me/profile", response_model=User)
 async def update_my_profile(payload: ProfileUpdate, user: User = Depends(get_current_user)):
-    """Settings page — editing display_name/bio after onboarding wasn't
-    possible at all until now; onboarding/submit was the only write path."""
+    """Settings page — editing display_name/bio/handle after onboarding
+    wasn't possible at all until now; onboarding/submit was the only write
+    path (and never touched handle at all — it's optional, set anytime)."""
     update = {}
     if payload.display_name is not None:
         name = payload.display_name.strip()[:40]
         if not name:
             raise HTTPException(status_code=400, detail="Display name can't be empty")
         update["display_name"] = name
+    if payload.handle is not None:
+        # Stored and matched lowercase, without the "@" — every UI surface
+        # prepends that itself, same as display convention elsewhere (a
+        # user typing "@hameed" is stripped to "hameed" defensively).
+        handle = payload.handle.strip().lstrip("@").lower()
+        if not handle:
+            raise HTTPException(status_code=400, detail="Handle can't be empty")
+        if not HANDLE_RE.match(handle):
+            raise HTTPException(status_code=400, detail="Handles are 3-20 characters: lowercase letters, numbers, underscores, and periods only")
+        if handle in RESERVED_HANDLES:
+            raise HTTPException(status_code=400, detail="That handle is reserved")
+        update["handle"] = handle
     if payload.bio is not None:
         update["bio"] = payload.bio.strip()[:300]
     if not update:
         raise HTTPException(status_code=400, detail="Nothing to update")
-    await db.users.update_one({"user_id": user.user_id}, {"$set": update})
+    try:
+        await db.users.update_one({"user_id": user.user_id}, {"$set": update})
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="That handle is already taken")
     doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     return User(**doc)
 

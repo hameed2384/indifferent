@@ -17,6 +17,7 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     display_name: Optional[str] = None
+    handle: Optional[str] = None  # unique, e.g. "hameed" (displayed as "@hameed") — separate from the non-unique display_name
     bio: Optional[str] = None
     stance: Optional[StanceScores] = None
     onboarded: bool = False
