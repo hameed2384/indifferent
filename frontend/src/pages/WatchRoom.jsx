@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Heart, Share2, ThumbsDown } from "lucide-react";
+import { Heart, Share2, ThumbsDown, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -13,7 +13,6 @@ import BackButton from "@/components/BackButton";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
-import { CONTAINER_WIDE } from "@/lib/layout";
 
 function ViewerOverlay({ side, navigate }) {
   const [following, setFollowing] = useState(null); // null = unknown/self/open, else bool
@@ -222,7 +221,7 @@ function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel, sideBOpen 
   );
 }
 
-function RelatedDebates({ category, excludeRoomId, navigate }) {
+function RelatedDebates({ category, excludeRoomId, navigate, collapsed, onToggleCollapsed }) {
   const [related, setRelated] = useState([]);
   useEffect(() => {
     if (!category) return;
@@ -235,28 +234,154 @@ function RelatedDebates({ category, excludeRoomId, navigate }) {
 
   if (!category) return null;
   return (
-    <aside className="hidden lg:block w-64 shrink-0">
-      <div className="eyebrow mb-3">More in {category}</div>
-      <div className="space-y-2">
-        {related.length === 0 && <div className="text-xs text-[var(--fg-subtle)]">Nothing else right now.</div>}
-        {related.map((d) => (
-          <button
-            key={d.room_id}
-            onClick={() => navigate(`/watch/${d.room_id}`)}
-            className="card p-3 text-left w-full hover:border-[var(--fg)] transition-colors block"
-            data-testid={`related-${d.room_id}`}
-          >
-            <div className="flex items-center gap-1.5 text-[10px] mb-1">
-              {d.status === "active"
-                ? <span className="chip-accent !py-0 !px-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" /> Live</span>
-                : <span className="chip !py-0 !px-1.5">Published</span>}
-            </div>
-            <div className="text-sm font-medium leading-snug line-clamp-2">
-              {d.topics?.[0] || "An unrecorded disagreement"}
-            </div>
-          </button>
-        ))}
+    <aside className={`hidden lg:flex flex-col shrink-0 transition-[width] duration-150 ${collapsed ? "w-12" : "w-64"}`}>
+      <button
+        onClick={onToggleCollapsed}
+        className={`btn-ghost !justify-start gap-3 mb-3 ${collapsed ? "!justify-center !px-0" : ""}`}
+        title={collapsed ? "Expand suggested content" : "Collapse suggested content"}
+        data-testid="btn-toggle-related"
+      >
+        {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+        {!collapsed && <span className="text-sm">Collapse</span>}
+      </button>
+      {!collapsed && (
+        <>
+          <div className="eyebrow mb-3">Suggested</div>
+          <div className="space-y-2">
+            {related.length === 0 && <div className="text-xs text-[var(--fg-subtle)]">Nothing else right now.</div>}
+            {related.map((d) => (
+              <button
+                key={d.room_id}
+                onClick={() => navigate(`/watch/${d.room_id}`)}
+                className="card p-3 text-left w-full hover:border-[var(--fg)] transition-colors block"
+                data-testid={`related-${d.room_id}`}
+              >
+                <div className="flex items-center gap-1.5 text-[10px] mb-1">
+                  {d.status === "active"
+                    ? <span className="chip-accent !py-0 !px-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" /> Live</span>
+                    : <span className="chip !py-0 !px-1.5">Published</span>}
+                </div>
+                <div className="text-sm font-medium leading-snug line-clamp-2">
+                  {d.topics?.[0] || "An unrecorded disagreement"}
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </aside>
+  );
+}
+
+/** Debater chat (read-only mirror of the debate's own transcript) + viewer
+ * chat (spectator comments, read/write), unified into one collapsible
+ * sidebar with a tab per side — same shape as ChatRoom.jsx's chat sidebar,
+ * so a viewer and a debater get a consistent chat surface instead of two
+ * differently-built ones. Unlike ChatRoom's app-shell page (h-screen, the
+ * sidebar fills the viewport), this is a normal scrolling page, so the
+ * panel gets its own bounded height with internal scroll rather than
+ * trying to stretch to fill an undefined parent height. */
+function WatchChatSidebar({
+  collapsed, onToggleCollapsed, chatTab, setChatTab, unreadDebater, unreadViewer,
+  chat, connected, chatEndRef,
+  comments, commentEndRef, commentText, setCommentText, sendComment, user, spectatorCount,
+}) {
+  return (
+    <aside className="min-w-0 flex flex-col border border-[var(--border)] rounded-xl bg-[var(--surface)] overflow-hidden">
+      <div className={`shrink-0 h-12 flex items-center border-b border-[var(--border)] ${collapsed ? "justify-center" : "justify-between px-3"}`}>
+        {!collapsed && (
+          <div className="inline-flex rounded-lg border border-[var(--border-strong)] overflow-hidden">
+            <button
+              onClick={() => setChatTab("debater")}
+              className={`relative px-3 py-1 text-xs font-medium ${chatTab !== "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+              data-testid="watch-chat-tab-debater"
+            >
+              Debater chat
+              {unreadDebater && chatTab !== "debater" && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[var(--danger)]" data-testid="watch-chat-tab-debater-unread-dot" />
+              )}
+            </button>
+            <button
+              onClick={() => setChatTab("viewer")}
+              className={`relative px-3 py-1 text-xs font-medium border-l border-[var(--border-strong)] ${chatTab === "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+              data-testid="watch-chat-tab-viewer"
+            >
+              Viewer chat{spectatorCount > 0 && ` · ${spectatorCount}`}
+              {unreadViewer && chatTab !== "viewer" && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[var(--danger)]" data-testid="watch-chat-tab-viewer-unread-dot" />
+              )}
+            </button>
+          </div>
+        )}
+        <button
+          onClick={onToggleCollapsed}
+          className="btn-ghost !px-2 relative"
+          title={collapsed ? "Expand chat" : "Collapse chat"}
+          data-testid="btn-toggle-watch-chat-sidebar"
+        >
+          {collapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}
+          {collapsed && (unreadDebater || unreadViewer) && (
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[var(--danger)] ring-2 ring-[var(--surface)]" data-testid="watch-chat-collapsed-unread-dot" />
+          )}
+        </button>
       </div>
+
+      {!collapsed && (
+        <>
+          <div className="shrink-0 p-3 border-b border-[var(--border)]">
+            <AdSlot variant="banner" />
+          </div>
+          {chatTab === "viewer" ? (
+            <>
+              <div className="min-h-[240px] max-h-[50vh] md:max-h-[520px] overflow-y-auto p-3 space-y-3 flex flex-col-reverse" data-testid="spectator-comments">
+                <div ref={commentEndRef} />
+                {comments.length === 0 && <div className="text-sm text-[var(--fg-subtle)] text-center py-4">No comments yet.</div>}
+                {comments.map((c, i) => (
+                  <div key={i} className="border-l-2 border-[var(--border-strong)] pl-3">
+                    <div className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)]">
+                      {c.author}{!c.authed && " · anon"}
+                    </div>
+                    <div className="text-sm break-words">{c.text}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="shrink-0 border-t border-[var(--border)] p-3 flex gap-2">
+                <input
+                  data-testid="comment-input"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendComment()}
+                  placeholder={user ? "Add a comment…" : "Comment as anonymous…"}
+                  maxLength={280}
+                  className="field"
+                />
+                <button onClick={sendComment} className="btn-primary px-3" data-testid="btn-send-comment">Post</button>
+              </div>
+            </>
+          ) : (
+            <div className="min-h-[240px] max-h-[50vh] md:max-h-[520px] overflow-y-auto p-3 space-y-3" data-testid="transcript">
+              <div className="flex items-center justify-between px-1 pb-1">
+                <span className="text-[11px] text-[var(--fg-subtle)]">Debate transcript</span>
+                <span className={`text-[11px] ${connected ? "text-[var(--accent)]" : "text-[var(--fg-subtle)]"}`}>
+                  {connected ? "● Live" : "○ Replay"}
+                </span>
+              </div>
+              {chat.length === 0 && <div className="text-sm text-[var(--fg-subtle)]">Waiting for the first move…</div>}
+              {chat.map((m, i) => (
+                <div key={i} className={`flex ${m.speaker_side === "b" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${m.speaker_side === "b" ? "bg-[var(--fg)] text-[var(--bg)]" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
+                    <div className={`text-[10px] uppercase tracking-wider mb-1 ${m.speaker_side === "b" ? "text-[var(--bg)]/60" : "text-[var(--fg-subtle)]"}`}>
+                      {m.speaker} · Side {m.speaker_side?.toUpperCase()}
+                    </div>
+                    <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+          )}
+        </>
+      )}
     </aside>
   );
 }
@@ -277,6 +402,11 @@ export default function WatchRoom() {
   const [connected, setConnected] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [collapsed, setCollapsed] = useState(false);
+  const [relatedCollapsed, setRelatedCollapsed] = useState(false);
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
+  const [chatTab, setChatTab] = useState("debater"); // "debater" | "viewer"
+  const [unreadDebater, setUnreadDebater] = useState(false);
+  const [unreadViewer, setUnreadViewer] = useState(false);
 
   const sinceRef = useRef(null);
   // Bumped by applyReaction (a like/dislike click), never by pollOnce itself.
@@ -289,6 +419,19 @@ export default function WatchRoom() {
   const chatEndRef = useRef(null);
   const commentEndRef = useRef(null);
   const collapseTimerRef = useRef(null);
+  // pollOnce runs inside a setInterval set up once per effect (deps don't
+  // include chatSidebarOpen/chatTab, so switching tabs doesn't restart the
+  // poll) — reading those directly would close over stale values forever,
+  // same reasoning as ChatRoom.jsx's identical refs.
+  const chatVisibleRef = useRef(true);
+  const chatTabRef = useRef(chatTab);
+  useEffect(() => { chatVisibleRef.current = chatSidebarOpen; }, [chatSidebarOpen]);
+  useEffect(() => { chatTabRef.current = chatTab; }, [chatTab]);
+  useEffect(() => {
+    if (!chatSidebarOpen) return;
+    if (chatTab === "debater") setUnreadDebater(false);
+    if (chatTab === "viewer") setUnreadViewer(false);
+  }, [chatSidebarOpen, chatTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,13 +466,24 @@ export default function WatchRoom() {
       }
       setVotes((v) => ({ ...v, votes_a: data.votes_a || 0, votes_b: data.votes_b || 0 }));
       setSpectatorCount(data.spectator_count);
+      // sinceRef only ever advances past the debate's already-loaded history
+      // (set from the initial /public/debates/{roomId} fetch above), so
+      // every event pollOnce sees here is genuinely new since this viewer
+      // arrived — no "was this the initial load" check needed, unlike
+      // ChatRoom.jsx's pollOnce, which conflates that fetch with polling.
+      let newDebaterChat = false;
+      let newViewerComment = false;
       for (const evt of data.events || []) {
         if (evt.type === "debate-chat") {
           setChat((c) => [...c, { text: evt.text, speaker: evt.speaker, speaker_side: evt.speaker_side, created_at: evt.ts }]);
+          newDebaterChat = true;
         } else if (evt.type === "comment") {
           setComments((c) => [{ text: evt.text, author: evt.author, authed: evt.authed, created_at: evt.ts }, ...c]);
+          newViewerComment = true;
         }
       }
+      if (newDebaterChat && !(chatVisibleRef.current && chatTabRef.current === "debater")) setUnreadDebater(true);
+      if (newViewerComment && !(chatVisibleRef.current && chatTabRef.current === "viewer")) setUnreadViewer(true);
     } catch (e) {
       setConnected(false);
       if (e.response?.status === 404) {
@@ -488,13 +642,13 @@ export default function WatchRoom() {
   return (
     <div className="min-h-screen bg-[var(--bg-muted)]">
       <nav className={STICKY_NAV}>
-        <div className={`${CONTAINER_WIDE} mx-auto px-6 h-14 flex items-center justify-between gap-3`}>
+        <div className="px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <BackButton to="/watch" label="All debates" data-testid="nav-back-watch" />
           <div className="flex items-center gap-3 text-sm">
             {isLive
               ? <span className="chip-accent"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Live</span>
               : <span className="chip">Ended</span>}
-            <span className="text-[var(--fg-subtle)] hidden sm:inline">{spectatorCount} watching</span>
+            <span className="text-[var(--fg-subtle)] hidden sm:inline">{spectatorCount} {isLive ? "viewers" : "views"}</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={share} className="btn-outline text-sm inline-flex items-center gap-1.5" data-testid="btn-share"><Share2 className="w-4 h-4" /> Share</button>
@@ -506,12 +660,15 @@ export default function WatchRoom() {
         </div>
       </nav>
 
-      <div className={`${CONTAINER_WIDE} mx-auto px-4 sm:px-6 py-6 sm:py-8 flex gap-6 items-start`}>
-        <RelatedDebates category={debate.categories?.[0]} excludeRoomId={roomId} navigate={navigate} />
+      <div className="px-4 sm:px-6 py-6 sm:py-8 flex gap-6 items-start">
+        <RelatedDebates
+          category={debate.categories?.[0]} excludeRoomId={roomId} navigate={navigate}
+          collapsed={relatedCollapsed} onToggleCollapsed={() => setRelatedCollapsed((v) => !v)}
+        />
 
-        <main className="min-w-0 flex-1 grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
+        <main className={`min-w-0 flex-1 grid gap-6 ${chatSidebarOpen ? "md:grid-cols-[minmax(0,1fr)_320px]" : "md:grid-cols-[minmax(0,1fr)_64px]"}`}>
           <div className="min-w-0 flex flex-col relative">
-            <div className={`flex flex-col min-h-[45vh] ${viewMode === "cinema" ? "md:min-h-[55vh]" : "md:min-h-0"}`}>
+            <div className={`flex flex-col min-h-[45vh] ${viewMode === "cinema" ? "md:min-h-[80vh]" : "md:min-h-0"}`}>
               <VideoStage
                 tiles={tiles}
                 viewMode={viewMode}
@@ -549,29 +706,6 @@ export default function WatchRoom() {
 
             {isLive && <JoinRequestPanel roomId={roomId} debate={debate} navigate={navigate} />}
 
-            <div className="mt-6 card overflow-hidden">
-              <div className="px-4 h-12 border-b border-[var(--border)] flex items-center justify-between">
-                <span className="text-sm font-medium">Transcript</span>
-                <span className={`text-xs ${connected ? "text-[var(--accent)]" : "text-[var(--fg-subtle)]"}`}>
-                  {connected ? "● Live" : "○ Replay"}
-                </span>
-              </div>
-              <div className="max-h-[45vh] md:max-h-[420px] overflow-y-auto p-4 space-y-3" data-testid="transcript">
-                {chat.length === 0 && <div className="text-sm text-[var(--fg-subtle)]">Waiting for the first move…</div>}
-                {chat.map((m, i) => (
-                  <div key={i} className={`flex ${m.speaker_side === "b" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${m.speaker_side === "b" ? "bg-[var(--fg)] text-[var(--bg)]" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
-                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${m.speaker_side === "b" ? "text-[var(--bg)]/60" : "text-[var(--fg-subtle)]"}`}>
-                        {m.speaker} · Side {m.speaker_side?.toUpperCase()}
-                      </div>
-                      <div className="whitespace-pre-wrap break-words">{m.text}</div>
-                    </div>
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
-              </div>
-            </div>
-
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
                 onClick={like}
@@ -607,39 +741,24 @@ export default function WatchRoom() {
             />
           </div>
 
-          <aside className="min-w-0 space-y-4">
-            <AdSlot variant="banner" />
-            <div className="card overflow-hidden">
-              <div className="px-4 h-12 border-b border-[var(--border)] flex items-center justify-between">
-                <span className="text-sm font-medium">Spectator chat</span>
-                <span className="text-xs text-[var(--fg-subtle)]">{spectatorCount} here</span>
-              </div>
-              <div className="min-h-[240px] max-h-[45vh] md:max-h-[520px] overflow-y-auto p-3 space-y-3 flex flex-col-reverse" data-testid="spectator-comments">
-                <div ref={commentEndRef} />
-                {comments.length === 0 && <div className="text-sm text-[var(--fg-subtle)] text-center py-4">No comments yet.</div>}
-                {comments.map((c, i) => (
-                  <div key={i} className="border-l-2 border-[var(--border-strong)] pl-3">
-                    <div className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)]">
-                      {c.author}{!c.authed && " · anon"}
-                    </div>
-                    <div className="text-sm break-words">{c.text}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-[var(--border)] p-3 flex gap-2">
-                <input
-                  data-testid="comment-input"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendComment()}
-                  placeholder={user ? "Add a comment…" : "Comment as anonymous…"}
-                  maxLength={280}
-                  className="field"
-                />
-                <button onClick={sendComment} className="btn-primary px-3" data-testid="btn-send-comment">Post</button>
-              </div>
-            </div>
-          </aside>
+          <WatchChatSidebar
+            collapsed={!chatSidebarOpen}
+            onToggleCollapsed={() => setChatSidebarOpen((v) => !v)}
+            chatTab={chatTab}
+            setChatTab={setChatTab}
+            unreadDebater={unreadDebater}
+            unreadViewer={unreadViewer}
+            chat={chat}
+            connected={connected}
+            chatEndRef={chatEndRef}
+            comments={comments}
+            commentEndRef={commentEndRef}
+            commentText={commentText}
+            setCommentText={setCommentText}
+            sendComment={sendComment}
+            user={user}
+            spectatorCount={spectatorCount}
+          />
         </main>
       </div>
 
