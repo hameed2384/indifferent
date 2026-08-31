@@ -275,7 +275,6 @@ export default function WatchRoom() {
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [connected, setConnected] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [likeBurst, setLikeBurst] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
 
   const sinceRef = useRef(null);
@@ -365,15 +364,12 @@ export default function WatchRoom() {
 
   const like = () => {
     if (!user) { toast.info("Sign in to like"); return; }
-    api.post(`/public/debates/${roomId}/like`).then(({ data }) => {
-      setLikes(data.likes);
-      setLikeBurst((b) => b + 1);
-    }).catch(() => {});
+    api.post(`/public/debates/${roomId}/like`).then(({ data }) => setLikes(data.likes)).catch(() => toast.error("Couldn't record that — try again"));
   };
 
   const dislike = () => {
     if (!user) { toast.info("Sign in to react"); return; }
-    api.post(`/public/debates/${roomId}/dislike`).then(({ data }) => setDislikes(data.dislikes)).catch(() => {});
+    api.post(`/public/debates/${roomId}/dislike`).then(({ data }) => setDislikes(data.dislikes)).catch(() => toast.error("Couldn't record that — try again"));
   };
 
   const castVote = async (side, reasoning) => {
@@ -563,9 +559,8 @@ export default function WatchRoom() {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button onClick={like} className="btn-accent relative inline-flex items-center gap-1.5" data-testid="btn-like">
+              <button onClick={like} className="btn-accent inline-flex items-center gap-1.5" data-testid="btn-like">
                 <Heart className="w-4 h-4" /> {likes}
-                {likeBurst > 0 && <span key={likeBurst} className="absolute -top-3 -right-3 text-lg text-[var(--accent)] animate-pulse">+1</span>}
               </button>
               <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike"><ThumbsDown className="w-4 h-4" /> {dislikes}</button>
               <button onClick={share} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-share-2"><Share2 className="w-4 h-4" /> Share</button>
