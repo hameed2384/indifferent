@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2 } from "lucide-react";
+import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2, Search } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -172,6 +172,7 @@ export default function Profile() {
   const [notFound, setNotFound] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
   const [tab, setTab] = useState("debates");
+  const [search, setSearch] = useState("");
   const [editingClip, setEditingClip] = useState(null);
   const [deletingClip, setDeletingClip] = useState(null);
   const [visibilityDebate, setVisibilityDebate] = useState(null);
@@ -186,6 +187,7 @@ export default function Profile() {
   useEffect(() => {
     load();
     setTab("debates");
+    setSearch("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -256,6 +258,9 @@ export default function Profile() {
 
   const joinDate = formatJoinDate(profile.created_at);
   const activeTabCount = { debates: debates.length, claims: clips.length, spectrum: topics.length };
+  const term = search.trim().toLowerCase();
+  const filteredDebates = term ? debates.filter((d) => (d.topics || []).some((t) => t.toLowerCase().includes(term))) : debates;
+  const filteredClips = term ? clips.filter((c) => (c.caption || "").toLowerCase().includes(term)) : clips;
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -276,6 +281,20 @@ export default function Profile() {
               : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}
           </div>
         </div>
+        {tab !== "spectrum" && activeTabCount[tab] > 0 && (
+          <div className={`${CONTAINER_MEDIUM} mx-auto px-4 sm:px-6 pb-3`}>
+            <div className="relative">
+              <Search className="w-4 h-4 text-[var(--fg-subtle)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Search ${profile.is_self ? "your" : "their"} ${tab === "debates" ? "debates" : "claims"}…`}
+                className="field !py-2 !pl-9 !rounded-full w-full"
+                data-testid="profile-content-search"
+              />
+            </div>
+          </div>
+        )}
       </nav>
 
       {liveRoomId && (
@@ -362,7 +381,7 @@ export default function Profile() {
           {TABS.map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => { setTab(t.key); setSearch(""); }}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap inline-flex items-center gap-1.5 transition-colors ${
                 tab === t.key ? "border-[var(--accent)] text-[var(--fg)]" : "border-transparent text-[var(--fg-subtle)] hover:text-[var(--fg)]"
               }`}
@@ -378,9 +397,11 @@ export default function Profile() {
           {tab === "debates" && (
             debates.length === 0 ? (
               <EmptyState title="No debates yet" subtitle={profile.is_self ? "Find your opposite from the home page to start one." : "Nothing public here yet."} />
+            ) : filteredDebates.length === 0 ? (
+              <EmptyState title="No matches" subtitle="No debates match your search." />
             ) : (
               <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {debates.map((d) => (
+                {filteredDebates.map((d) => (
                   <DebateCardSmall
                     key={d.room_id}
                     d={d}
@@ -396,9 +417,11 @@ export default function Profile() {
           {tab === "claims" && (
             clips.length === 0 ? (
               <EmptyState title="No claims yet" subtitle={profile.is_self ? "State a claim on video from the Claims page to start a tree." : "Nothing posted here yet."} />
+            ) : filteredClips.length === 0 ? (
+              <EmptyState title="No matches" subtitle="No claims match your search." />
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-                {clips.map((c) => (
+                {filteredClips.map((c) => (
                   <ClipCardSmall
                     key={c.clip_id}
                     c={c}

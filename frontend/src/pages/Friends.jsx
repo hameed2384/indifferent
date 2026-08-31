@@ -72,47 +72,18 @@ function SearchResultRow({ result, onChange }) {
   );
 }
 
-function SearchSection() {
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
-
-  const runSearch = (term) => {
-    if (term.trim().length < 2) { setResults([]); setSearched(false); return; }
-    setSearching(true);
-    api.get("/users/search", { params: { q: term.trim() } })
-      .then(({ data }) => setResults(data.users || []))
-      .catch(() => setResults([]))
-      .finally(() => { setSearching(false); setSearched(true); });
-  };
-
-  useEffect(() => {
-    const t = setTimeout(() => runSearch(q), 300);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
-
+function SearchSection({ q, results, searching, searched, onChange }) {
+  if (!q.trim()) return null;
   return (
-    <div className="card p-5 sm:p-6">
-      <div className="eyebrow mb-4">Find people</div>
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--fg-subtle)]" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name…"
-          className="field !pl-9"
-          data-testid="people-search-input"
-        />
-      </div>
-      {searching && <p className="mt-3 text-sm text-[var(--fg-subtle)]">Searching…</p>}
+    <div className="card p-5 sm:p-6" data-testid="people-search-results">
+      <div className="eyebrow mb-4">Results for "{q.trim()}"</div>
+      {searching && <p className="text-sm text-[var(--fg-subtle)]">Searching…</p>}
       {!searching && searched && results.length === 0 && (
-        <p className="mt-3 text-sm text-[var(--fg-subtle)]">No one matches "{q.trim()}".</p>
+        <p className="text-sm text-[var(--fg-subtle)]">No one matches "{q.trim()}".</p>
       )}
       {results.length > 0 && (
-        <div className="mt-2 divide-y divide-[var(--border)]">
-          {results.map((r) => <SearchResultRow key={r.user_id} result={r} onChange={() => runSearch(q)} />)}
+        <div className="divide-y divide-[var(--border)]">
+          {results.map((r) => <SearchResultRow key={r.user_id} result={r} onChange={onChange} />)}
         </div>
       )}
     </div>
@@ -226,6 +197,25 @@ function FollowingSection() {
 export default function Friends() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  const runSearch = (term) => {
+    if (term.trim().length < 2) { setResults([]); setSearched(false); return; }
+    setSearching(true);
+    api.get("/users/search", { params: { q: term.trim() } })
+      .then(({ data }) => setResults(data.users || []))
+      .catch(() => setResults([]))
+      .finally(() => { setSearching(false); setSearched(true); });
+  };
+
+  useEffect(() => {
+    const t = setTimeout(() => runSearch(q), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -240,10 +230,22 @@ export default function Friends() {
             <AccountMenu user={user} logout={logout} />
           </div>
         </div>
+        <div className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 pb-3`}>
+          <div className="relative">
+            <Search className="w-4 h-4 text-[var(--fg-subtle)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search people by name…"
+              className="field !py-2 !pl-9 !rounded-full w-full"
+              data-testid="people-search-input"
+            />
+          </div>
+        </div>
       </nav>
 
       <main id="main-content" className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 py-8 space-y-6`}>
-        <SearchSection />
+        <SearchSection q={q} results={results} searching={searching} searched={searched} onChange={() => runSearch(q)} />
         <RequestsAndFriends />
         <FollowingSection />
       </main>
