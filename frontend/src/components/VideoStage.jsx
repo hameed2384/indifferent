@@ -197,11 +197,30 @@ function VideoTile({ tile, fill, compact }) {
   );
 }
 
+/** Confirmed live: VideoStage renders BOTH the mobile stack and the desktop
+ * grid simultaneously (CSS display:none/flex toggles which is visible, they
+ * aren't conditionally mounted) — so a shared tile.videoEl gets a MediaMount
+ * in each layout at once. appendChild(el) moves the real DOM node rather
+ * than copying it, so whichever mounts last wins; the desktop branch renders
+ * after the mobile one in VideoStage's JSX, so it always won, silently
+ * relocating the live <video> into the desktop grid's hidden container —
+ * the camera was genuinely live (currentTime advancing) but painting into
+ * an invisible element on mobile. Same conflict applies to tile.audioEl.
+ * Cloning a fresh element pointed at the same srcObject sidesteps the
+ * single-owner-node problem entirely: a MediaStream can back any number of
+ * independent elements at once, so every simultaneous consumer gets its own. */
 function MediaMount({ el, className = "" }) {
   const ref = (node) => {
     if (!node) return;
     node.innerHTML = "";
-    if (el) node.appendChild(el);
+    if (!el) return;
+    const clone = document.createElement(el.tagName);
+    clone.srcObject = el.srcObject;
+    clone.autoplay = true;
+    clone.playsInline = true;
+    clone.muted = el.muted;
+    clone.className = el.className;
+    node.appendChild(clone);
   };
   return <div ref={ref} className={`absolute inset-0 ${className}`} />;
 }

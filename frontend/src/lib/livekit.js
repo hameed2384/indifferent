@@ -212,14 +212,26 @@ export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
   };
 }
 
-/** Attach a live media element into a container div. */
+/** Attach a live media element into a container div. Not currently used
+ * anywhere, but clones rather than appendChild(el) directly on purpose —
+ * see components/VideoStage.jsx's MediaMount for why: appendChild moves the
+ * real DOM node, so if this element is ever also mounted elsewhere (the
+ * same el rendered by more than one consumer at once), whichever mounts
+ * last silently steals it from the other. Confirmed live as a real bug in
+ * MediaMount's original version, not a theoretical one. */
 export function AttachedMedia({ el, className = "" }) {
   const ref = useRef(null);
   useEffect(() => {
     const container = ref.current;
-    if (!container) return;
+    if (!container || !el) return;
     container.innerHTML = "";
-    if (el) container.appendChild(el);
+    const clone = document.createElement(el.tagName);
+    clone.srcObject = el.srcObject;
+    clone.autoplay = true;
+    clone.playsInline = true;
+    clone.muted = el.muted;
+    clone.className = el.className;
+    container.appendChild(clone);
     return () => { if (container) container.innerHTML = ""; };
   }, [el]);
   return <div ref={ref} className={className} />;
