@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -29,11 +30,33 @@ export default function ChatRoom() {
   const [chatTab, setChatTab] = useState("debater"); // "debater" | "viewer"
   const [viewerComments, setViewerComments] = useState([]);
   const [decidingId, setDecidingId] = useState(null);
+  // Unread indicators (a boolean per tab, not a count — one red dot no
+  // matter how many messages piled up while you weren't looking).
+  const [unreadDebater, setUnreadDebater] = useState(false);
+  const [unreadViewer, setUnreadViewer] = useState(false);
 
   const sinceRef = useRef(null);
   const viewerSinceRef = useRef(null);
   const startedAtRef = useRef(Date.now());
   const messagesEndRef = useRef(null);
+  // pollOnce/pollViewerChat run inside a setInterval set up once per effect
+  // (deps deliberately don't include sidebarOpen/chatOpen/chatTab — the
+  // interval shouldn't restart every time the user switches tabs), so they'd
+  // otherwise close over stale versions of those three forever. Refs instead
+  // of dependencies: read the live value without restarting the poll.
+  const chatVisibleRef = useRef(true); // sidebar expanded (desktop) or drawer open (mobile)
+  const chatTabRef = useRef(chatTab);
+  useEffect(() => { chatVisibleRef.current = sidebarOpen || chatOpen; }, [sidebarOpen, chatOpen]);
+  useEffect(() => { chatTabRef.current = chatTab; }, [chatTab]);
+  // Whichever tab is actually on screen right now counts as read, the
+  // instant it becomes the visible one — covers switching tabs, expanding
+  // the sidebar, and opening the mobile drawer, all in one place instead of
+  // duplicating the clear in every place chatTab/sidebarOpen/chatOpen changes.
+  useEffect(() => {
+    if (!(sidebarOpen || chatOpen)) return;
+    if (chatTab === "debater") setUnreadDebater(false);
+    if (chatTab === "viewer") setUnreadViewer(false);
+  }, [sidebarOpen, chatOpen, chatTab]);
 
   // Initial fetch: a real failure here means the room genuinely isn't
   // accessible (not a participant, doesn't exist) — leaving is correct.
@@ -74,6 +97,10 @@ export default function ChatRoom() {
   const wasPublicRef = useRef(false);
 
   const pollOnce = async () => {
+    // sinceRef starts null, so the very first call fetches the room's whole
+    // existing history — that's not "new" activity the user hasn't seen,
+    // it's just the conversation as it already stood when they joined.
+    const isInitialLoad = !sinceRef.current;
     try {
       const { data } = await api.get(`/rooms/${roomId}/messages`, { params: { since: sinceRef.current || undefined } });
       sinceRef.current = data.server_time;
@@ -83,6 +110,12 @@ export default function ChatRoom() {
       setPublishState((p) => ({ ...p, is_public: data.is_public, publish_a: data.publish_a, publish_b: data.publish_b }));
       if (data.events?.length) {
         setMessages((m) => [...m, ...data.events]);
+        // Coach nudges already get their own toast below — they aren't a
+        // chat message from a person, so they don't also drive the dot.
+        const hasNewChat = data.events.some((e) => e.type !== "coach");
+        if (!isInitialLoad && hasNewChat && !(chatVisibleRef.current && chatTabRef.current === "debater")) {
+          setUnreadDebater(true);
+        }
         for (const evt of data.events) {
           if (evt.type === "coach") toast(`Coach: ${evt.nudge}`, { duration: 7000 });
         }
@@ -106,11 +139,17 @@ export default function ChatRoom() {
   // WatchRoom polls, since a debater watching their own public comments
   // needs nothing a spectator doesn't already get.
   const pollViewerChat = async () => {
+    const isInitialLoad = !viewerSinceRef.current;
     try {
       const { data } = await api.get(`/public/debates/${roomId}/updates`, { params: { since: viewerSinceRef.current || undefined } });
       viewerSinceRef.current = data.server_time;
       const newComments = (data.events || []).filter((e) => e.type === "comment");
-      if (newComments.length) setViewerComments((c) => [...c, ...newComments]);
+      if (newComments.length) {
+        setViewerComments((c) => [...c, ...newComments]);
+        if (!isInitialLoad && !(chatVisibleRef.current && chatTabRef.current === "viewer")) {
+          setUnreadViewer(true);
+        }
+      }
     } catch { /* not public yet, or a transient miss — next tick retries */ }
   };
 
@@ -260,13 +299,6 @@ export default function ChatRoom() {
             </button>
           )}
           <button onClick={endDebate} className="btn-danger text-xs px-3 py-1.5" data-testid="btn-end-debate">End</button>
-          <button
-            onClick={() => setSidebarOpen((v) => !v)}
-            className="btn-outline text-xs px-3 py-1.5 hidden lg:inline-flex"
-            data-testid="btn-toggle-chat-sidebar"
-          >
-            {sidebarOpen ? "Hide chat" : `Chat${messages.length > 0 ? ` · ${messages.length}` : ""}`}
-          </button>
           <ThemeToggle />
           <AccountMenu user={user} logout={logout} />
         </div>
@@ -309,7 +341,7 @@ export default function ChatRoom() {
         </div>
       )}
 
-      <div className={`flex-1 min-h-0 grid grid-cols-1 ${sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_380px]" : "lg:grid-cols-1"}`}>
+      <div className={`flex-1 min-h-0 grid grid-cols-1 ${sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_380px]" : "lg:grid-cols-[minmax(0,1fr)_64px]"}`}>
         {/* pb-20: the "Prompts"/"Chat" buttons below are fixed to the viewport's
             bottom corners (not part of this flex column), so nothing in normal
             flow reserves space for them — VideoControls, sized by its own
@@ -356,14 +388,28 @@ export default function ChatRoom() {
           </div>
         </div>
 
-        {sidebarOpen && (
-          <aside className="hidden lg:flex flex-col border-l border-[var(--border)] bg-[var(--surface)] min-h-0">
+        <aside className="hidden lg:flex flex-col border-l border-[var(--border)] bg-[var(--surface)] min-h-0 overflow-hidden">
+          <div className={`shrink-0 h-12 flex items-center border-b border-[var(--border)] ${sidebarOpen ? "justify-end px-2" : "justify-center"}`}>
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="btn-ghost !px-2 relative"
+              title={sidebarOpen ? "Collapse chat" : "Expand chat"}
+              data-testid="btn-toggle-chat-sidebar"
+            >
+              {sidebarOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+              {!sidebarOpen && (unreadDebater || unreadViewer) && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[var(--danger)] ring-2 ring-[var(--surface)]" data-testid="chat-collapsed-unread-dot" />
+              )}
+            </button>
+          </div>
+          {sidebarOpen && (
             <ChatPanel
               connected={connected} messages={messages} user={user} participants={participants} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
               isPublic={publishState.is_public} chatTab={chatTab} setChatTab={setChatTab} viewerComments={viewerComments}
+              unreadDebater={unreadDebater} unreadViewer={unreadViewer}
             />
-          </aside>
-        )}
+          )}
+        </aside>
       </div>
 
       {(room.topics || []).length > 0 && (
@@ -405,6 +451,7 @@ export default function ChatRoom() {
           <ChatPanel
             connected={connected} messages={messages} user={user} participants={participants} text={text} setText={setText} sendChat={sendChat} messagesEndRef={messagesEndRef}
             isPublic={publishState.is_public} chatTab={chatTab} setChatTab={setChatTab} viewerComments={viewerComments}
+            unreadDebater={unreadDebater} unreadViewer={unreadViewer}
           />
         </div>
       )}
@@ -441,7 +488,7 @@ export default function ChatRoom() {
   );
 }
 
-function ChatPanel({ connected, messages, user, participants, text, setText, sendChat, messagesEndRef, isPublic, chatTab, setChatTab, viewerComments }) {
+function ChatPanel({ connected, messages, user, participants, text, setText, sendChat, messagesEndRef, isPublic, chatTab, setChatTab, viewerComments, unreadDebater, unreadViewer }) {
   const showingViewer = isPublic && chatTab === "viewer";
   const nameFor = (userId) => participants.find((p) => p.user_id === userId)?.display_name || "Them";
   return (
@@ -451,17 +498,23 @@ function ChatPanel({ connected, messages, user, participants, text, setText, sen
           <div className="inline-flex rounded-lg border border-[var(--border-strong)] overflow-hidden">
             <button
               onClick={() => setChatTab("debater")}
-              className={`px-3 py-1 text-xs font-medium ${chatTab !== "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+              className={`relative px-3 py-1 text-xs font-medium ${chatTab !== "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
               data-testid="chat-tab-debater"
             >
               Debater chat
+              {unreadDebater && chatTab !== "debater" && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[var(--danger)]" data-testid="chat-tab-debater-unread-dot" />
+              )}
             </button>
             <button
               onClick={() => setChatTab("viewer")}
-              className={`px-3 py-1 text-xs font-medium border-l border-[var(--border-strong)] ${chatTab === "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+              className={`relative px-3 py-1 text-xs font-medium border-l border-[var(--border-strong)] ${chatTab === "viewer" ? "bg-[var(--fg)] text-[var(--bg)]" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
               data-testid="chat-tab-viewer"
             >
               Viewer chat{viewerComments.length > 0 && ` · ${viewerComments.length}`}
+              {unreadViewer && chatTab !== "viewer" && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[var(--danger)]" data-testid="chat-tab-viewer-unread-dot" />
+              )}
             </button>
           </div>
         ) : (
