@@ -444,7 +444,17 @@ function MobileWatch({
 }) {
   return (
     <div className="lg:hidden flex flex-col h-[calc(100dvh-56px)]">
-      <div className="shrink-0 p-2">
+      {/* VideoStage's own tree is a flex-1/min-h-0 cascade all the way down —
+          it needs a flex ancestor with a genuinely resolved height to anchor
+          to, same requirement that shaped the desktop column's own
+          min-h-[45vh]/[80vh]. shrink-0 alone doesn't give it one: this div
+          isn't itself a flex container, so flex-1 inside VideoStage had
+          nothing to grow into and collapsed to ~0 — confirmed live, the
+          whole video area rendered as blank space. h-[42dvh] (not vh, to
+          match the app-shell's own dvh-based height budget above) gives it
+          a real, non-flex-dependent pixel height regardless of ancestor
+          context. */}
+      <div className="shrink-0 h-[42dvh] p-2">
         <VideoStage
           tiles={tiles}
           viewMode={viewMode}
