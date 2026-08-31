@@ -151,10 +151,16 @@ function JoinRequestPanel({ roomId, debate, navigate }) {
   );
 }
 
-function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel, sideBOpen }) {
+/** allowCollapse (mobile only): once the viewer already has a vote in,
+ * collapse to a one-line summary instead of leaving the full picker +
+ * reasoning box open every time they land on this tab — there's nothing
+ * left to fill in, so an open form reads as unfinished business. Desktop
+ * doesn't pass this prop, so its behavior is exactly what it always was. */
+function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel, sideBOpen, allowCollapse }) {
   const [reasoning, setReasoning] = useState("");
   const [picked, setPicked] = useState(votes.my_vote);
   const [submitting, setSubmitting] = useState(false);
+  const [expanded, setExpanded] = useState(!votes.my_vote);
 
   useEffect(() => { setPicked(votes.my_vote); }, [votes.my_vote]);
 
@@ -164,11 +170,27 @@ function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel, sideBOpen 
   const submit = async () => {
     if (!picked) return;
     setSubmitting(true);
-    try { await onVote(picked, reasoning); } finally { setSubmitting(false); }
+    try {
+      await onVote(picked, reasoning);
+      if (allowCollapse) setExpanded(false);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  if (allowCollapse && votes.my_vote && !expanded) {
+    return (
+      <div className="card p-4 flex items-center justify-between gap-3" data-testid="vote-collapsed-summary">
+        <span className="text-sm text-[var(--fg-muted)]">
+          You voted <strong className="text-[var(--fg)]">{votes.my_vote === "a" ? sideALabel : sideBLabel}</strong>
+        </span>
+        <button onClick={() => setExpanded(true)} className="btn-outline text-xs shrink-0" data-testid="btn-change-vote">Change</button>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-6 card p-5">
+    <div className="card p-5">
       <div className="eyebrow mb-3">Who do you agree with?</div>
       <div className="flex rounded-lg overflow-hidden border border-[var(--border-strong)] h-8 mb-2" data-testid="vote-bar">
         <div className="bg-[var(--accent)] flex items-center justify-center text-white text-[11px] font-medium transition-all" style={{ width: `${pctA}%` }}>
@@ -213,6 +235,9 @@ function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel, sideBOpen 
               <button onClick={submit} disabled={submitting} className="btn-primary w-full text-sm" data-testid="btn-submit-vote">
                 {submitting ? "Saving…" : votes.my_vote ? "Update vote" : "Submit vote"}
               </button>
+              {allowCollapse && votes.my_vote && (
+                <button onClick={() => setExpanded(false)} className="btn-ghost w-full text-xs mt-1" data-testid="btn-cancel-change-vote">Cancel</button>
+              )}
             </>
           )}
         </>
@@ -277,17 +302,15 @@ function RelatedDebates({ category, excludeRoomId, navigate, collapsed, onToggle
  * chat (spectator comments, read/write), unified into one collapsible
  * sidebar with a tab per side — same shape as ChatRoom.jsx's chat sidebar,
  * so a viewer and a debater get a consistent chat surface instead of two
- * differently-built ones. Unlike ChatRoom's app-shell page (h-screen, the
- * sidebar fills the viewport), this is a normal scrolling page, so the
- * panel gets its own bounded height with internal scroll rather than
- * trying to stretch to fill an undefined parent height. */
+ * differently-built ones. Desktop only — see MobileWatch for the phone
+ * layout's own version of this same content. */
 function WatchChatSidebar({
   collapsed, onToggleCollapsed, chatTab, setChatTab, unreadDebater, unreadViewer,
-  chat, connected, chatEndRef,
+  chat, isLive, connected, chatEndRef,
   comments, commentEndRef, commentText, setCommentText, sendComment, user, spectatorCount,
 }) {
   return (
-    <aside className="min-w-0 flex flex-col border border-[var(--border)] rounded-xl bg-[var(--surface)] overflow-hidden">
+    <aside className="hidden lg:flex min-w-0 flex-col border border-[var(--border)] rounded-xl bg-[var(--surface)] overflow-hidden">
       <div className={`shrink-0 h-12 flex items-center border-b border-[var(--border)] ${collapsed ? "justify-center" : "justify-between px-3"}`}>
         {!collapsed && (
           <div className="inline-flex rounded-lg border border-[var(--border-strong)] overflow-hidden">
@@ -332,57 +355,176 @@ function WatchChatSidebar({
             <AdSlot variant="banner" />
           </div>
           {chatTab === "viewer" ? (
-            <>
-              <div className="min-h-[240px] max-h-[50vh] md:max-h-[520px] overflow-y-auto p-3 space-y-3 flex flex-col-reverse" data-testid="spectator-comments">
-                <div ref={commentEndRef} />
-                {comments.length === 0 && <div className="text-sm text-[var(--fg-subtle)] text-center py-4">No comments yet.</div>}
-                {comments.map((c, i) => (
-                  <div key={i} className="border-l-2 border-[var(--border-strong)] pl-3">
-                    <div className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)]">
-                      {c.author}{!c.authed && " · anon"}
-                    </div>
-                    <div className="text-sm break-words">{c.text}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="shrink-0 border-t border-[var(--border)] p-3 flex gap-2">
-                <input
-                  data-testid="comment-input"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendComment()}
-                  placeholder={user ? "Add a comment…" : "Comment as anonymous…"}
-                  maxLength={280}
-                  className="field"
-                />
-                <button onClick={sendComment} className="btn-primary px-3" data-testid="btn-send-comment">Post</button>
-              </div>
-            </>
+            <ViewerChatBody comments={comments} commentEndRef={commentEndRef} commentText={commentText} setCommentText={setCommentText} sendComment={sendComment} user={user} maxHeightClass="min-h-[240px] max-h-[50vh] md:max-h-[520px]" />
           ) : (
-            <div className="min-h-[240px] max-h-[50vh] md:max-h-[520px] overflow-y-auto p-3 space-y-3" data-testid="transcript">
-              <div className="flex items-center justify-between px-1 pb-1">
-                <span className="text-[11px] text-[var(--fg-subtle)]">Debate transcript</span>
-                <span className={`text-[11px] ${connected ? "text-[var(--accent)]" : "text-[var(--fg-subtle)]"}`}>
-                  {connected ? "● Live" : "○ Replay"}
-                </span>
-              </div>
-              {chat.length === 0 && <div className="text-sm text-[var(--fg-subtle)]">Waiting for the first move…</div>}
-              {chat.map((m, i) => (
-                <div key={i} className={`flex ${m.speaker_side === "b" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${m.speaker_side === "b" ? "bg-[var(--fg)] text-[var(--bg)]" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
-                    <div className={`text-[10px] uppercase tracking-wider mb-1 ${m.speaker_side === "b" ? "text-[var(--bg)]/60" : "text-[var(--fg-subtle)]"}`}>
-                      {m.speaker} · Side {m.speaker_side?.toUpperCase()}
-                    </div>
-                    <div className="whitespace-pre-wrap break-words">{m.text}</div>
-                  </div>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
+            <DebaterChatBody chat={chat} isLive={isLive} connected={connected} chatEndRef={chatEndRef} maxHeightClass="min-h-[240px] max-h-[50vh] md:max-h-[520px]" />
           )}
         </>
       )}
     </aside>
+  );
+}
+
+function ViewerChatBody({ comments, commentEndRef, commentText, setCommentText, sendComment, user, maxHeightClass }) {
+  return (
+    <>
+      <div className={`${maxHeightClass} overflow-y-auto p-3 space-y-3 flex flex-col-reverse`} data-testid="spectator-comments">
+        <div ref={commentEndRef} />
+        {comments.length === 0 && <div className="text-sm text-[var(--fg-subtle)] text-center py-4">No comments yet.</div>}
+        {comments.map((c, i) => (
+          <div key={i} className="border-l-2 border-[var(--border-strong)] pl-3">
+            <div className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)]">
+              {c.author}{!c.authed && " · anon"}
+            </div>
+            <div className="text-sm break-words">{c.text}</div>
+          </div>
+        ))}
+      </div>
+      <div className="shrink-0 border-t border-[var(--border)] p-3 flex gap-2">
+        <input
+          data-testid="comment-input"
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && sendComment()}
+          placeholder={user ? "Add a comment…" : "Comment as anonymous…"}
+          maxLength={280}
+          className="field"
+        />
+        <button onClick={sendComment} className="btn-primary px-3" data-testid="btn-send-comment">Post</button>
+      </div>
+    </>
+  );
+}
+
+function DebaterChatBody({ chat, isLive, connected, chatEndRef, maxHeightClass }) {
+  // isLive is the debate's own status, not the poll connection — connected
+  // only means "the last poll for updates succeeded," which is equally true
+  // for an ended debate being replayed. Confirmed live: this previously said
+  // "● Live" on a debate that had already ended, right next to "Debate
+  // ended" on both video tiles. A replay isn't reconnecting to anything, so
+  // it always just reads "Replay"; only a genuinely live debate's own
+  // connection state is worth surfacing.
+  const statusLabel = !isLive ? "○ Replay" : connected ? "● Live" : "○ Reconnecting…";
+  const statusClass = isLive && connected ? "text-[var(--accent)]" : "text-[var(--fg-subtle)]";
+  return (
+    <div className={`${maxHeightClass} overflow-y-auto p-3 space-y-3`} data-testid="transcript">
+      <div className="flex items-center justify-between px-1 pb-1">
+        <span className="text-[11px] text-[var(--fg-subtle)]">Debate transcript</span>
+        <span className={`text-[11px] ${statusClass}`}>{statusLabel}</span>
+      </div>
+      {chat.length === 0 && <div className="text-sm text-[var(--fg-subtle)]">Waiting for the first move…</div>}
+      {chat.map((m, i) => (
+        <div key={i} className={`flex ${m.speaker_side === "b" ? "justify-end" : "justify-start"}`}>
+          <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${m.speaker_side === "b" ? "bg-[var(--fg)] text-[var(--bg)]" : "bg-[var(--bg-muted)] border border-[var(--border)]"}`}>
+            <div className={`text-[10px] uppercase tracking-wider mb-1 ${m.speaker_side === "b" ? "text-[var(--bg)]/60" : "text-[var(--fg-subtle)]"}`}>
+              {m.speaker} · Side {m.speaker_side?.toUpperCase()}
+            </div>
+            <div className="whitespace-pre-wrap break-words">{m.text}</div>
+          </div>
+        </div>
+      ))}
+      <div ref={chatEndRef} />
+    </div>
+  );
+}
+
+/** Phone layout: the debaters' cameras stay pinned on screen and everything
+ * else — chat (both kinds), voting — lives in a tab strip underneath,
+ * instead of a long column the viewer has to scroll through. Built as its
+ * own layout rather than reusing the desktop column, since "video always
+ * visible, no scrolling" is a different page shape, not a narrower version
+ * of the same one. */
+function MobileWatch({
+  debate, isLive, tiles, viewMode, spotlightIdentity, setSpotlightIdentity, pickableSides,
+  mobileTab, setMobileTab, unreadDebater, unreadViewer,
+  chat, connected, chatEndRef,
+  comments, commentEndRef, commentText, setCommentText, sendComment, user, spectatorCount,
+  likes, dislikes, myReaction, like, dislike,
+  votes, castVote, notInterested, roomId, navigate,
+}) {
+  return (
+    <div className="lg:hidden flex flex-col h-[calc(100dvh-56px)]">
+      <div className="shrink-0 p-2">
+        <VideoStage
+          tiles={tiles}
+          viewMode={viewMode}
+          spotlightIdentity={spotlightIdentity}
+          onSpotlightChange={setSpotlightIdentity}
+          mobileSpotlightIdentity={debate.side_a.identity}
+        />
+      </div>
+
+      <div className="shrink-0 px-3 pb-2 flex items-center justify-between gap-2">
+        {debate.categories?.[0] ? <span className="chip !py-0.5 !px-2 !text-[10px]">{debate.categories[0]}</span> : <span />}
+        <button onClick={notInterested} className="btn-ghost !text-[11px] !px-2 !py-1" data-testid="btn-not-interested-mobile">Not interested</button>
+      </div>
+
+      {isLive && (
+        <div className="shrink-0 px-3">
+          <JoinRequestPanel roomId={roomId} debate={debate} navigate={navigate} />
+        </div>
+      )}
+
+      <div className="shrink-0 flex border-b border-[var(--border)]">
+        {[
+          { key: "debater", label: "Debater chat", dot: unreadDebater },
+          { key: "viewer", label: `Viewer chat${spectatorCount > 0 ? ` · ${spectatorCount}` : ""}`, dot: unreadViewer },
+          { key: "vote", label: "Vote", dot: false },
+        ].map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setMobileTab(t.key)}
+            className={`relative flex-1 px-2 py-2.5 text-xs font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${mobileTab === t.key ? "border-[var(--accent)] text-[var(--fg)]" : "border-transparent text-[var(--fg-subtle)]"}`}
+            data-testid={`mobile-watch-tab-${t.key}`}
+          >
+            {t.label}
+            {t.dot && mobileTab !== t.key && (
+              <span className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-[var(--danger)]" data-testid={`mobile-watch-tab-${t.key}-unread-dot`} />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 min-h-0">
+        {mobileTab === "viewer" && (
+          <ViewerChatBody comments={comments} commentEndRef={commentEndRef} commentText={commentText} setCommentText={setCommentText} sendComment={sendComment} user={user} maxHeightClass="h-full" />
+        )}
+        {mobileTab === "debater" && (
+          <DebaterChatBody chat={chat} isLive={isLive} connected={connected} chatEndRef={chatEndRef} maxHeightClass="h-full" />
+        )}
+        {mobileTab === "vote" && (
+          <div className="h-full overflow-y-auto p-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={like}
+                aria-pressed={myReaction === "like"}
+                className={`inline-flex items-center gap-1.5 ${myReaction === "like" ? "btn-accent" : "btn-outline"}`}
+                data-testid="btn-like-mobile"
+              >
+                <Heart className="w-4 h-4" /> {likes}
+              </button>
+              <button
+                onClick={dislike}
+                aria-pressed={myReaction === "dislike"}
+                className={`inline-flex items-center gap-1.5 ${myReaction === "dislike" ? "btn-danger" : "btn-outline"}`}
+                data-testid="btn-dislike-mobile"
+              >
+                <ThumbsDown className="w-4 h-4" /> {dislikes}
+              </button>
+            </div>
+            <VotePanel
+              votes={votes}
+              onVote={castVote}
+              signedIn={!!user}
+              sideALabel={debate.side_a.display_name}
+              sideBLabel={debate.side_b.open ? "Side B" : debate.side_b.display_name}
+              sideBOpen={debate.side_b.open}
+              allowCollapse
+            />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -404,7 +546,8 @@ export default function WatchRoom() {
   const [collapsed, setCollapsed] = useState(false);
   const [relatedCollapsed, setRelatedCollapsed] = useState(false);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
-  const [chatTab, setChatTab] = useState("debater"); // "debater" | "viewer"
+  const [chatTab, setChatTab] = useState("debater"); // "debater" | "viewer" — desktop sidebar
+  const [mobileTab, setMobileTab] = useState("debater"); // "debater" | "viewer" | "vote" — phone tab strip
   const [unreadDebater, setUnreadDebater] = useState(false);
   const [unreadViewer, setUnreadViewer] = useState(false);
 
@@ -420,18 +563,23 @@ export default function WatchRoom() {
   const commentEndRef = useRef(null);
   const collapseTimerRef = useRef(null);
   // pollOnce runs inside a setInterval set up once per effect (deps don't
-  // include chatSidebarOpen/chatTab, so switching tabs doesn't restart the
-  // poll) — reading those directly would close over stale values forever,
-  // same reasoning as ChatRoom.jsx's identical refs.
+  // include the tab/visibility state below, so switching tabs doesn't
+  // restart the poll) — reading those directly would close over stale
+  // values forever, same reasoning as ChatRoom.jsx's identical refs. Two
+  // surfaces can show this content now (the desktop sidebar, the mobile tab
+  // strip), so a "seen" check has to pass on either one.
   const chatVisibleRef = useRef(true);
   const chatTabRef = useRef(chatTab);
+  const mobileTabRef = useRef(mobileTab);
   useEffect(() => { chatVisibleRef.current = chatSidebarOpen; }, [chatSidebarOpen]);
   useEffect(() => { chatTabRef.current = chatTab; }, [chatTab]);
+  useEffect(() => { mobileTabRef.current = mobileTab; }, [mobileTab]);
   useEffect(() => {
-    if (!chatSidebarOpen) return;
-    if (chatTab === "debater") setUnreadDebater(false);
-    if (chatTab === "viewer") setUnreadViewer(false);
-  }, [chatSidebarOpen, chatTab]);
+    const debaterVisible = (chatSidebarOpen && chatTab === "debater") || mobileTab === "debater";
+    const viewerVisible = (chatSidebarOpen && chatTab === "viewer") || mobileTab === "viewer";
+    if (debaterVisible) setUnreadDebater(false);
+    if (viewerVisible) setUnreadViewer(false);
+  }, [chatSidebarOpen, chatTab, mobileTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -482,8 +630,10 @@ export default function WatchRoom() {
           newViewerComment = true;
         }
       }
-      if (newDebaterChat && !(chatVisibleRef.current && chatTabRef.current === "debater")) setUnreadDebater(true);
-      if (newViewerComment && !(chatVisibleRef.current && chatTabRef.current === "viewer")) setUnreadViewer(true);
+      const debaterVisible = (chatVisibleRef.current && chatTabRef.current === "debater") || mobileTabRef.current === "debater";
+      const viewerVisible = (chatVisibleRef.current && chatTabRef.current === "viewer") || mobileTabRef.current === "viewer";
+      if (newDebaterChat && !debaterVisible) setUnreadDebater(true);
+      if (newViewerComment && !viewerVisible) setUnreadViewer(true);
     } catch (e) {
       setConnected(false);
       if (e.response?.status === 404) {
@@ -660,15 +810,25 @@ export default function WatchRoom() {
         </div>
       </nav>
 
-      <div className="px-4 sm:px-6 py-6 sm:py-8 flex gap-6 items-start">
+      <MobileWatch
+        debate={debate} isLive={isLive} tiles={tiles} viewMode={viewMode}
+        spotlightIdentity={spotlightIdentity} setSpotlightIdentity={setSpotlightIdentity} pickableSides={pickableSides}
+        mobileTab={mobileTab} setMobileTab={setMobileTab} unreadDebater={unreadDebater} unreadViewer={unreadViewer}
+        chat={chat} connected={connected} chatEndRef={chatEndRef}
+        comments={comments} commentEndRef={commentEndRef} commentText={commentText} setCommentText={setCommentText} sendComment={sendComment} user={user} spectatorCount={spectatorCount}
+        likes={likes} dislikes={dislikes} myReaction={myReaction} like={like} dislike={dislike}
+        votes={votes} castVote={castVote} notInterested={notInterested} roomId={roomId} navigate={navigate}
+      />
+
+      <div className="hidden lg:flex px-4 sm:px-6 py-6 sm:py-8 gap-6 items-start">
         <RelatedDebates
           category={debate.categories?.[0]} excludeRoomId={roomId} navigate={navigate}
           collapsed={relatedCollapsed} onToggleCollapsed={() => setRelatedCollapsed((v) => !v)}
         />
 
-        <main className={`min-w-0 flex-1 grid gap-6 ${chatSidebarOpen ? "md:grid-cols-[minmax(0,1fr)_320px]" : "md:grid-cols-[minmax(0,1fr)_64px]"}`}>
+        <main className={`min-w-0 flex-1 grid gap-6 ${chatSidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_64px]"}`}>
           <div className="min-w-0 flex flex-col relative">
-            <div className={`flex flex-col min-h-[45vh] ${viewMode === "cinema" ? "md:min-h-[80vh]" : "md:min-h-0"}`}>
+            <div className={`flex flex-col min-h-0 ${viewMode === "cinema" ? "lg:min-h-[80vh]" : ""}`}>
               <VideoStage
                 tiles={tiles}
                 viewMode={viewMode}
@@ -731,14 +891,16 @@ export default function WatchRoom() {
               )}
             </div>
 
-            <VotePanel
-              votes={votes}
-              onVote={castVote}
-              signedIn={!!user}
-              sideALabel={debate.side_a.display_name}
-              sideBLabel={debate.side_b.open ? "Side B" : debate.side_b.display_name}
-              sideBOpen={debate.side_b.open}
-            />
+            <div className="mt-6">
+              <VotePanel
+                votes={votes}
+                onVote={castVote}
+                signedIn={!!user}
+                sideALabel={debate.side_a.display_name}
+                sideBLabel={debate.side_b.open ? "Side B" : debate.side_b.display_name}
+                sideBOpen={debate.side_b.open}
+              />
+            </div>
           </div>
 
           <WatchChatSidebar
@@ -749,6 +911,7 @@ export default function WatchRoom() {
             unreadDebater={unreadDebater}
             unreadViewer={unreadViewer}
             chat={chat}
+            isLive={isLive}
             connected={connected}
             chatEndRef={chatEndRef}
             comments={comments}
@@ -764,7 +927,7 @@ export default function WatchRoom() {
 
       <button
         onClick={notInterested}
-        className="fixed bottom-4 right-4 z-30 btn-outline text-xs shadow-lg bg-[var(--surface)]"
+        className="hidden lg:block fixed bottom-4 right-4 z-30 btn-outline text-xs shadow-lg bg-[var(--surface)]"
         data-testid="btn-not-interested"
         title="Not interested"
       >
