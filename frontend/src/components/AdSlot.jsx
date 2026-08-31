@@ -1,18 +1,61 @@
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
+// Matches the publisher ID already loaded site-wide in public/index.html
+// (that script alone only proved site ownership to Google; it doesn't
+// render anything by itself).
+const ADSENSE_CLIENT = "ca-pub-4056972798544833";
+const SLOT_BY_VARIANT = {
+  card: process.env.REACT_APP_ADSENSE_SLOT_CARD,
+  banner: process.env.REACT_APP_ADSENSE_SLOT_BANNER,
+};
+
+/** One real AdSense unit. adsbygoogle.push() may only run once per <ins>
+ * node or Google throws — a plain ref-guard (not a module-level one) is
+ * enough since React hands this a fresh DOM node on every mount. */
+function RealAd({ slot, tall }) {
+  const pushed = useRef(false);
+  useEffect(() => {
+    if (pushed.current) return;
+    pushed.current = true;
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch {
+      /* adsbygoogle.js hasn't finished loading (slow network, blocked) —
+         nothing useful to do here; Google's own script doesn't retry into
+         a failed push, but a future navigation mounts a fresh <ins>. */
+    }
+  }, []);
+  return (
+    <div className={`card w-full p-3 ${tall ? "aspect-video flex flex-col" : ""}`} data-testid="adsense-unit">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)] mb-1 shrink-0">Sponsored</div>
+      <ins
+        className={`adsbygoogle block w-full ${tall ? "flex-1" : ""}`}
+        style={{ display: "block" }}
+        data-ad-client={ADSENSE_CLIENT}
+        data-ad-slot={slot}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+    </div>
+  );
+}
+
 /** Client brief #3/#29 — ad slots that disappear for £9/mo members
  * (routers/payments.py: "membership," not "subscription" — that word is
- * reserved for the separate £2/mo per-debater relationship). AdSense
- * site-verification is done (public/index.html), but real ad units aren't
- * wired in yet — that needs actual ad-unit/slot IDs, which only exist once
- * Google approves the site. Until then this renders an honest house
- * placement that also pitches membership, and is the single place a real
- * ad unit would get dropped in later without touching any page that uses it. */
+ * reserved for the separate £2/mo per-debater relationship). Renders a real
+ * AdSense unit once REACT_APP_ADSENSE_SLOT_CARD/_BANNER is set (create the
+ * matching ad unit in the AdSense dashboard, copy its data-ad-slot digits
+ * in as that env var) — until then, falls back to an honest house
+ * placement that pitches membership instead of rendering nothing. */
 export default function AdSlot({ variant = "card" }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   if (user?.ad_free) return null;
+
+  const slot = SLOT_BY_VARIANT[variant];
+  if (slot) return <RealAd slot={slot} tall={variant === "card"} />;
 
   const goUpgrade = () => navigate(user ? "/settings" : "/");
 
