@@ -497,7 +497,7 @@ export default function WatchRoom() {
 
         <main className="min-w-0 flex-1 grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0 flex flex-col relative">
-            <div className="flex flex-col min-h-[45vh] md:min-h-[55vh]">
+            <div className={`flex flex-col min-h-[45vh] ${viewMode === "cinema" ? "md:min-h-[55vh]" : "md:min-h-0"}`}>
               <VideoStage
                 tiles={tiles}
                 viewMode={viewMode}
