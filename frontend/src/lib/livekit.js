@@ -84,6 +84,27 @@ export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
       if (pub.kind === Track.Kind.Video) upsertParticipant(participant.identity, { videoMuted: false });
       if (pub.kind === Track.Kind.Audio) upsertParticipant(participant.identity, { audioMuted: false });
     });
+    // Belt-and-suspenders for re-enabling the camera (toggleCamera below):
+    // setCameraEnabled(true) has to re-acquire the device and publish a new
+    // track from scratch, not just flip a flag, and on real hardware
+    // (especially phones) that can take longer than the fast path assumes.
+    // If toggleCamera's own synchronous check runs before the publication
+    // is actually ready, localVideoEl would stay null — camEnabled flips to
+    // true but the tile keeps showing the "camera off" placeholder. This
+    // reacts to the actual publish event instead of a single well-timed
+    // check, so it still recovers even if that race is lost.
+    room.on(RoomEvent.LocalTrackPublished, (pub) => {
+      if (pub.source !== Track.Source.Camera || !pub.videoTrack) return;
+      const el = pub.videoTrack.attach();
+      el.className = "w-full h-full object-cover";
+      el.muted = true;
+      el.playsInline = true;
+      setLocalVideoEl(el);
+    });
+    room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+      if (pub.source !== Track.Source.Camera) return;
+      setLocalVideoEl(null);
+    });
     room.on(RoomEvent.ParticipantDisconnected, (p) => removeParticipant(p.identity));
     room.on(RoomEvent.Disconnected, () => {
       // LiveKit's own client already retries transient network blips

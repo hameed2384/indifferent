@@ -48,6 +48,19 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
+  // The <video> below only mounts once mode === "recording", so videoRef.current
+  // is still null at the point startRecording() gets the stream (mode is "choose"
+  // then) — assigning srcObject there was a no-op: recording itself worked (it
+  // reads from streamRef, not the element), but the live preview never appeared.
+  // This runs after the element actually exists.
+  useEffect(() => {
+    if (mode === "recording" && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [mode]);
+
   const stopRecording = () => {
     clearInterval(timerRef.current);
     if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
@@ -58,11 +71,6 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.muted = true;
-        videoRef.current.play().catch(() => {});
-      }
       const mimeType = pickMimeType();
       const recorder = new MediaRecorder(stream, {
         ...(mimeType ? { mimeType } : {}),

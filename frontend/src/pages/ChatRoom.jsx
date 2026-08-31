@@ -208,7 +208,10 @@ export default function ChatRoom() {
       label: "You",
       videoEl: lk.camEnabled ? lk.localVideoEl : null,
       audioMuted: !lk.micEnabled,
-      placeholderTitle: lk.camEnabled ? (lk.status === "connecting" ? "Connecting…" : "Camera off") : "Camera off",
+      // camEnabled can be true for a moment before localVideoEl actually
+      // arrives (re-acquiring the device takes a beat) — "Camera off" here
+      // would be actively wrong during that window, not just imprecise.
+      placeholderTitle: !lk.camEnabled ? "Camera off" : lk.status === "connecting" ? "Connecting…" : "Turning camera on…",
     },
     ...others.map((p) => {
       const identity = `user-${p.user_id}`;
@@ -307,7 +310,17 @@ export default function ChatRoom() {
       )}
 
       <div className={`flex-1 min-h-0 grid grid-cols-1 ${sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_380px]" : "lg:grid-cols-1"}`}>
-        <div className="min-h-0 flex flex-col p-3 sm:p-6 gap-3 sm:gap-4 overflow-hidden">
+        {/* pb-20: the "Prompts"/"Chat" buttons below are fixed to the viewport's
+            bottom corners (not part of this flex column), so nothing in normal
+            flow reserves space for them — VideoControls, sized by its own
+            content, could end up rendering at the same bottom-left screen
+            position as "Prompts" on a phone-height viewport, since it has no
+            clearance forcing it up and out of the way. Confirmed live: the
+            camera-toggle button and "Prompts" genuinely overlapped, not just
+            visually crowded — a real tap there could hit either one. Removed
+            at lg: and up, where both floating buttons are already hidden
+            (replaced by the docked sidebar) and this padding is not needed. */}
+        <div className="min-h-0 flex flex-col px-3 sm:px-6 pt-3 sm:pt-6 pb-20 lg:pb-6 gap-3 sm:gap-4 overflow-hidden">
           <VideoStage
             tiles={tiles}
             viewMode={viewMode}
