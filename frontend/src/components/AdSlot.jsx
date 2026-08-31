@@ -21,11 +21,21 @@ const SLOT_BY_VARIANT = {
  * siblings, and since the grid has no explicit row height, CSS Grid's
  * default row-sizing stretched the *entire row* to match the tallest cell
  * (the ad), leaving visible dead space under every other card in that row.
- * h-full instead: a percentage height doesn't contribute to the grid's
- * auto-track-sizing calculation (same rule that governs an aspect-ratio
- * item there), so the row's height is set by the other, non-ad cards, and
- * the ad just stretches to match — capped by overflow-hidden in case Google
- * ever pushes taller content than that into the <ins> anyway. */
+ *
+ * Confirmed live (via computed styles, not just theory): Google's push()
+ * sets an explicit inline height on the <ins> itself (e.g. height: 280px).
+ * A *percentage* wrapper height doesn't reliably escape that — the wrapper
+ * and the row it's in resolve circularly (row height depends on the
+ * wrapper's contribution, the wrapper's h-full depends on the row), so the
+ * browser falls back to the wrapper's uncapped natural size — Google's
+ * 280px included — to seed the auto-row-sizing pass in the first place.
+ * overflow-hidden doesn't help there either: it only clips *after* a size
+ * is resolved, not during that first contribution pass.
+ * max-height in a fixed px unit isn't circular the same way, so it reliably
+ * caps what the wrapper can contribute — set close to DebateCard's own
+ * typical height. The <ins> then needs an !important height to actually
+ * fill that capped wrapper instead of Google's inline px value winning on
+ * specificity (inline beats a plain class; !important beats inline). */
 function RealAd({ slot, tall }) {
   const pushed = useRef(false);
   useEffect(() => {
@@ -40,10 +50,10 @@ function RealAd({ slot, tall }) {
     }
   }, []);
   return (
-    <div className={`card w-full p-3 overflow-hidden flex flex-col ${tall ? "h-full" : ""}`} data-testid="adsense-unit">
+    <div className={`card w-full p-3 overflow-hidden flex flex-col ${tall ? "h-full max-h-[240px]" : ""}`} data-testid="adsense-unit">
       <div className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)] mb-1 shrink-0">Sponsored</div>
       <ins
-        className="adsbygoogle block w-full flex-1 min-h-0"
+        className="adsbygoogle block w-full flex-1 min-h-0 !h-full"
         style={{ display: "block" }}
         data-ad-client={ADSENSE_CLIENT}
         data-ad-slot={slot}
