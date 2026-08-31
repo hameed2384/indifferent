@@ -279,6 +279,12 @@ export default function WatchRoom() {
   const [collapsed, setCollapsed] = useState(false);
 
   const sinceRef = useRef(null);
+  // Bumped by applyReaction (a like/dislike click), never by pollOnce itself.
+  // pollOnce's own likes/dislikes are stale the moment a click resolves more
+  // recently, since the two race independently every ~3s — without this, a
+  // poll already in flight when the user clicks can land afterward and
+  // briefly clobber the fresh count/highlight back to the pre-click value.
+  const reactionSeqRef = useRef(0);
   const clientIdRef = useRef(typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `spectator-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const chatEndRef = useRef(null);
   const commentEndRef = useRef(null);
@@ -304,14 +310,17 @@ export default function WatchRoom() {
   }, [roomId, navigate]);
 
   const pollOnce = async () => {
+    const seq = reactionSeqRef.current;
     try {
       const { data } = await api.get(`/public/debates/${roomId}/updates`, {
         params: { since: sinceRef.current || undefined, client_id: clientIdRef.current },
       });
       sinceRef.current = data.server_time;
       setConnected(true);
-      setLikes(data.likes);
-      setDislikes(data.dislikes || 0);
+      if (seq === reactionSeqRef.current) {
+        setLikes(data.likes);
+        setDislikes(data.dislikes || 0);
+      }
       setVotes((v) => ({ ...v, votes_a: data.votes_a || 0, votes_b: data.votes_b || 0 }));
       setSpectatorCount(data.spectator_count);
       for (const evt of data.events || []) {
@@ -361,6 +370,7 @@ export default function WatchRoom() {
   };
 
   const applyReaction = ({ likes: l, dislikes: d, my_reaction }) => {
+    reactionSeqRef.current++; // invalidate any poll already in flight (see reactionSeqRef)
     setLikes(l);
     setDislikes(d);
     setMyReaction(my_reaction);
