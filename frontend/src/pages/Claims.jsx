@@ -74,7 +74,7 @@ export default function Claims() {
             <Menu className="w-[18px] h-[18px]" />
           </button>
           <Logo data-testid="nav-home" />
-          <div className="flex-1 max-w-xl mx-auto hidden sm:block relative">
+          <div className="flex-1 max-w-xl hidden sm:block relative">
             <Search className="w-4 h-4 text-[var(--fg-subtle)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               data-testid="search-input"
