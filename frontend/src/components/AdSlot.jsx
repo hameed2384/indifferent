@@ -13,7 +13,19 @@ const SLOT_BY_VARIANT = {
 
 /** One real AdSense unit. adsbygoogle.push() may only run once per <ins>
  * node or Google throws — a plain ref-guard (not a module-level one) is
- * enough since React hands this a fresh DOM node on every mount. */
+ * enough since React hands this a fresh DOM node on every mount.
+ *
+ * `tall` (the "card" variant, dropped into Watch's DebateCard grid): height
+ * is deliberately NOT aspect-video — DebateCard is a plain text card with no
+ * fixed ratio, so pinning the ad to 16:9 let it render taller than its
+ * siblings, and since the grid has no explicit row height, CSS Grid's
+ * default row-sizing stretched the *entire row* to match the tallest cell
+ * (the ad), leaving visible dead space under every other card in that row.
+ * h-full instead: a percentage height doesn't contribute to the grid's
+ * auto-track-sizing calculation (same rule that governs an aspect-ratio
+ * item there), so the row's height is set by the other, non-ad cards, and
+ * the ad just stretches to match — capped by overflow-hidden in case Google
+ * ever pushes taller content than that into the <ins> anyway. */
 function RealAd({ slot, tall }) {
   const pushed = useRef(false);
   useEffect(() => {
@@ -28,10 +40,10 @@ function RealAd({ slot, tall }) {
     }
   }, []);
   return (
-    <div className={`card w-full p-3 ${tall ? "aspect-video flex flex-col" : ""}`} data-testid="adsense-unit">
+    <div className={`card w-full p-3 overflow-hidden flex flex-col ${tall ? "h-full" : ""}`} data-testid="adsense-unit">
       <div className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)] mb-1 shrink-0">Sponsored</div>
       <ins
-        className={`adsbygoogle block w-full ${tall ? "flex-1" : ""}`}
+        className="adsbygoogle block w-full flex-1 min-h-0"
         style={{ display: "block" }}
         data-ad-client={ADSENSE_CLIENT}
         data-ad-slot={slot}
