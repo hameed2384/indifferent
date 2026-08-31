@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Mic, MicOff, Video, VideoOff, LayoutGrid, Focus } from "lucide-react";
 
 /** Video-view mode + participant device controls. */
@@ -208,19 +209,33 @@ function VideoTile({ tile, fill, compact }) {
  * an invisible element on mobile. Same conflict applies to tile.audioEl.
  * Cloning a fresh element pointed at the same srcObject sidesteps the
  * single-owner-node problem entirely: a MediaStream can back any number of
- * independent elements at once, so every simultaneous consumer gets its own. */
+ * independent elements at once, so every simultaneous consumer gets its own.
+ *
+ * A callback ref (a plain inline function) was the wrong tool for this,
+ * confirmed live as its own separate bug: React treats an inline callback
+ * ref as a *new* function every render — it doesn't diff by content — so it
+ * detaches and reattaches on literally every re-render of anything in this
+ * tree (a 3s poll tick, a button click, another participant's state
+ * changing), not just when `el` actually changes. Every one of those
+ * rebuilt the clone and called play() from scratch, which a desktop just
+ * absorbed invisibly but visibly flickered — and on a slower phone,
+ * eventually never finished the same cycle before the next one started,
+ * ending up permanently black. useEffect keyed on [el] only reruns when the
+ * source actually changes, matching the (already-correct) pattern
+ * lib/livekit.js's AttachedMedia used the whole time. */
 function MediaMount({ el, className = "" }) {
-  const ref = (node) => {
-    if (!node) return;
-    node.innerHTML = "";
-    if (!el) return;
+  const containerRef = useRef(null);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !el) return;
+    container.innerHTML = "";
     const clone = document.createElement(el.tagName);
     clone.srcObject = el.srcObject;
     clone.autoplay = true;
     clone.playsInline = true;
     clone.muted = el.muted;
     clone.className = el.className;
-    node.appendChild(clone);
+    container.appendChild(clone);
     // Confirmed live: the autoplay property alone didn't reliably start
     // playback on a freshly created element the way it does on the one
     // LiveKit's own track.attach() builds (which apparently calls .play()
@@ -228,6 +243,7 @@ function MediaMount({ el, className = "" }) {
     // srcObject. Explicit call, same as RecordClipModal's camera preview.
     // Applies to audio clones too — play() is shared on HTMLMediaElement.
     clone.play().catch(() => {});
-  };
-  return <div ref={ref} className={`absolute inset-0 ${className}`} />;
+    return () => { if (container) container.innerHTML = ""; };
+  }, [el]);
+  return <div ref={containerRef} className={`absolute inset-0 ${className}`} />;
 }
