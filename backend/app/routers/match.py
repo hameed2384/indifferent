@@ -65,6 +65,15 @@ async def enqueue(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Complete onboarding first")
     if not user.id_verified:
         raise HTTPException(status_code=400, detail="ID verification required")
+    if not user.stance:
+        # onboarded and stance are only ever set together, in the same
+        # update_one call in onboarding.py's submit_onboarding — a real user
+        # can't reach this through the app's own UI. Guarding it anyway: the
+        # alternative is an unhandled AttributeError on stance.model_dump()
+        # below, which surfaces to the browser as a misleading CORS error
+        # (the 500 response doesn't carry CORS headers), hiding the real
+        # cause from anyone trying to debug it.
+        raise HTTPException(status_code=400, detail="Complete onboarding first")
 
     my_stance = StanceScores(**user.stance.model_dump())
 
@@ -136,7 +145,7 @@ async def enqueue_party(payload: PartyEnqueueRequest, user: User = Depends(get_c
     """Two friends queue together (client brief #13's other group-debate
     mechanism). Matched against a waiting opposing party first, else against
     a single opponent already in the solo queue, else this party waits."""
-    if not user.onboarded or not user.id_verified:
+    if not user.onboarded or not user.id_verified or not user.stance:
         raise HTTPException(status_code=400, detail="Complete onboarding + verification first")
     friend_id = payload.friend_id
     if friend_id == user.user_id:
