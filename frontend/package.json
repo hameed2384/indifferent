@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@vercel/functions": "3.9.5",
     "axios": "1.18.0",
     "cra-template": "1.2.0",
     "livekit-client": "^2.22.1",
