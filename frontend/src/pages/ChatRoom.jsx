@@ -389,7 +389,7 @@ export default function ChatRoom() {
         </div>
 
         <aside className="hidden lg:flex flex-col border-l border-[var(--border)] bg-[var(--surface)] min-h-0 overflow-hidden">
-          <div className={`shrink-0 h-12 flex items-center border-b border-[var(--border)] ${sidebarOpen ? "justify-end px-2" : "justify-center"}`}>
+          <div className={`shrink-0 h-12 flex items-center border-b border-[var(--border)] ${sidebarOpen ? "justify-start px-2" : "justify-center"}`}>
             <button
               onClick={() => setSidebarOpen((v) => !v)}
               className="btn-ghost !px-2 relative"
