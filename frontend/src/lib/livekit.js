@@ -27,7 +27,27 @@ export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
     if (!enabled || !roomId) return;
     let cancelled = false;
     const room = new Room({
-      adaptiveStream: true,
+      // adaptiveStream tracks which HTMLVideoElements a track is attached to
+      // (via its own internal visibility/size observer) and reduces or
+      // withholds quality for ones it decides aren't meaningfully visible —
+      // the SDK's own docs on RemoteVideoTrack.attach() warn "you need to
+      // use attach() to add the track to a video element, otherwise your
+      // video tracks might never start." MediaMount (components/VideoStage)
+      // deliberately doesn't use attach() for every consumer — VideoStage
+      // renders both a mobile and a desktop layout at once (CSS toggles
+      // which is visible) plus, in Cinema mode, a spotlight tile alongside
+      // hidden ones, so a single track can have several simultaneous
+      // consumers; attach()'s real DOM node can only ever live in one of
+      // them, so MediaMount clones a fresh element with the same srcObject
+      // for each. LiveKit only ever sees the original (permanently
+      // detached, since nothing appends it directly anymore) — confirmed
+      // live: with adaptiveStream on, a track landing in Cinema mode's
+      // spotlight tile stayed at readyState 0 / videoWidth 0 indefinitely,
+      // genuinely never starting, exactly as that warning describes.
+      // Skipping it entirely is the reliable fix given that mount shape;
+      // the bandwidth savings it exists for mostly matter for large
+      // galleries anyway, not a 2-4 person debate.
+      adaptiveStream: false,
       dynacast: true,
       videoCaptureDefaults: { resolution: VideoPresets.h540.resolution },
     });
