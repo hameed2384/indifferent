@@ -13,6 +13,7 @@ import DeleteClipModal from "@/components/DeleteClipModal";
 import { VISIBILITY_ICON } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_MEDIUM } from "@/lib/layout";
 
 export default function ClaimTree() {
   const { clipId } = useParams();
@@ -78,7 +79,7 @@ export default function ClaimTree() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className={STICKY_NAV}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+        <div className={`${CONTAINER_MEDIUM} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3`}>
           <BackButton to="/claims" label="Claims" data-testid="nav-back-claims" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -89,7 +90,7 @@ export default function ClaimTree() {
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <main className={`${CONTAINER_MEDIUM} mx-auto px-4 sm:px-6 py-8`}>
         {clip.parent && (
           <button onClick={() => navigate(`/claims/${clip.parent.clip_id}`)} className="text-xs text-[var(--fg-subtle)] hover:underline mb-3 block text-left" data-testid="link-parent-claim">
             ↑ Replying to {clip.parent.uploader_name}: "{clip.parent.caption}"
@@ -135,7 +136,7 @@ export default function ClaimTree() {
         <div className="mt-8">
           <div className="eyebrow mb-3">{replies.length} {replies.length === 1 ? "rebuttal" : "rebuttals"}</div>
           {replies.length === 0 && <p className="text-sm text-[var(--fg-subtle)]">No rebuttals yet — be the first to push back.</p>}
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {replies.map((r) => (
               <button key={r.clip_id} onClick={() => navigate(`/claims/${r.clip_id}`)} className="card overflow-hidden text-left hover:border-[var(--fg)] transition-colors" data-testid={`reply-card-${r.clip_id}`}>
                 {r.deleted ? (

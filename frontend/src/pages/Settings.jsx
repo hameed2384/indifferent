@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_NARROW } from "@/lib/layout";
 
 function Section({ title, children }) {
   return (
@@ -92,7 +93,7 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className={STICKY_NAV}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+        <div className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3`}>
           <div className="flex items-center gap-3">
             <BackButton to="/" label="Home" data-testid="nav-back-home" />
             <span className="font-heading text-lg font-semibold">Settings</span>
@@ -104,7 +105,7 @@ export default function Settings() {
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <main className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 py-8 space-y-6`}>
         <Section title="Profile">
           <div className="flex items-center gap-3 mb-5">
             {user.picture

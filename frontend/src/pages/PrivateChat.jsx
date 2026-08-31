@@ -9,6 +9,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_COMPACT } from "@/lib/layout";
 
 /** Client brief #14 — private friend chat/call. Its own page, its own
  * component tree: nothing here imports anything debate/coach-related, so
@@ -124,7 +125,7 @@ export default function PrivateChat() {
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <nav className={STICKY_NAV}>
-        <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between gap-3">
+        <div className={`${CONTAINER_COMPACT} mx-auto px-6 h-14 flex items-center justify-between gap-3`}>
           <BackButton to="/friends" label="Friends" data-testid="nav-back-friends" />
           <div className="text-sm font-medium truncate">{friend?.display_name || "…"}</div>
           <div className="flex items-center gap-2">
@@ -142,7 +143,7 @@ export default function PrivateChat() {
         </div>
       )}
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-4 min-h-0">
+      <main className={`flex-1 ${CONTAINER_COMPACT} w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-4 min-h-0`}>
         <div className="flex flex-wrap items-center gap-2">
           {!inCall ? (
             <button onClick={() => setInCall(true)} className="btn-accent text-sm" data-testid="btn-start-call">Start call</button>

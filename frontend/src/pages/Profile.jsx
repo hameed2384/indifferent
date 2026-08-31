@@ -12,6 +12,7 @@ import DeleteClipModal from "@/components/DeleteClipModal";
 import ArchiveVisibilityModal, { VISIBILITY_LABEL, VISIBILITY_ICON, DEFAULT_VISIBILITY } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_MEDIUM } from "@/lib/layout";
 
 function formatJoinDate(iso) {
   if (!iso) return null;
@@ -265,7 +266,7 @@ export default function Profile() {
         Skip to content
       </a>
       <nav className={STICKY_NAV}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+        <div className={`${CONTAINER_MEDIUM} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3`}>
           <BackButton useHistory label="Back" data-testid="nav-back" />
           <div className="flex items-center gap-2">
             <button onClick={share} className="btn-outline text-sm inline-flex items-center gap-1.5" data-testid="btn-share-profile"><Share2 className="w-4 h-4" /> Share</button>
@@ -290,7 +291,7 @@ export default function Profile() {
 
       {/* Cover banner + avatar, YouTube/Twitter-channel style */}
       <div className="h-32 sm:h-44 bg-gradient-to-br from-[var(--accent-soft)] via-[var(--bg-muted)] to-[var(--bg-muted)]" />
-      <div id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6">
+      <div id="main-content" className={`${CONTAINER_MEDIUM} mx-auto px-4 sm:px-6`}>
         <div className="-mt-12 sm:-mt-16 flex items-end gap-4 sm:gap-5">
           {profile.picture
             ? <img src={profile.picture} alt="" className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover ring-4 ring-[var(--bg)] shrink-0" />
@@ -378,7 +379,7 @@ export default function Profile() {
             debates.length === 0 ? (
               <EmptyState title="No debates yet" subtitle={profile.is_self ? "Find your opposite from the home page to start one." : "Nothing public here yet."} />
             ) : (
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {debates.map((d) => (
                   <DebateCardSmall
                     key={d.room_id}
@@ -396,7 +397,7 @@ export default function Profile() {
             clips.length === 0 ? (
               <EmptyState title="No claims yet" subtitle={profile.is_self ? "State a claim on video from the Claims page to start a tree." : "Nothing posted here yet."} />
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {clips.map((c) => (
                   <ClipCardSmall
                     key={c.clip_id}

@@ -14,6 +14,7 @@ import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_WIDE } from "@/lib/layout";
 
 /** Interleaves one ad card into a feed row at a fixed position, YouTube-style
  * — only when the row has enough real cards for it not to dominate. */
@@ -193,7 +194,7 @@ export default function Watch() {
           <SideNav collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebar} />
         </div>
 
-        <main id="main-content" className="flex-1 min-w-0 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <main id="main-content" className={`flex-1 min-w-0 ${CONTAINER_WIDE} mx-auto px-4 sm:px-6 py-8`}>
           {!user && (
             <div className="card p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-testid="explainer-banner">
               <div>
@@ -280,7 +281,7 @@ function Row({ title, badge, accent, children }) {
           : <div className="eyebrow">{title}</div>}
         {badge && <span className="text-xs text-[var(--fg-subtle)]">{badge}</span>}
       </div>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">{children}</div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">{children}</div>
     </section>
   );
 }

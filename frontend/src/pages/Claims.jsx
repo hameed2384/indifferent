@@ -12,6 +12,7 @@ import { useSideNavToggle } from "@/hooks/use-sidenav";
 import RecordClipModal from "@/components/RecordClipModal";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_WIDE } from "@/lib/layout";
 
 function ClaimCard({ clip, onClick }) {
   return (
@@ -106,7 +107,7 @@ export default function Claims() {
           <SideNav collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebar} />
         </div>
 
-        <main id="main-content" className="flex-1 min-w-0 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <main id="main-content" className={`flex-1 min-w-0 ${CONTAINER_WIDE} mx-auto px-4 sm:px-6 py-8`}>
           {loading && <div className="text-sm text-[var(--fg-subtle)]">Loading claims…</div>}
 
           {!loading && claims.length === 0 && (
@@ -117,7 +118,7 @@ export default function Claims() {
             </div>
           )}
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
             {claims.map((c) => (
               <ClaimCard key={c.clip_id} clip={c} onClick={() => navigate(`/claims/${c.clip_id}`)} />
             ))}

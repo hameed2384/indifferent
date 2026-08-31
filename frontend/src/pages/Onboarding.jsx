@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import StepDots from "@/components/StepDots";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_COMPACT } from "@/lib/layout";
 
 const LIKERT = [1, 2, 3, 4, 5];
 const LIKERT_LABELS = { 1: "Strongly disagree", 2: "Disagree", 3: "Neutral", 4: "Agree", 5: "Strongly agree" };
@@ -65,7 +66,7 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <header className={STICKY_NAV}>
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`}>
           <Logo size="sm" />
           <div className="flex items-center gap-3">
             <StepDots step={1} />
@@ -74,7 +75,7 @@ export default function Onboarding() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
+      <main className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 py-12`}>
         <div className="eyebrow">Declare your views</div>
         <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold mt-2 leading-tight">
           Tell us how you actually think.

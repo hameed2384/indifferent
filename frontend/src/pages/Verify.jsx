@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import BackButton from "@/components/BackButton";
 import StepDots from "@/components/StepDots";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_NARROW } from "@/lib/layout";
 
 export default function Verify() {
   const { user, checkAuth } = useAuth();
@@ -36,7 +37,7 @@ export default function Verify() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className={STICKY_NAV}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+        <div className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3`}>
           <div className="flex items-center gap-3 min-w-0">
             <BackButton to="/" label="Home" data-testid="nav-back-home" />
             <span className="font-heading text-lg font-semibold truncate">Verify</span>
@@ -48,7 +49,7 @@ export default function Verify() {
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+      <main className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 py-12`}>
         <div className="eyebrow">Prove you're a person</div>
         <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold mt-2 leading-tight">
           One human, one voice.

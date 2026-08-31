@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_NARROW } from "@/lib/layout";
 
 function Avatar({ picture, name, size = "w-9 h-9" }) {
   return picture
@@ -229,7 +230,7 @@ export default function Friends() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className={STICKY_NAV}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+        <div className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3`}>
           <div className="flex items-center gap-3 min-w-0">
             <BackButton to="/" label="Home" data-testid="nav-back-home" />
             <span className="font-heading text-lg font-semibold inline-flex items-center gap-1.5 truncate"><UserPlus className="w-4 h-4 shrink-0" /> Friends</span>
@@ -241,7 +242,7 @@ export default function Friends() {
         </div>
       </nav>
 
-      <main id="main-content" className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <main id="main-content" className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 py-8 space-y-6`}>
         <SearchSection />
         <RequestsAndFriends />
         <FollowingSection />

@@ -7,6 +7,7 @@ import AccountMenu from "@/components/AccountMenu";
 import AdSlot from "@/components/AdSlot";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/contexts/AuthContext";
+import { CONTAINER_COMPACT } from "@/lib/layout";
 
 const STATUSES = ["Scanning queue", "Analyzing stances", "Plotting opposition", "Matching adversary", "Preparing topics"];
 
@@ -68,7 +69,7 @@ export default function Match() {
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <header className="border-b border-[var(--border)]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`}>
           <Logo size="sm" />
           <div className="flex items-center gap-2">
             <button onClick={cancel} className="btn-ghost text-sm" data-testid="btn-cancel-match">Cancel</button>

@@ -13,6 +13,7 @@ import BackButton from "@/components/BackButton";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { CONTAINER_WIDE } from "@/lib/layout";
 
 function ViewerOverlay({ side, navigate }) {
   const [following, setFollowing] = useState(null); // null = unknown/self/open, else bool
@@ -477,7 +478,7 @@ export default function WatchRoom() {
   return (
     <div className="min-h-screen bg-[var(--bg-muted)]">
       <nav className={STICKY_NAV}>
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-3">
+        <div className={`${CONTAINER_WIDE} mx-auto px-6 h-14 flex items-center justify-between gap-3`}>
           <BackButton to="/watch" label="All debates" data-testid="nav-back-watch" />
           <div className="flex items-center gap-3 text-sm">
             {isLive
@@ -495,7 +496,7 @@ export default function WatchRoom() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex gap-6 items-start">
+      <div className={`${CONTAINER_WIDE} mx-auto px-4 sm:px-6 py-6 sm:py-8 flex gap-6 items-start`}>
         <RelatedDebates category={debate.categories?.[0]} excludeRoomId={roomId} navigate={navigate} />
 
         <main className="min-w-0 flex-1 grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
