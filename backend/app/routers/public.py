@@ -9,7 +9,7 @@ from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..llm import analyze_vote_reasoning
 from ..models import User
-from ..reactions import react_once
+from ..reactions import toggle_reaction
 from ..room_utils import MAX_PER_SIDE, is_participant, member_side, side_members
 from ..topic_stances import upsert_topic_stance
 
@@ -197,9 +197,12 @@ async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_c
         raise HTTPException(status_code=404, detail="Debate not public or not found")
     docs = await _participant_docs(r)
     my_vote = None
+    my_reaction = None
     if viewer:
         mv = await db.debate_votes.find_one({"room_id": room_id, "user_id": viewer.user_id}, {"_id": 0})
         my_vote = mv["side"] if mv else None
+        mr = await db.room_reactions.find_one({"room_id": room_id, "user_id": viewer.user_id}, {"_id": 0})
+        my_reaction = mr["kind"] if mr else None
     msgs = await db.chat_messages.find({"room_id": room_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
     for m in msgs:
         side = member_side(r, m["sender_id"]) or "b"
@@ -219,6 +222,7 @@ async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_c
         "dislikes": int(r.get("dislikes", 0)),
         **tally,
         "my_vote": my_vote,
+        "my_reaction": my_reaction,
         "spectator_count": await _spectator_count(room_id),
         "published_at": r.get("published_at"),
         "archive_visibility": r.get("archive_visibility"),
@@ -314,26 +318,45 @@ async def post_comment(room_id: str, payload: SpectatorCommentIn, user: Optional
     return {"ok": True, "ts": now}
 
 
-@router.post("/public/debates/{room_id}/like")
-async def like_debate(room_id: str, user: User = Depends(get_current_user)):
+async def _react_to_debate(room_id: str, user: User, kind: str) -> dict:
+    """Shared body for like_debate/dislike_debate — `kind` is "like" or
+    "dislike". Reactions are mutually exclusive per viewer (toggle_reaction),
+    so the room's two counters move together: a switch increments one and
+    decrements the other in the same request."""
     r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
-    if await react_once(db.room_reactions, "room_id", room_id, user.user_id, "like"):
-        await db.rooms.update_one({"room_id": room_id}, {"$inc": {"likes": 1}})
+    other = "dislike" if kind == "like" else "like"
+    outcome = await toggle_reaction(db.room_reactions, "room_id", room_id, user.user_id, kind)
+    inc = {}
+    if outcome == "added":
+        inc[f"{kind}s"] = 1
+    elif outcome == "removed":
+        inc[f"{kind}s"] = -1
+    elif outcome == "switched":
+        inc[f"{kind}s"] = 1
+        inc[f"{other}s"] = -1
+    if inc:
+        await db.rooms.update_one({"room_id": room_id}, {"$inc": inc})
     fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
-    return {"likes": int(fresh.get("likes", 0))}
+    # Re-fetched rather than inferred from `outcome` so the "noop" race-loser
+    # case (see toggle_reaction's docstring) still reports the true state.
+    mine = await db.room_reactions.find_one({"room_id": room_id, "user_id": user.user_id}, {"_id": 0})
+    return {
+        "likes": int(fresh.get("likes", 0)),
+        "dislikes": int(fresh.get("dislikes", 0)),
+        "my_reaction": mine["kind"] if mine else None,
+    }
+
+
+@router.post("/public/debates/{room_id}/like")
+async def like_debate(room_id: str, user: User = Depends(get_current_user)):
+    return await _react_to_debate(room_id, user, "like")
 
 
 @router.post("/public/debates/{room_id}/dislike")
 async def dislike_debate(room_id: str, user: User = Depends(get_current_user)):
-    r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
-    if not r:
-        raise HTTPException(status_code=404, detail="Not found")
-    if await react_once(db.room_reactions, "room_id", room_id, user.user_id, "dislike"):
-        await db.rooms.update_one({"room_id": room_id}, {"$inc": {"dislikes": 1}})
-    fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
-    return {"dislikes": int(fresh.get("dislikes", 0))}
+    return await _react_to_debate(room_id, user, "dislike")
 
 
 class VoteIn(BaseModel):

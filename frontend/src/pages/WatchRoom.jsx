@@ -271,6 +271,7 @@ export default function WatchRoom() {
   const [comments, setComments] = useState([]);
   const [likes, setLikes] = useState(0);
   const [dislikes, setDislikes] = useState(0);
+  const [myReaction, setMyReaction] = useState(null); // "like" | "dislike" | null
   const [votes, setVotes] = useState({ votes_a: 0, votes_b: 0, my_vote: null });
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [connected, setConnected] = useState(false);
@@ -278,7 +279,6 @@ export default function WatchRoom() {
   const [collapsed, setCollapsed] = useState(false);
 
   const sinceRef = useRef(null);
-  const likesRef = useRef(0);
   const clientIdRef = useRef(typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `spectator-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const chatEndRef = useRef(null);
   const commentEndRef = useRef(null);
@@ -294,8 +294,8 @@ export default function WatchRoom() {
         setComments((data.comments || []).slice().reverse());
         setLikes(data.likes || 0);
         setDislikes(data.dislikes || 0);
+        setMyReaction(data.my_reaction || null);
         setVotes({ votes_a: data.votes_a || 0, votes_b: data.votes_b || 0, my_vote: data.my_vote || null });
-        likesRef.current = data.likes || 0;
         setSpectatorCount(data.spectator_count || 0);
         sinceRef.current = data.server_time;
       })
@@ -310,8 +310,6 @@ export default function WatchRoom() {
       });
       sinceRef.current = data.server_time;
       setConnected(true);
-      if (data.likes !== likesRef.current) setLikeBurst((b) => b + 1);
-      likesRef.current = data.likes;
       setLikes(data.likes);
       setDislikes(data.dislikes || 0);
       setVotes((v) => ({ ...v, votes_a: data.votes_a || 0, votes_b: data.votes_b || 0 }));
@@ -362,14 +360,20 @@ export default function WatchRoom() {
     }
   };
 
+  const applyReaction = ({ likes: l, dislikes: d, my_reaction }) => {
+    setLikes(l);
+    setDislikes(d);
+    setMyReaction(my_reaction);
+  };
+
   const like = () => {
     if (!user) { toast.info("Sign in to like"); return; }
-    api.post(`/public/debates/${roomId}/like`).then(({ data }) => setLikes(data.likes)).catch(() => toast.error("Couldn't record that — try again"));
+    api.post(`/public/debates/${roomId}/like`).then(({ data }) => applyReaction(data)).catch(() => toast.error("Couldn't record that — try again"));
   };
 
   const dislike = () => {
     if (!user) { toast.info("Sign in to react"); return; }
-    api.post(`/public/debates/${roomId}/dislike`).then(({ data }) => setDislikes(data.dislikes)).catch(() => toast.error("Couldn't record that — try again"));
+    api.post(`/public/debates/${roomId}/dislike`).then(({ data }) => applyReaction(data)).catch(() => toast.error("Couldn't record that — try again"));
   };
 
   const castVote = async (side, reasoning) => {
@@ -559,10 +563,22 @@ export default function WatchRoom() {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button onClick={like} className="btn-accent inline-flex items-center gap-1.5" data-testid="btn-like">
+              <button
+                onClick={like}
+                aria-pressed={myReaction === "like"}
+                className={`inline-flex items-center gap-1.5 ${myReaction === "like" ? "btn-accent" : "btn-outline"}`}
+                data-testid="btn-like"
+              >
                 <Heart className="w-4 h-4" /> {likes}
               </button>
-              <button onClick={dislike} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-dislike"><ThumbsDown className="w-4 h-4" /> {dislikes}</button>
+              <button
+                onClick={dislike}
+                aria-pressed={myReaction === "dislike"}
+                className={`inline-flex items-center gap-1.5 ${myReaction === "dislike" ? "btn-danger" : "btn-outline"}`}
+                data-testid="btn-dislike"
+              >
+                <ThumbsDown className="w-4 h-4" /> {dislikes}
+              </button>
               <button onClick={share} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-share-2"><Share2 className="w-4 h-4" /> Share</button>
               {debate.opposition_score != null && (
                 <div className="text-xs text-[var(--fg-subtle)]">

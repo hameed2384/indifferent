@@ -1,9 +1,28 @@
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import OperationFailure
 
 from .config import DB_NAME, MONGO_URL
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
+
+
+async def _dedupe_room_reactions():
+    """One-time cleanup for a room a user managed to both like and dislike
+    back when they were independent reactions — keeps whichever is newer,
+    deletes the other, and corrects the room's counter to match. Must run
+    before create_indexes() tightens room_reactions to one document per
+    (room_id, user_id); a no-op once no pair is left to clean up, so it's
+    safe to run on every startup rather than as a one-off migration."""
+    cursor = db.room_reactions.aggregate([
+        {"$group": {"_id": {"room_id": "$room_id", "user_id": "$user_id"}, "docs": {"$push": "$$ROOT"}, "n": {"$sum": 1}}},
+        {"$match": {"n": {"$gt": 1}}},
+    ])
+    async for group in cursor:
+        docs = sorted(group["docs"], key=lambda d: d.get("created_at", ""))
+        for stale in docs[:-1]:  # keep only the most recently-set reaction
+            await db.room_reactions.delete_one({"_id": stale["_id"]})
+            await db.rooms.update_one({"room_id": stale["room_id"]}, {"$inc": {f"{stale['kind']}s": -1}})
 
 
 async def create_indexes():
@@ -99,7 +118,19 @@ async def create_indexes():
     # user, kind); the uniqueness is what makes vote-stuffing impossible,
     # not just a lookup optimization.
     await db.clip_reactions.create_index([("clip_id", 1), ("user_id", 1), ("kind", 1)], unique=True)
-    await db.room_reactions.create_index([("room_id", 1), ("user_id", 1), ("kind", 1)], unique=True)
+
+    # Debate reactions are like XOR dislike (app/reactions.toggle_reaction),
+    # so the index is on (room_id, user_id) alone — NOT including kind, unlike
+    # clip_reactions above — enforcing at most one reaction doc per viewer per
+    # room. _dedupe_room_reactions must run first: it clears out any doc pairs
+    # left over from when a user really could both like and dislike the same
+    # room, which would otherwise make this create_index call fail outright.
+    await _dedupe_room_reactions()
+    try:
+        await db.room_reactions.drop_index("room_id_1_user_id_1_kind_1")
+    except OperationFailure:
+        pass  # already gone — every deploy after the first hits this
+    await db.room_reactions.create_index([("room_id", 1), ("user_id", 1)], unique=True)
 
     # Profile view (routers/profiles.py) counts/lists a user's own clips on
     # every visit; list_root_claims' default (no-category) browse sorts by
