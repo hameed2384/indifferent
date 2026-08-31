@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { api } from "@/lib/api";
+import { api, setStoredToken } from "@/lib/api";
 
 const AuthContext = createContext(null);
 
@@ -30,6 +30,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try { await api.post("/auth/logout"); } catch { /* noop */ }
+    setStoredToken(null);
     setUser(null);
   };
 

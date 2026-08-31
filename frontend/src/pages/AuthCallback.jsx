@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { api } from "@/lib/api";
+import { api, setStoredToken } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ export default function AuthCallback() {
     (async () => {
       try {
         const { data } = await api.post("/auth/google/callback", { code, redirect_uri: redirectUri });
+        setStoredToken(data.session_token);
         sessionStorage.removeItem("google_oauth_redirect_uri");
         setUser(data.user);
         // Onboarded users land back on the feed (home), same as YouTube/Twitch
