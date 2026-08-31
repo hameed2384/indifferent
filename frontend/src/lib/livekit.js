@@ -232,6 +232,7 @@ export function AttachedMedia({ el, className = "" }) {
     clone.muted = el.muted;
     clone.className = el.className;
     container.appendChild(clone);
+    clone.play().catch(() => {}); // autoplay property alone isn't reliable here — see MediaMount
     return () => { if (container) container.innerHTML = ""; };
   }, [el]);
   return <div ref={ref} className={className} />;

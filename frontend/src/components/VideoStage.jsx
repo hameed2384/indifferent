@@ -221,6 +221,13 @@ function MediaMount({ el, className = "" }) {
     clone.muted = el.muted;
     clone.className = el.className;
     node.appendChild(clone);
+    // Confirmed live: the autoplay property alone didn't reliably start
+    // playback on a freshly created element the way it does on the one
+    // LiveKit's own track.attach() builds (which apparently calls .play()
+    // internally) — the clone sat at currentTime 0, paused, despite a valid
+    // srcObject. Explicit call, same as RecordClipModal's camera preview.
+    // Applies to audio clones too — play() is shared on HTMLMediaElement.
+    clone.play().catch(() => {});
   };
   return <div ref={ref} className={`absolute inset-0 ${className}`} />;
 }
