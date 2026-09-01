@@ -127,7 +127,10 @@ export default function Claims() {
       )}
 
       <div className="flex items-start">
-        <div className="hidden md:block">
+        {/* self-stretch: see Watch.jsx's identical wrapper for why this is
+            needed — without it, position:sticky has no room to travel and
+            the sidebar just scrolls off with the page instead of sticking. */}
+        <div className="hidden md:block self-stretch">
           <SideNav collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebar} />
         </div>
 

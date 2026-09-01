@@ -200,7 +200,15 @@ export default function Watch() {
       )}
 
       <div className="flex items-start">
-        <div className="hidden md:block">
+        {/* self-stretch: position:sticky only has room to move within a
+            containing block taller than itself. items-start on this row
+            keeps main's own height content-driven (correct), but as a side
+            effect it also left this wrapper shrunk to exactly SideNav's own
+            height, giving the sticky sidebar nowhere to travel — it just
+            scrolled off with the page instead of sticking. Stretching only
+            this wrapper to the row's full height (== main's height) fixes
+            it without touching main's alignment. */}
+        <div className="hidden md:block self-stretch">
           <SideNav collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebar} />
         </div>
 
