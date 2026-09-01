@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import NotificationBell from "@/components/NotificationBell";
 import DebateCard from "@/components/DebateCard";
+import { DebateCardSkeleton, SkeletonGrid } from "@/components/SkeletonCard";
 import AdSlot from "@/components/AdSlot";
 import SideNav from "@/components/SideNav";
 import Logo from "@/components/Logo";
@@ -15,6 +16,7 @@ import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV, useNavHeightVar } from "@/lib/navChrome";
+import { useModalA11y } from "@/hooks/useModalA11y";
 import { CONTAINER_WIDE } from "@/lib/layout";
 
 /** Interleaves one ad card into a feed row at a fixed position, YouTube-style
@@ -53,6 +55,7 @@ export default function Watch() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [excluded] = useState(readNotInterested);
   const [showGoLive, setShowGoLive] = useState(false);
+  const [feedTrouble, setFeedTrouble] = useState(false);
   const { collapsed: sidebarCollapsed, mobileOpen: mobileNavOpen, toggle: toggleSidebar, closeMobile } = useSideNavToggle();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -93,15 +96,23 @@ export default function Watch() {
 
   useEffect(() => {
     let mounted = true;
+    let failStreak = 0;
     const load = async () => {
       try {
         const params = {};
         if (activeCategory) params.category = activeCategory;
         if (search.trim()) params.q = search.trim();
         const { data } = await api.get("/public/debates", { params });
-        if (mounted) setDebates(data.debates || []);
+        if (!mounted) return;
+        setDebates(data.debates || []);
+        failStreak = 0;
+        setFeedTrouble(false);
       } catch {
-        /* keep whatever was already loaded; next poll tries again */
+        // A single missed poll isn't worth alarming anyone about — the feed
+        // just goes stale for 8s and quietly retries. Only surface it once
+        // that's happened enough in a row to actually mean something.
+        failStreak += 1;
+        if (mounted && failStreak >= 3) setFeedTrouble(true);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -239,7 +250,14 @@ export default function Watch() {
             </div>
           )}
 
-          {loading && <div className="mt-4 text-sm text-[var(--fg-subtle)]">Loading feed…</div>}
+          {feedTrouble && (
+            <div className="mt-4 text-sm text-[var(--fg-subtle)] flex items-center gap-2" data-testid="feed-trouble-banner">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)] shrink-0" />
+              Having trouble reaching the server — retrying…
+            </div>
+          )}
+
+          {loading && <div className="mt-4"><SkeletonGrid Skeleton={DebateCardSkeleton} /></div>}
 
           {!loading && visible.length === 0 && (
             <div className="mt-4 card p-10 text-center">
@@ -259,6 +277,9 @@ export default function Watch() {
             <Row title="People">
               {people.map((p) => <PersonCard key={p.user_id} p={p} onClick={() => navigate(`/u/${p.user_id}`)} />)}
             </Row>
+          )}
+          {people.length === 0 && search.trim().length >= 2 && (
+            <p className="text-sm text-[var(--fg-subtle)] mb-6" data-testid="no-people-found">No one matches "{search.trim()}".</p>
           )}
 
           {live.length > 0 && (
@@ -307,16 +328,24 @@ function StartDebateMenu({ onGoLive, onFindMatch }) {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="btn-accent !px-2.5"
+        className="btn-accent !px-2.5 sm:!px-4 inline-flex items-center gap-1.5"
         title="Start a debate"
         aria-label="Start a debate"
         data-testid="btn-start-debate-menu"
       >
         <Swords className="w-4 h-4" />
+        <span className="hidden sm:inline">Start a debate</span>
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-64 card p-1 shadow-lg z-50" data-testid="start-debate-menu">
@@ -365,6 +394,7 @@ function Row({ title, badge, accent, children }) {
 function GoLiveModal({ categories, onClose, onStarted }) {
   const [category, setCategory] = useState(categories[0] || "");
   const [starting, setStarting] = useState(false);
+  const modalRef = useModalA11y(onClose);
 
   const start = async () => {
     setStarting(true);
@@ -379,7 +409,7 @@ function GoLiveModal({ categories, onClose, onStarted }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-md p-6 sm:p-8">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Go live" className="card w-full max-w-md p-6 sm:p-8">
         <div className="eyebrow">Go live</div>
         <h2 className="font-heading text-2xl font-semibold mt-2">Pick a category</h2>
         <p className="mt-2 text-sm text-[var(--fg-muted)]">You're immediately live and discoverable — no scheduling.</p>

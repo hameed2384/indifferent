@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 const REASONS = [
   { value: "harassment", label: "Harassment or abuse" },
@@ -19,6 +20,7 @@ export default function ReportModal({ targetType, targetId, onClose }) {
   const [reason, setReason] = useState("harassment");
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
+  const ref = useModalA11y(onClose);
 
   const submit = async () => {
     setBusy(true);
@@ -35,7 +37,7 @@ export default function ReportModal({ targetType, targetId, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-md p-6 sm:p-8">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label="Report" className="card w-full max-w-md p-6 sm:p-8">
         <div className="eyebrow">Report</div>
         <h2 className="font-heading text-xl font-semibold mt-2">What's wrong?</h2>
         <div className="mt-4 space-y-1">

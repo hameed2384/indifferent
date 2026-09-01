@@ -9,6 +9,7 @@ import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_NARROW } from "@/lib/layout";
+import { DEBATER_SUB_PRICE, MEMBERSHIP_PRICE } from "@/lib/pricing";
 
 function Section({ title, children }) {
   return (
@@ -181,7 +182,7 @@ export default function Settings() {
             <p className="text-sm text-[var(--accent)] font-medium">You're a debater — go live any time from Watch.</p>
           ) : (
             <>
-              <p className="text-sm text-[var(--fg-muted)] mb-3">Debaters can go live on demand and accept £2/mo subscribers.</p>
+              <p className="text-sm text-[var(--fg-muted)] mb-3">Debaters can go live on demand and accept {DEBATER_SUB_PRICE} subscribers.</p>
               <button onClick={becomeDebater} disabled={becoming} className="btn-outline text-sm" data-testid="settings-become-debater">
                 {becoming ? "…" : "Become a debater"}
               </button>
@@ -194,8 +195,8 @@ export default function Settings() {
             <p className="text-sm text-[var(--accent)] font-medium">You're a member — no ads anywhere ✓</p>
           ) : (
             <>
-              <p className="text-sm text-[var(--fg-muted)] mb-3">Members get no ads anywhere on the site, £9/mo. This is separate from subscribing to a specific debater (from their profile) — membership is about your own experience of the whole platform, not supporting any one person.</p>
-              <button onClick={becomeMember} className="btn-outline text-sm" data-testid="settings-become-member">Become a member — £9/mo</button>
+              <p className="text-sm text-[var(--fg-muted)] mb-3">Members get no ads anywhere on the site, {MEMBERSHIP_PRICE}. This is separate from subscribing to a specific debater (from their profile) — membership is about your own experience of the whole platform, not supporting any one person.</p>
+              <button onClick={becomeMember} className="btn-outline text-sm" data-testid="settings-become-member">Become a member — {MEMBERSHIP_PRICE}</button>
             </>
           )}
         </Section>

@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 const MAX_CAPTION = 200;
 
 export default function EditClipCaptionModal({ clip, onClose, onSaved }) {
   const [caption, setCaption] = useState(clip.caption);
   const [saving, setSaving] = useState(false);
+  const ref = useModalA11y(onClose);
 
   const save = async () => {
     const trimmed = caption.trim();
@@ -25,7 +27,7 @@ export default function EditClipCaptionModal({ clip, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-md p-6 sm:p-8">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label="Edit claim" className="card w-full max-w-md p-6 sm:p-8">
         <div className="eyebrow">Edit claim</div>
         <h2 className="font-heading text-2xl font-semibold mt-2">Update your caption</h2>
         <textarea

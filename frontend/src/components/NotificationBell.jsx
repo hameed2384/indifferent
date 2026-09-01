@@ -70,6 +70,13 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   const toggle = () => {
     const next = !open;
     setOpen(next);

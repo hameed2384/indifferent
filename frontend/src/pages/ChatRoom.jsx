@@ -10,6 +10,39 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import NotificationBell from "@/components/NotificationBell";
 import ConfirmModal from "@/components/ConfirmModal";
+import { useModalA11y } from "@/hooks/useModalA11y";
+
+function PostDebateFeedbackModal({ rating, setRating, mindChanged, setMindChanged, notes, setNotes, onCancel, onSubmit }) {
+  const modalRef = useModalA11y(onCancel);
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Post-debate" className="card w-full max-w-lg p-6 sm:p-8">
+        <div className="eyebrow">Post-debate</div>
+        <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">How did that go?</h2>
+        <div className="mt-6">
+          <div className="eyebrow mb-2">Rate the conversation</div>
+          <div className="grid grid-cols-5 gap-2">
+            {[1,2,3,4,5].map((n) => (
+              <button key={n} onClick={() => setRating(n)} data-testid={`rating-${n}`}
+                className={`h-12 rounded-lg border text-sm font-medium transition ${rating === n ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="flex items-center gap-3 mt-6 cursor-pointer">
+          <input type="checkbox" checked={mindChanged} onChange={(e) => setMindChanged(e.target.checked)} data-testid="checkbox-mind-changed" className="checkbox" />
+          <span className="text-sm">Did it change your mind on anything?</span>
+        </label>
+        <textarea data-testid="feedback-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Optional notes to yourself…" className="textarea mt-4" />
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button className="btn-outline" onClick={onCancel} data-testid="btn-feedback-cancel">Not yet</button>
+          <button className="btn-accent" onClick={onSubmit} data-testid="btn-feedback-submit">Submit & exit</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ChatRoom() {
   const { roomId } = useParams();
@@ -478,32 +511,13 @@ export default function ChatRoom() {
       )}
 
       {showFeedback && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="card w-full max-w-lg p-6 sm:p-8">
-            <div className="eyebrow">Post-debate</div>
-            <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">How did that go?</h2>
-            <div className="mt-6">
-              <div className="eyebrow mb-2">Rate the conversation</div>
-              <div className="grid grid-cols-5 gap-2">
-                {[1,2,3,4,5].map((n) => (
-                  <button key={n} onClick={() => setRating(n)} data-testid={`rating-${n}`}
-                    className={`h-12 rounded-lg border text-sm font-medium transition ${rating === n ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <label className="flex items-center gap-3 mt-6 cursor-pointer">
-              <input type="checkbox" checked={mindChanged} onChange={(e) => setMindChanged(e.target.checked)} data-testid="checkbox-mind-changed" className="checkbox" />
-              <span className="text-sm">Did it change your mind on anything?</span>
-            </label>
-            <textarea data-testid="feedback-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Optional notes to yourself…" className="textarea mt-4" />
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <button className="btn-outline" onClick={() => setShowFeedback(false)} data-testid="btn-feedback-cancel">Not yet</button>
-              <button className="btn-accent" onClick={submitFeedback} data-testid="btn-feedback-submit">Submit & exit</button>
-            </div>
-          </div>
-        </div>
+        <PostDebateFeedbackModal
+          rating={rating} setRating={setRating}
+          mindChanged={mindChanged} setMindChanged={setMindChanged}
+          notes={notes} setNotes={setNotes}
+          onCancel={() => setShowFeedback(false)}
+          onSubmit={submitFeedback}
+        />
       )}
     </div>
   );

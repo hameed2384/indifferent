@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Globe, Link2, Lock } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 export const DEFAULT_VISIBILITY = "private";
 export const VISIBILITY_LABEL = { private: "Private", unlisted: "Unlisted", public: "Public" };
@@ -18,6 +19,7 @@ const OPTIONS = [
 export default function ArchiveVisibilityModal({ debate, onClose, onSaved }) {
   const [visibility, setVisibility] = useState(debate.archive_visibility || DEFAULT_VISIBILITY);
   const [saving, setSaving] = useState(false);
+  const ref = useModalA11y(onClose);
 
   const save = async () => {
     setSaving(true);
@@ -34,7 +36,7 @@ export default function ArchiveVisibilityModal({ debate, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-md p-6 sm:p-8">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label="Debate archive" className="card w-full max-w-md p-6 sm:p-8">
         <div className="eyebrow">Debate archive</div>
         <h2 className="font-heading text-2xl font-semibold mt-2">Who can see this?</h2>
         <div className="mt-6 space-y-2">

@@ -15,6 +15,7 @@ import PrivateChat from "@/pages/PrivateChat";
 import Claims from "@/pages/Claims";
 import ClaimTree from "@/pages/ClaimTree";
 import Settings from "@/pages/Settings";
+import NotFound from "@/pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 function RouterInner() {
@@ -37,6 +38,7 @@ function RouterInner() {
       <Route path="/match" element={<ProtectedRoute requireOnboarded requireVerified><Match /></ProtectedRoute>} />
       <Route path="/room/:roomId" element={<ProtectedRoute requireOnboarded requireVerified><ChatRoom /></ProtectedRoute>} />
       <Route path="/private/:friendId" element={<ProtectedRoute requireOnboarded><PrivateChat /></ProtectedRoute>} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

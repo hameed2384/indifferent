@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 export default function DeleteClipModal({ clip, onClose, onDeleted }) {
   const [deleting, setDeleting] = useState(false);
   const hasReplies = (clip.reply_count || 0) > 0;
+  const ref = useModalA11y(onClose);
 
   const confirmDelete = async () => {
     setDeleting(true);
@@ -22,7 +24,7 @@ export default function DeleteClipModal({ clip, onClose, onDeleted }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-md p-6 sm:p-8">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label="Delete claim" className="card w-full max-w-md p-6 sm:p-8">
         <div className="eyebrow">Delete claim</div>
         <h2 className="font-heading text-2xl font-semibold mt-2">Are you sure?</h2>
         <p className="mt-2 text-sm text-[var(--fg-muted)]">

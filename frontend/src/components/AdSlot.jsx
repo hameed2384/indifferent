@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { MEMBERSHIP_PRICE } from "@/lib/pricing";
 
 // Matches the publisher ID already loaded site-wide in public/index.html
 // (that script alone only proved site ownership to Google; it doesn't
@@ -93,7 +94,7 @@ export default function AdSlot({ variant = "card" }) {
           <div className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)]">Sponsored</div>
           <div className="text-sm truncate">Debates load faster, and look better, without ads in the way.</div>
         </div>
-        <span className="btn-outline !py-1 !px-2 !text-xs shrink-0">Remove ads — £9/mo</span>
+        <span className="btn-outline !py-1 !px-2 !text-xs shrink-0">Remove ads — {MEMBERSHIP_PRICE}</span>
       </button>
     );
   }
@@ -107,7 +108,7 @@ export default function AdSlot({ variant = "card" }) {
     >
       <div className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)] mb-2">Sponsored</div>
       <div className="text-sm text-[var(--fg-muted)] max-w-[220px]">This spot is a placeholder — a real ad network can drop in here later.</div>
-      <span className="btn-outline !py-1 !px-2 !text-xs mt-3">Remove ads — £9/mo</span>
+      <span className="btn-outline !py-1 !px-2 !text-xs mt-3">Remove ads — {MEMBERSHIP_PRICE}</span>
     </button>
   );
 }

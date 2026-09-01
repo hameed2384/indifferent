@@ -65,6 +65,7 @@ export function VideoControls({
             data-testid="btn-toggle-mic"
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium ${micEnabled ? "text-[var(--fg)] hover:bg-[var(--bg-muted)]" : "bg-[var(--danger)] text-white"}`}
             title={micEnabled ? "Mute microphone" : "Unmute microphone"}
+            aria-label={micEnabled ? "Mute microphone" : "Unmute microphone"}
           >
             {micEnabled ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{micEnabled ? "Mic" : "Muted"}</span>
@@ -74,6 +75,7 @@ export function VideoControls({
             data-testid="btn-toggle-camera"
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-[var(--border-strong)] ${camEnabled ? "text-[var(--fg)] hover:bg-[var(--bg-muted)]" : "bg-[var(--danger)] text-white"}`}
             title={camEnabled ? "Turn camera off" : "Turn camera on"}
+            aria-label={camEnabled ? "Turn camera off" : "Turn camera on"}
           >
             {camEnabled ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{camEnabled ? "Cam" : "Off"}</span>

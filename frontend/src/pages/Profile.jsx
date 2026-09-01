@@ -16,6 +16,7 @@ import ArchiveVisibilityModal, { VISIBILITY_LABEL, VISIBILITY_ICON, DEFAULT_VISI
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_MEDIUM } from "@/lib/layout";
+import { DEBATER_SUB_PRICE } from "@/lib/pricing";
 
 function formatJoinDate(iso) {
   if (!iso) return null;
@@ -391,7 +392,7 @@ export default function Profile() {
             )}
             {profile.is_debater && (
               <button onClick={subscribe} disabled={subLoading || profile.is_subscribed} className="btn-outline" data-testid="btn-subscribe">
-                {profile.is_subscribed ? "Subscribed £2/mo ✓" : subLoading ? "…" : "Subscribe £2/mo"}
+                {profile.is_subscribed ? `Subscribed ${DEBATER_SUB_PRICE} ✓` : subLoading ? "…" : `Subscribe ${DEBATER_SUB_PRICE}`}
               </button>
             )}
             <button

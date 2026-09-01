@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 const MAX_SECONDS = 20;
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -29,6 +30,7 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
   const [seconds, setSeconds] = useState(0);
   const [posting, setPosting] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  const modalRef = useModalA11y(onClose);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -143,7 +145,7 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-md p-6 sm:p-8">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={lockCategory ? "Reply with video" : "State your claim"} className="card w-full max-w-md p-6 sm:p-8">
         <div className="eyebrow">{lockCategory ? "Reply with video" : "State your claim"}</div>
         <h2 className="font-heading text-2xl font-semibold mt-2">{lockCategory ? "Make your case" : "What's your position?"}</h2>
 

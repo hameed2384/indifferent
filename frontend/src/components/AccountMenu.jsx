@@ -18,6 +18,13 @@ export default function AccountMenu({ user, logout }) {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -30,7 +37,7 @@ export default function AccountMenu({ user, logout }) {
           : <span className="w-full h-full flex items-center justify-center bg-[var(--bg-muted)] text-xs font-medium">{(user?.display_name || user?.name || "?")[0]?.toUpperCase()}</span>}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-48 card p-1 shadow-lg z-50" data-testid="account-menu">
+        <div className="absolute right-0 mt-2 w-48 card p-1 shadow-lg z-50" role="menu" data-testid="account-menu">
           <button
             onClick={() => { setOpen(false); navigate(`/u/${user.user_id}`); }}
             className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--bg-muted)]"
