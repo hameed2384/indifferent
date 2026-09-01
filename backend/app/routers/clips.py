@@ -60,6 +60,7 @@ def _clip_public(doc: dict, uploader: dict) -> dict:
         "uploader_picture": uploader.get("picture"),
         "parent_clip_id": doc.get("parent_clip_id"),
         "root_clip_id": doc["root_clip_id"],
+        "source_room_id": doc.get("source_room_id"),
         "category": doc["category"],
         "caption": doc["caption"],
         "likes": int(doc.get("likes", 0)),
@@ -76,6 +77,7 @@ async def upload_clip(
     caption: str = Form(...),
     category: Optional[str] = Form(None),
     parent_clip_id: Optional[str] = Form(None),
+    source_room_id: Optional[str] = Form(None),
     video: UploadFile = File(...),
     user: User = Depends(get_current_user),
     _xhr: None = Depends(require_xhr),
@@ -84,6 +86,18 @@ async def upload_clip(
     caption = caption.strip()[:MAX_CAPTION]
     if not caption:
         raise HTTPException(status_code=400, detail="Say what your claim or rebuttal is")
+
+    # Cross-links a new root claim back to the debate that inspired it (see
+    # WatchRoom's "Turn this into a claim" button) — the two most distinctive
+    # features here were otherwise two structurally unrelated systems that
+    # never referenced each other. Only meaningful on a new root claim, not
+    # a reply (a reply already has its own lineage via parent_clip_id).
+    if source_room_id and not parent_clip_id:
+        room = await db.rooms.find_one({"room_id": source_room_id}, {"_id": 0, "room_id": 1})
+        if not room:
+            source_room_id = None
+    else:
+        source_room_id = None
 
     if parent_clip_id:
         parent = await db.clips.find_one({"clip_id": parent_clip_id}, {"_id": 0})
@@ -119,6 +133,7 @@ async def upload_clip(
         "uploader_id": user.user_id,
         "parent_clip_id": parent_clip_id,
         "root_clip_id": root_clip_id,
+        "source_room_id": source_room_id,
         "category": resolved_category,
         "caption": caption,
         "video_url": result["url"],

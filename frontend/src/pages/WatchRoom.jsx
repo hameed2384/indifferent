@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Flag, Heart, Share2, ThumbsDown, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Flag, GitBranch, Heart, Share2, ThumbsDown, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import NotificationBell from "@/components/NotificationBell";
 import AdSlot from "@/components/AdSlot";
 import BackButton from "@/components/BackButton";
 import ReportModal from "@/components/ReportModal";
+import RecordClipModal from "@/components/RecordClipModal";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
@@ -564,6 +565,8 @@ export default function WatchRoom() {
   const [unreadDebater, setUnreadDebater] = useState(false);
   const [unreadViewer, setUnreadViewer] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showTurnIntoClaim, setShowTurnIntoClaim] = useState(false);
+  const [allCategories, setAllCategories] = useState([]);
 
   const sinceRef = useRef(null);
   // Bumped by applyReaction (a like/dislike click), never by pollOnce itself.
@@ -594,6 +597,10 @@ export default function WatchRoom() {
     if (debaterVisible) setUnreadDebater(false);
     if (viewerVisible) setUnreadViewer(false);
   }, [chatSidebarOpen, chatTab, mobileTab]);
+
+  useEffect(() => {
+    api.get("/categories").then(({ data }) => setAllCategories(data.categories || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -899,6 +906,16 @@ export default function WatchRoom() {
                 <ThumbsDown className="w-4 h-4" /> {dislikes}
               </button>
               <button onClick={share} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-share-2"><Share2 className="w-4 h-4" /> Share</button>
+              {!isLive && (
+                <button
+                  onClick={() => { if (!user) { toast.info("Sign in to post a claim"); return; } setShowTurnIntoClaim(true); }}
+                  className="btn-outline inline-flex items-center gap-1.5"
+                  title="Post a video claim inspired by this debate"
+                  data-testid="btn-turn-into-claim"
+                >
+                  <GitBranch className="w-4 h-4" /> Turn into a claim
+                </button>
+              )}
               <button
                 onClick={() => { if (!user) { toast.info("Sign in to report"); return; } setShowReportModal(true); }}
                 className="btn-ghost !px-2.5"
@@ -957,6 +974,16 @@ export default function WatchRoom() {
       >
         Not interested
       </button>
+
+      {showTurnIntoClaim && (
+        <RecordClipModal
+          categories={allCategories}
+          sourceRoomId={roomId}
+          initialCategory={debate.categories?.[0]}
+          onClose={() => setShowTurnIntoClaim(false)}
+          onPosted={(id) => { setShowTurnIntoClaim(false); navigate(`/claims/${id}`); }}
+        />
+      )}
 
       {showReportModal && <ReportModal targetType="room" targetId={roomId} onClose={() => setShowReportModal(false)} />}
     </div>

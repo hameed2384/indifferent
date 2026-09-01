@@ -21,9 +21,9 @@ function pickMimeType() {
  * bitrate specifically so the result reliably clears MAX_BYTES — that cap
  * isn't arbitrary, it's what fits through a single Vercel serverless
  * request at all. */
-export default function RecordClipModal({ categories, lockCategory, parentClipId, onClose, onPosted }) {
-  const [category, setCategory] = useState(categories?.[0] || "");
-  const [caption, setCaption] = useState("");
+export default function RecordClipModal({ categories, lockCategory, parentClipId, sourceRoomId, initialCategory, initialCaption, onClose, onPosted }) {
+  const [category, setCategory] = useState(initialCategory || categories?.[0] || "");
+  const [caption, setCaption] = useState(initialCaption || "");
   const [mode, setMode] = useState("choose"); // choose | recording | preview
   const [blob, setBlob] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -131,6 +131,7 @@ export default function RecordClipModal({ categories, lockCategory, parentClipId
       form.append("caption", caption.trim());
       if (!lockCategory) form.append("category", category);
       if (parentClipId) form.append("parent_clip_id", parentClipId);
+      if (sourceRoomId) form.append("source_room_id", sourceRoomId);
       const ext = (blob.type || "").includes("mp4") ? "mp4" : "webm";
       form.append("video", blob, `clip.${ext}`);
       const { data } = await api.post("/clips", form);

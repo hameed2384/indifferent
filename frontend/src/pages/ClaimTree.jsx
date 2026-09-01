@@ -114,10 +114,19 @@ export default function ClaimTree() {
           )}
           <div className="p-5">
             {!clip.deleted && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="chip !py-0 !px-1.5 text-[10px]">{clip.category}</span>
                 {clip.unlisted && (
                   <span className="chip !py-0 !px-1.5 text-[10px]"><CurrentVisibilityIcon className="w-3 h-3" /> Unlisted</span>
+                )}
+                {clip.source_room_id && (
+                  <button
+                    onClick={() => navigate(`/watch/${clip.source_room_id}`)}
+                    className="chip !py-0 !px-1.5 text-[10px] hover:bg-[var(--bg-muted)]"
+                    data-testid="link-source-debate"
+                  >
+                    <GitBranch className="w-3 h-3" /> From a debate
+                  </button>
                 )}
               </div>
             )}
