@@ -23,13 +23,23 @@ async def upsert_topic_stance(
         position = (existing["position"] * sample_count + position) / (sample_count + 1)
         summary = summary or existing.get("summary", "")
         tags = tags if tags else existing.get("tags", [])
+    now = datetime.now(timezone.utc).isoformat()
+    final_position = round(position, 3)
     await db.topic_stances.update_one(
         {"user_id": user_id, "topic": topic},
         {"$set": {
             "user_id": user_id, "topic": topic, "category": category,
-            "position": round(position, 3), "summary": summary or "", "tags": tags or [],
+            "position": final_position, "summary": summary or "", "tags": tags or [],
             "sample_count": sample_count + 1,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": now,
         }},
         upsert=True,
     )
+    # Append-only log purely so a later read can answer "how has this moved
+    # over time" — topic_stances itself only ever holds the current blended
+    # value, with no memory of where it started. Written on every call
+    # (including the very first, blend=False one) so that first entry is the
+    # baseline everything else measures against.
+    await db.topic_stance_history.insert_one({
+        "user_id": user_id, "topic": topic, "position": final_position, "created_at": now,
+    })

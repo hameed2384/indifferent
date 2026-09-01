@@ -38,11 +38,19 @@ function StatBlock({ icon: Icon, value, label }) {
 
 function TopicSpectrum({ t }) {
   const pct = 50 + (t.position / 10) * 50;
+  const hasShift = typeof t.shift === "number" && Math.abs(t.shift) >= 0.1;
   return (
     <div className="py-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium">{t.topic}</span>
-        <span className="text-xs font-mono-ui text-[var(--fg-subtle)]">{t.position?.toFixed?.(1)}</span>
+        <span className="text-xs font-mono-ui text-[var(--fg-subtle)] inline-flex items-center gap-1.5">
+          {hasShift && (
+            <span className={t.shift > 0 ? "text-[var(--accent)]" : "text-[var(--danger)]"} data-testid={`topic-shift-${t.topic}`}>
+              {t.shift > 0 ? "↑" : "↓"} {Math.abs(t.shift).toFixed(1)} since you started
+            </span>
+          )}
+          {t.position?.toFixed?.(1)}
+        </span>
       </div>
       <div className="relative h-1.5 rounded-full bg-[var(--bg-muted)] border border-[var(--border-strong)]">
         <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[var(--accent)] ring-2 ring-[var(--accent-soft)]" style={{ left: `calc(${pct}% - 6px)` }} />

@@ -46,6 +46,10 @@ async def create_indexes():
     # Generalized per-topic stance model (see models.TopicStance) — one row per
     # (user, topic), topic being e.g. "Politics: Economic" or "Anime".
     await db.topic_stances.create_index([("user_id", 1), ("topic", 1)], unique=True)
+    # Append-only history behind topic_stances (app/topic_stances.py) — lets a
+    # profile show "shifted since you started" instead of only ever a static
+    # current value.
+    await db.topic_stance_history.create_index([("user_id", 1), ("topic", 1), ("created_at", 1)])
 
     # Polling-based realtime (see routers/rooms.py, routers/public.py): every
     # client pulls "what's new since <cursor>" scoped to a room, so these are

@@ -205,8 +205,16 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
 @router.get("/users/{user_id}/topic-stances")
 async def get_topic_stances(user_id: str):
     """Client brief #10 — the list-of-spectrums that replaces the old single
-    two-axis square map. Only topics the user has actually been scored on."""
+    two-axis square map. Only topics the user has actually been scored on.
+    Each topic also carries `shift`: how far position has moved since the
+    very first recorded value for that topic — None until there's at least
+    a second data point (a bare baseline isn't a "shift" yet)."""
     docs = await db.topic_stances.find({"user_id": user_id}, {"_id": 0}).sort("updated_at", -1).to_list(200)
+    for d in docs:
+        history = await db.topic_stance_history.find(
+            {"user_id": user_id, "topic": d["topic"]}, {"_id": 0, "position": 1}
+        ).sort("created_at", 1).to_list(2)
+        d["shift"] = round(d["position"] - history[0]["position"], 2) if len(history) >= 2 else None
     return {"topics": docs}
 
 
