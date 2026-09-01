@@ -2,16 +2,18 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 
 from ..categories import CATEGORIES
+from ..config import APP_NAME
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..hubs import maybe_detect_topic_drift, maybe_run_coach
 from ..notifications import create_notification
 from ..ratelimit import rate_limit
+from ..storage import put_object
 from ..models import (
     ArchiveVisibility,
     GoLiveRequest,
@@ -199,6 +201,46 @@ async def poll_messages(room_id: str, since: Optional[str] = None, user: User = 
         "publish_b": bool(room.get("publish_b", False)),
         "server_time": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@router.post("/rooms/{room_id}/recording-chunk")
+async def upload_recording_chunk(
+    room_id: str,
+    seq: int = Form(...),
+    video: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    _xhr: None = Depends(require_xhr),
+    _rl: None = Depends(rate_limit("recording_chunk", limit=300, window_seconds=3600)),
+):
+    """The free-tier debate-recording workaround: no LiveKit Egress (real
+    per-minute cost), no server-side compositing. Each participant's own
+    browser records ITS OWN local camera+mic in ~15s MediaRecorder chunks
+    and uploads them progressively during the call (see ChatRoom.jsx) —
+    reuses the exact same storage.put_object path clips.py already uses,
+    so every chunk comfortably clears the existing small-upload size limit
+    without needing a new client-direct-upload flow. Playback stitches
+    chunks back into a sequence per side rather than one seamless file —
+    a real, accepted quality/complexity tradeoff versus a paid pipeline.
+    """
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_participant(room, user.user_id)
+    side = member_side(room, user.user_id)
+    if not side:
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    data = await video.read()
+    if not data:
+        return {"ok": True}  # final flush at teardown can be an empty blob
+    if len(data) > 4 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Chunk too large")
+
+    path = f"{APP_NAME}/recordings/{room_id}/{side}-{user.user_id}-{seq}.webm"
+    result = put_object(path, data, video.content_type or "video/webm")
+    await db.debate_recordings.insert_one({
+        "room_id": room_id, "side": side, "user_id": user.user_id, "seq": seq,
+        "url": result["url"], "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": True}
 
 
 @router.post("/rooms/{room_id}/feedback")

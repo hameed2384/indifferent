@@ -4,7 +4,9 @@ import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { Track } from "livekit-client";
 import { useLiveKit } from "@/lib/livekit";
+import { pickMimeType } from "@/lib/mediaRecording";
 import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
@@ -126,6 +128,45 @@ export default function ChatRoom() {
     const iv = setInterval(() => setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000)), 1000);
     return () => clearInterval(iv);
   }, []);
+
+  // Free-tier self-recording: no LiveKit Egress (real per-minute cost), no
+  // server-side compositing — each participant's own browser records ITS
+  // OWN local camera+mic in ~15s chunks and uploads them progressively
+  // (see rooms.py upload_recording_chunk's docstring for the full
+  // reasoning). Depending on `hasCoDebaterNow` (a boolean, not the
+  // participants array) matters: `room` gets replaced by a new object on
+  // every ~4s poll even when nothing changed, and using the array itself
+  // as a dependency would tear down and restart the recorder every poll,
+  // fragmenting the recording into near-useless few-second chunks.
+  const chunkSeqRef = useRef(0);
+  const hasCoDebaterNow = (room?.participants || []).filter((p) => p.is_founding).length > 1;
+  useEffect(() => {
+    const videoTrack = lk.localVideoEl?.srcObject?.getVideoTracks?.()[0];
+    const micPub = lk.room?.localParticipant?.getTrackPublication?.(Track.Source.Microphone);
+    const audioTrack = micPub?.audioTrack?.mediaStreamTrack;
+    if (!videoTrack || !audioTrack || !hasCoDebaterNow || !roomId) return;
+
+    const mimeType = pickMimeType();
+    let recorder;
+    try {
+      recorder = new MediaRecorder(new MediaStream([videoTrack, audioTrack]), {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond: 800_000,
+        audioBitsPerSecond: 64_000,
+      });
+    } catch {
+      return; // a device/codec that can't record just skips recording — never blocks the debate itself
+    }
+    recorder.ondataavailable = (e) => {
+      if (!e.data || e.data.size === 0) return;
+      const form = new FormData();
+      form.append("seq", String(chunkSeqRef.current++));
+      form.append("video", e.data, "chunk.webm");
+      api.post(`/rooms/${roomId}/recording-chunk`, form).catch(() => { /* best-effort — a dropped chunk is a gap in playback later, not a failed debate */ });
+    };
+    recorder.start(15000);
+    return () => { if (recorder.state !== "inactive") recorder.stop(); };
+  }, [lk.localVideoEl, lk.room, hasCoDebaterNow, roomId]);
   // block: "nearest" — see WatchRoom.jsx's identical fix: the default
   // ("start") drags every scrollable ancestor, including the page itself,
   // toward aligning this element to the top, not just the chat panel.

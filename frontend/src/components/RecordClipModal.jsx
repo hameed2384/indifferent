@@ -3,16 +3,11 @@ import { Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useModalA11y } from "@/hooks/useModalA11y";
+import { pickMimeType } from "@/lib/mediaRecording";
 
 const MAX_SECONDS = 20;
 const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_CAPTION = 200;
-
-function pickMimeType() {
-  if (typeof MediaRecorder === "undefined") return "";
-  const candidates = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
-  return candidates.find((c) => MediaRecorder.isTypeSupported(c)) || "";
-}
 
 /** Claim Trees' shared record/upload flow — used both for a brand-new root
  * claim (category picker shown) and a reply (category inherited silently

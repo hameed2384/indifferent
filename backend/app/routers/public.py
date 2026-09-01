@@ -213,7 +213,22 @@ async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_c
         m.pop("sender_id", None)
     comments = await db.spectator_comments.find({"room_id": room_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
     tally = await _vote_tally(room_id)
+
+    # Free-tier recording playback (see rooms.py upload_recording_chunk) —
+    # only meaningful once the debate has actually ended; a live room's
+    # video comes from LiveKit directly, not these chunks.
+    recording = None
+    if r.get("status") == "ended":
+        chunks = await db.debate_recordings.find({"room_id": room_id}, {"_id": 0, "side": 1, "url": 1, "seq": 1}).sort("seq", 1).to_list(2000)
+        by_side = {"a": [], "b": []}
+        for c in chunks:
+            if c["side"] in by_side:
+                by_side[c["side"]].append(c["url"])
+        if by_side["a"] or by_side["b"]:
+            recording = by_side
+
     return {
+        "recording": recording,
         "room_id": room_id,
         "status": r.get("status", "active"),
         "opposition_score": r.get("opposition_score"),

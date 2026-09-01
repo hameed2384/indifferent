@@ -108,6 +108,10 @@ async def create_indexes():
     await db.clips.create_index([("root_clip_id", 1), ("created_at", 1)])
     await db.clips.create_index([("category", 1), ("parent_clip_id", 1), ("created_at", -1)])
 
+    # Free-tier debate recording (routers/rooms.py upload_recording_chunk) —
+    # chunks are fetched per (room_id, side), ordered by seq, for playback.
+    await db.debate_recordings.create_index([("room_id", 1), ("side", 1), ("seq", 1)])
+
     # Post-debate feedback (routers/rooms.py) — write-only for now (rating/
     # notes aren't surfaced anywhere yet; mind_changed's aggregate effect
     # already lands on the user doc directly), kept indexed for whenever a

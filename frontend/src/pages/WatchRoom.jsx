@@ -13,6 +13,7 @@ import AdSlot from "@/components/AdSlot";
 import BackButton from "@/components/BackButton";
 import ReportModal from "@/components/ReportModal";
 import RecordClipModal from "@/components/RecordClipModal";
+import RecordedDebatePlayer from "@/components/RecordedDebatePlayer";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
@@ -459,13 +460,17 @@ function MobileWatch({
           and still collapsed to ~0 even with the height fixed — confirmed
           live, the whole video area rendered as blank space. */}
       <div className="shrink-0 h-[42dvh] p-2 flex">
-        <VideoStage
-          tiles={tiles}
-          viewMode={viewMode}
-          spotlightIdentity={spotlightIdentity}
-          onSpotlightChange={setSpotlightIdentity}
-          mobileSpotlightIdentity={debate.side_a.identity}
-        />
+        {!isLive && debate.recording ? (
+          <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} />
+        ) : (
+          <VideoStage
+            tiles={tiles}
+            viewMode={viewMode}
+            spotlightIdentity={spotlightIdentity}
+            onSpotlightChange={setSpotlightIdentity}
+            mobileSpotlightIdentity={debate.side_a.identity}
+          />
+        )}
       </div>
 
       <div className="shrink-0 px-3 pb-2 flex items-center justify-between gap-2">
@@ -851,13 +856,17 @@ export default function WatchRoom() {
         <main className={`min-w-0 flex-1 grid gap-6 ${chatSidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_64px]"}`}>
           <div className="min-w-0 flex flex-col relative">
             <div className={`flex flex-col min-h-0 ${viewMode === "cinema" ? "lg:min-h-[80vh]" : ""}`}>
-              <VideoStage
-                tiles={tiles}
-                viewMode={viewMode}
-                spotlightIdentity={spotlightIdentity}
-                onSpotlightChange={setSpotlightIdentity}
-                mobileSpotlightIdentity={debate.side_a.identity}
-              />
+              {!isLive && debate.recording ? (
+                <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} />
+              ) : (
+                <VideoStage
+                  tiles={tiles}
+                  viewMode={viewMode}
+                  spotlightIdentity={spotlightIdentity}
+                  onSpotlightChange={setSpotlightIdentity}
+                  mobileSpotlightIdentity={debate.side_a.identity}
+                />
+              )}
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
