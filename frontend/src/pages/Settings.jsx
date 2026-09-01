@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LogOut } from "lucide-react";
+import { Check, Copy, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -17,6 +17,37 @@ function Section({ title, children }) {
       <div className="eyebrow mb-4">{title}</div>
       {children}
     </div>
+  );
+}
+
+function InviteSection({ user }) {
+  const [copied, setCopied] = useState(false);
+  const link = `${window.location.origin}/?ref=${encodeURIComponent(user.handle || user.user_id)}`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy — copy the link manually");
+    }
+  };
+
+  return (
+    <Section title="Invite friends">
+      <p className="text-sm text-[var(--fg-muted)] mb-3">
+        Share your link — anyone who signs up through it counts toward your referrals.
+        {user.referral_count > 0 && <span className="font-medium text-[var(--fg)]"> {user.referral_count} so far.</span>}
+      </p>
+      <div className="flex items-center gap-2">
+        <input readOnly value={link} onFocus={(e) => e.target.select()} className="field !py-2 text-sm flex-1 min-w-0" data-testid="referral-link-input" />
+        <button onClick={copy} className="btn-outline text-sm shrink-0 inline-flex items-center gap-1.5" data-testid="btn-copy-referral-link">
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </Section>
   );
 }
 
@@ -200,6 +231,8 @@ export default function Settings() {
             </>
           )}
         </Section>
+
+        <InviteSection user={user} />
 
         <Section title="Account">
           <button onClick={logout} className="btn-danger text-sm" data-testid="settings-sign-out">

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useTheme } from "@/hooks/use-theme";
@@ -17,8 +18,21 @@ import ClaimTree from "@/pages/ClaimTree";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { REFERRAL_KEY } from "@/lib/referral";
 
 function RouterInner() {
+  // Captured on whatever route a shared link lands on (home, a debate, a
+  // claim, a profile) — not just "/" — since a referral link is realistically
+  // going to point at a specific piece of content, not the bare homepage.
+  // Read back once by AuthCallback.jsx when sign-in actually completes; only
+  // ever applied server-side to a brand-new account (see auth.py).
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) {
+      try { localStorage.setItem(REFERRAL_KEY, ref); } catch { /* noop */ }
+    }
+  }, []);
+
   return (
     <Routes>
       {/* Home IS the watch feed (client feedback: no separate marketing splash —

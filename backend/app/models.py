@@ -25,6 +25,7 @@ class User(BaseModel):
     verification_status: str = "unstarted"  # unstarted, pending, verified, rejected
     debates: int = 0
     minds_changed: int = 0
+    referral_count: int = 0
     is_debater: bool = False
     allow_friend_requests: bool = True
     ad_free: bool = False

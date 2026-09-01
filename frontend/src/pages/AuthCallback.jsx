@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { api, setStoredToken } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { REFERRAL_KEY } from "@/lib/referral";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -28,9 +29,12 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        const { data } = await api.post("/auth/google/callback", { code, redirect_uri: redirectUri });
+        let referredBy = null;
+        try { referredBy = localStorage.getItem(REFERRAL_KEY); } catch { /* noop */ }
+        const { data } = await api.post("/auth/google/callback", { code, redirect_uri: redirectUri, referred_by: referredBy });
         setStoredToken(data.session_token);
         sessionStorage.removeItem("google_oauth_redirect_uri");
+        try { localStorage.removeItem(REFERRAL_KEY); } catch { /* noop */ }
         setUser(data.user);
         // Onboarded users land back on the feed (home), same as YouTube/Twitch
         // return you to the feed after signing in rather than a separate

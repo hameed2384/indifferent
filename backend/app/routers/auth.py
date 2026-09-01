@@ -32,6 +32,11 @@ class GoogleAuthCallback(BaseModel):
     # request. Frontend always has it (it built that URL); falls back to
     # GOOGLE_REDIRECT_URI only if the caller omits it.
     redirect_uri: Optional[str] = None
+    # A referrer's handle or user_id, captured from ?ref= on first landing
+    # (see App.js) and stashed client-side until sign-in actually completes.
+    # Only ever applied on a brand-new account below — a returning user
+    # logging in again can't retroactively credit someone.
+    referred_by: Optional[str] = None
 
 
 @router.post("/auth/google/callback")
@@ -90,8 +95,15 @@ async def google_callback(payload: GoogleAuthCallback, response: Response):
             "verification_status": "unstarted",
             "debates": 0,
             "minds_changed": 0,
+            "referral_count": 0,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        if payload.referred_by:
+            ref = payload.referred_by.strip().lstrip("@").lower()
+            referrer = await db.users.find_one({"$or": [{"handle": ref}, {"user_id": payload.referred_by.strip()}]}, {"_id": 0, "user_id": 1})
+            if referrer and referrer["user_id"] != user_id:
+                user_doc["referred_by"] = referrer["user_id"]
+                await db.users.update_one({"user_id": referrer["user_id"]}, {"$inc": {"referral_count": 1}})
         await db.users.insert_one(user_doc)
 
     session_token = uuid.uuid4().hex
