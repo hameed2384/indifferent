@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Flag, Heart, Pencil, ThumbsDown, Trash2 } from "lucide-react";
+import { Flag, GitBranch, Heart, Pencil, ThumbsDown, Trash2 } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import RecordClipModal from "@/components/RecordClipModal";
 import EditClipCaptionModal from "@/components/EditClipCaptionModal";
 import DeleteClipModal from "@/components/DeleteClipModal";
 import ReportModal from "@/components/ReportModal";
+import ClaimTreeView from "@/components/ClaimTreeView";
 import { VISIBILITY_ICON } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
@@ -27,12 +28,16 @@ export default function ClaimTree() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [treeNodes, setTreeNodes] = useState([]);
+  const [treeRootId, setTreeRootId] = useState(null);
+  const [showTree, setShowTree] = useState(false);
 
   const load = () => {
     api.get(`/clips/${clipId}`).then(({ data }) => setClip(data)).catch(() => {
       toast.error("Clip not found"); navigate("/claims");
     });
     api.get(`/clips/${clipId}/replies`).then(({ data }) => setReplies(data.replies || [])).catch(() => {});
+    api.get(`/clips/${clipId}/tree`).then(({ data }) => { setTreeNodes(data.nodes || []); setTreeRootId(data.root_clip_id); }).catch(() => {});
   };
   useEffect(load, [clipId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -147,6 +152,26 @@ export default function ClaimTree() {
             )}
           </div>
         </div>
+
+        {treeNodes.length > 1 && (
+          <div className="mt-6 card p-4">
+            <button
+              onClick={() => setShowTree((v) => !v)}
+              className="w-full flex items-center justify-between text-left"
+              data-testid="btn-toggle-tree"
+            >
+              <span className="text-sm font-medium inline-flex items-center gap-1.5">
+                <GitBranch className="w-4 h-4 text-[var(--fg-subtle)]" /> Full tree ({treeNodes.length} clips)
+              </span>
+              <span className="text-xs text-[var(--fg-subtle)]">{showTree ? "Hide" : "Show"}</span>
+            </button>
+            {showTree && (
+              <div className="mt-3 max-h-80 overflow-y-auto">
+                <ClaimTreeView nodes={treeNodes} rootClipId={treeRootId} currentClipId={clipId} onNavigate={(id) => navigate(`/claims/${id}`)} />
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-8">
           <div className="eyebrow mb-3">{replies.length} {replies.length === 1 ? "rebuttal" : "rebuttals"}</div>

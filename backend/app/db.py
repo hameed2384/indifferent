@@ -102,6 +102,10 @@ async def create_indexes():
     # Claim Trees (routers/clips.py) — branching async video rebuttals.
     await db.clips.create_index("clip_id", unique=True)
     await db.clips.create_index([("parent_clip_id", 1), ("likes", -1)])
+    # Whole-tree fetch (routers/clips.py get_clip_tree) — every clip sharing
+    # one root, for rendering the branching shape in one call instead of
+    # walking /replies node-by-node.
+    await db.clips.create_index([("root_clip_id", 1), ("created_at", 1)])
     await db.clips.create_index([("category", 1), ("parent_clip_id", 1), ("created_at", -1)])
 
     # Post-debate feedback (routers/rooms.py) — write-only for now (rating/

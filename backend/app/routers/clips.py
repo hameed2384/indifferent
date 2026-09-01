@@ -262,6 +262,37 @@ async def list_replies(clip_id: str):
     return {"replies": out}
 
 
+@router.get("/clips/{clip_id}/tree")
+async def get_clip_tree(clip_id: str):
+    """The branching rebuttal structure is real server-side (arbitrary depth
+    via parent_clip_id/root_clip_id), but until now the only way to see it
+    was walking node-by-node through /replies, one level at a time — there
+    was no single call that returned the whole shape. Returns every clip
+    sharing this one's root as a flat list (id + parent_clip_id is enough
+    for a client to reconstruct the tree); deliberately thin per-node
+    fields since this is for rendering a shape, not full clip detail."""
+    anchor = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0, "root_clip_id": 1})
+    if not anchor:
+        raise HTTPException(status_code=404, detail="Clip not found")
+    root_clip_id = anchor["root_clip_id"]
+    docs = await db.clips.find(
+        {"root_clip_id": root_clip_id},
+        {"_id": 0, "clip_id": 1, "parent_clip_id": 1, "uploader_id": 1, "caption": 1, "likes": 1, "deleted": 1},
+    ).sort("created_at", 1).to_list(500)
+    uploader_ids = list({d["uploader_id"] for d in docs})
+    uploaders = await db.users.find({"user_id": {"$in": uploader_ids}}, {"_id": 0, "user_id": 1, "display_name": 1, "name": 1}).to_list(len(uploader_ids)) if uploader_ids else []
+    name_by_id = {u["user_id"]: (u.get("display_name") or u.get("name") or "Someone") for u in uploaders}
+    nodes = [{
+        "clip_id": d["clip_id"],
+        "parent_clip_id": d.get("parent_clip_id"),
+        "caption": "[deleted]" if d.get("deleted") else d["caption"],
+        "uploader_name": name_by_id.get(d["uploader_id"], "Someone"),
+        "likes": int(d.get("likes", 0)),
+        "deleted": bool(d.get("deleted", False)),
+    } for d in docs]
+    return {"root_clip_id": root_clip_id, "nodes": nodes}
+
+
 @router.get("/clips/{clip_id}/video")
 async def get_clip_video(clip_id: str):
     """Redirects straight to the blob's own public CDN URL rather than
