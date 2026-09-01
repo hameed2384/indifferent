@@ -68,14 +68,29 @@ async def maybe_run_coach(room_id: str, room: dict):
     if not data or not data.get("intervene"):
         return
 
+    kind = data.get("kind") or "tone"
+    target = data.get("target") or "both"
     await db.coach_nudges.insert_one({
         "room_id": room_id,
-        "kind": data.get("kind") or "tone",
+        "kind": kind,
         "nudge": str(data.get("nudge", ""))[:200],
-        "target": data.get("target") or "both",
+        "target": target,
         "created_at": now.isoformat(),
     })
     await db.rooms.update_one({"room_id": room_id}, {"$set": {"coach_last_emit_at": now.isoformat()}})
+
+    # Persist against the flagged debater(s) so a one-off nudge becomes a
+    # real, visible-over-time signal instead of being thrown away after the
+    # in-room toast/poll cycle (previously nothing outside coach_nudges ever
+    # read this back). Only the two ORIGINAL primaries — a party partner or
+    # a later-approved joiner was never who "target": "a"/"b" meant here.
+    target_user_ids = []
+    if target in ("a", "both") and room.get("user_a"):
+        target_user_ids.append(room["user_a"])
+    if target in ("b", "both") and room.get("user_b"):
+        target_user_ids.append(room["user_b"])
+    for uid in target_user_ids:
+        await db.users.update_one({"user_id": uid}, {"$inc": {f"coach_flags.{kind}": 1}})
 
 
 TOPIC_DRIFT_SYSTEM = (

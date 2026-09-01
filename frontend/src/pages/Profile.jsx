@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2, Search, Flag } from "lucide-react";
+import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2, Search, Flag, Lightbulb } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -382,6 +382,16 @@ export default function Profile() {
             </span>
           )}
         </div>
+
+        {(profile.coach_flags_total > 0 || profile.coach_steelman_count > 0) && (
+          <div className="mt-3 text-xs text-[var(--fg-subtle)] flex items-center gap-1.5" data-testid="coach-signal">
+            <Lightbulb className="w-3.5 h-3.5 shrink-0" />
+            AI coach:
+            {profile.coach_flags_total > 0 && ` ${profile.coach_flags_total} constructive-feedback ${profile.coach_flags_total === 1 ? "note" : "notes"}`}
+            {profile.coach_flags_total > 0 && profile.coach_steelman_count > 0 && " ·"}
+            {profile.coach_steelman_count > 0 && ` ${profile.coach_steelman_count} good-faith engagement ${profile.coach_steelman_count === 1 ? "note" : "notes"}`}
+          </div>
+        )}
 
         {!profile.is_self && (
           <div className="mt-5 flex flex-wrap gap-2">

@@ -180,6 +180,13 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
     if not (viewer and viewer.user_id == user_id):
         clips_query["unlisted"] = {"$ne": True}
     clips_count = await db.clips.count_documents(clips_query)
+    # AI coach flags, persisted per-kind (see hubs.py:maybe_run_coach) so a
+    # one-off nudge builds into a real signal over time instead of being
+    # thrown away after the in-room toast/poll cycle. "steelman" isn't a
+    # flag like the others — it's the coach noting good-faith engagement —
+    # so it's kept separate from the fallacy/tone/dodge total.
+    coach_flags = doc.get("coach_flags") or {}
+    coach_flags_total = sum(v for k, v in coach_flags.items() if k != "steelman")
     return {
         "user_id": user_id,
         "display_name": doc.get("display_name") or doc.get("name"),
@@ -193,6 +200,9 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
         "following_count": following_count,
         "debates_count": int(doc.get("debates", 0)),
         "minds_changed": int(doc.get("minds_changed", 0)),
+        "coach_flags": coach_flags,
+        "coach_flags_total": coach_flags_total,
+        "coach_steelman_count": int(coach_flags.get("steelman", 0)),
         "clips_count": clips_count,
         "created_at": doc.get("created_at"),
         "is_following": is_following,
