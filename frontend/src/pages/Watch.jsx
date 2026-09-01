@@ -13,7 +13,7 @@ import Logo from "@/components/Logo";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
-import { STICKY_NAV } from "@/lib/navChrome";
+import { STICKY_NAV, useNavHeightVar } from "@/lib/navChrome";
 import { CONTAINER_WIDE } from "@/lib/layout";
 
 /** Interleaves one ad card into a feed row at a fixed position, YouTube-style
@@ -55,6 +55,8 @@ export default function Watch() {
   const { collapsed: sidebarCollapsed, mobileOpen: mobileNavOpen, toggle: toggleSidebar, closeMobile } = useSideNavToggle();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const navRef = useRef(null);
+  useNavHeightVar(navRef);
 
   const findMatch = () => {
     if (!user.id_verified) return navigate("/verify");
@@ -127,7 +129,7 @@ export default function Watch() {
       >
         Skip to content
       </a>
-      <nav className={STICKY_NAV}>
+      <nav ref={navRef} className={STICKY_NAV}>
         <div className="px-4 sm:px-6 h-16 flex items-center gap-4">
           <button
             onClick={toggleSidebar}

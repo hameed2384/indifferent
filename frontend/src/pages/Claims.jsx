@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, Menu, Plus, Search } from "lucide-react";
 import { api, API } from "@/lib/api";
@@ -11,7 +11,7 @@ import Logo from "@/components/Logo";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
 import RecordClipModal from "@/components/RecordClipModal";
 import { startGoogleLogin } from "@/lib/auth";
-import { STICKY_NAV } from "@/lib/navChrome";
+import { STICKY_NAV, useNavHeightVar } from "@/lib/navChrome";
 import { CONTAINER_WIDE } from "@/lib/layout";
 
 function ClaimCard({ clip, onClick }) {
@@ -39,6 +39,8 @@ export default function Claims() {
   const { collapsed: sidebarCollapsed, mobileOpen: mobileNavOpen, toggle: toggleSidebar, closeMobile } = useSideNavToggle();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const navRef = useRef(null);
+  useNavHeightVar(navRef);
 
   useEffect(() => {
     api.get("/categories").then(({ data }) => setCategories(data.categories || [])).catch(() => {});
@@ -68,7 +70,7 @@ export default function Claims() {
       >
         Skip to content
       </a>
-      <nav className={STICKY_NAV}>
+      <nav ref={navRef} className={STICKY_NAV}>
         <div className="px-4 sm:px-6 h-16 flex items-center gap-4">
           <button onClick={toggleSidebar} className="btn-ghost !px-2.5 shrink-0" data-testid="btn-toggle-sidenav" title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-label="Toggle sidebar">
             <Menu className="w-[18px] h-[18px]" />

@@ -105,7 +105,7 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
 
   return (
     <aside
-      className={`${onClose ? "w-72 max-w-[80vw]" : "sticky top-0 h-screen"} h-full shrink-0 border-r border-[var(--border)] bg-[var(--surface)] overflow-y-auto transition-[width] duration-150 ${collapsed ? "w-16" : "w-60"}`}
+      className={`${onClose ? "w-72 max-w-[80vw] h-full" : "sticky top-[var(--nav-h,0px)] h-[calc(100vh-var(--nav-h,0px))]"} shrink-0 border-r border-[var(--border)] bg-[var(--surface)] overflow-y-auto transition-[width] duration-150 ${collapsed ? "w-16" : "w-60"}`}
       data-testid="sidenav"
     >
       <div className="p-2">
