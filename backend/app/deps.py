@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Cookie, Header, HTTPException, Request
+from fastapi import Cookie, Depends, Header, HTTPException, Request
 
+from .config import ADMIN_EMAILS
 from .db import db
 from .models import User
 
@@ -65,3 +66,12 @@ async def require_xhr(x_requested_with: Optional[str] = Header(None)):
     don't need this."""
     if not x_requested_with:
         raise HTTPException(status_code=403, detail="Missing required header")
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    """No real role system exists yet — see config.ADMIN_EMAILS. Good enough
+    for the one moderator-only surface (verification review) that exists
+    today; revisit if/when more admin endpoints show up."""
+    if user.email.lower() not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user

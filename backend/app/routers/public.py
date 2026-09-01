@@ -9,6 +9,7 @@ from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..llm import analyze_vote_reasoning
 from ..models import User
+from ..ratelimit import rate_limit
 from ..reactions import toggle_reaction
 from ..room_utils import MAX_PER_SIDE, is_participant, member_side, side_members
 from ..topic_stances import upsert_topic_stance
@@ -301,7 +302,12 @@ class SpectatorCommentIn(BaseModel):
 
 
 @router.post("/public/debates/{room_id}/comment")
-async def post_comment(room_id: str, payload: SpectatorCommentIn, user: Optional[User] = Depends(get_current_user_optional)):
+async def post_comment(
+    room_id: str,
+    payload: SpectatorCommentIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    _rl: None = Depends(rate_limit("spectator_comment", limit=15, window_seconds=60)),
+):
     r = await db.rooms.find_one({"room_id": room_id, "is_public": True}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Debate not public or not found")

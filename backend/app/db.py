@@ -137,3 +137,13 @@ async def create_indexes():
     # created_at, which (parent_clip_id, likes) alone can't serve.
     await db.clips.create_index([("uploader_id", 1), ("created_at", -1)])
     await db.clips.create_index([("parent_clip_id", 1), ("created_at", -1)])
+
+    # Trust & safety (routers/reports.py) — one report per (reporter,
+    # target) so re-reporting updates in place instead of piling up; open
+    # queue sorted oldest-first is the shape a future review UI will want.
+    await db.reports.create_index([("reporter_id", 1), ("target_type", 1), ("target_id", 1)], unique=True)
+    await db.reports.create_index([("status", 1), ("created_at", 1)])
+
+    # Rate limiting (app/ratelimit.py) — the TTL index is what keeps this
+    # collection from growing unbounded; each doc names its own expiry.
+    await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)

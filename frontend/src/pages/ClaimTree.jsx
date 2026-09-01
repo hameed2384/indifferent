@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Heart, Pencil, ThumbsDown, Trash2 } from "lucide-react";
+import { Flag, Heart, Pencil, ThumbsDown, Trash2 } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import BackButton from "@/components/BackButton";
 import RecordClipModal from "@/components/RecordClipModal";
 import EditClipCaptionModal from "@/components/EditClipCaptionModal";
 import DeleteClipModal from "@/components/DeleteClipModal";
+import ReportModal from "@/components/ReportModal";
 import { VISIBILITY_ICON } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
@@ -24,6 +25,7 @@ export default function ClaimTree() {
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const load = () => {
     api.get(`/clips/${clipId}`).then(({ data }) => setClip(data)).catch(() => {
@@ -128,6 +130,17 @@ export default function ClaimTree() {
                     <button onClick={() => setShowDeleteModal(true)} className="btn-danger inline-flex items-center gap-1.5" data-testid="btn-delete-clip"><Trash2 className="w-4 h-4" /> Delete</button>
                   </>
                 )}
+                {!isOwner && (
+                  <button
+                    onClick={() => { if (!user) { toast.info("Sign in to report"); return; } setShowReportModal(true); }}
+                    className="btn-ghost !px-2.5"
+                    title="Report this claim"
+                    aria-label="Report this claim"
+                    data-testid="btn-report-clip"
+                  >
+                    <Flag className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -170,6 +183,7 @@ export default function ClaimTree() {
       )}
       {showEditModal && <EditClipCaptionModal clip={clip} onClose={() => setShowEditModal(false)} onSaved={onCaptionSaved} />}
       {showDeleteModal && <DeleteClipModal clip={clip} onClose={() => setShowDeleteModal(false)} onDeleted={onClipDeleted} />}
+      {showReportModal && <ReportModal targetType="clip" targetId={clip.clip_id} onClose={() => setShowReportModal(false)} />}
     </div>
   );
 }

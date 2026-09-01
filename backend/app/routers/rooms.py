@@ -10,6 +10,7 @@ from ..categories import CATEGORIES
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..hubs import maybe_detect_topic_drift, maybe_run_coach
+from ..ratelimit import rate_limit
 from ..models import (
     ArchiveVisibility,
     GoLiveRequest,
@@ -137,7 +138,12 @@ class ChatSend(BaseModel):
 
 
 @router.post("/rooms/{room_id}/chat")
-async def send_chat(room_id: str, payload: ChatSend, user: User = Depends(get_current_user)):
+async def send_chat(
+    room_id: str,
+    payload: ChatSend,
+    user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("room_chat", limit=30, window_seconds=60)),
+):
     """Send a chat message. Replaces the old WS 'chat' frame — clients poll
     GET /rooms/{room_id}/messages for new messages (and coach nudges) instead
     of receiving a push."""

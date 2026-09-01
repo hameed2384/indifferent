@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2, Search } from "lucide-react";
+import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2, Search, Flag } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -9,6 +9,8 @@ import AccountMenu from "@/components/AccountMenu";
 import BackButton from "@/components/BackButton";
 import EditClipCaptionModal from "@/components/EditClipCaptionModal";
 import DeleteClipModal from "@/components/DeleteClipModal";
+import ConfirmModal from "@/components/ConfirmModal";
+import ReportModal from "@/components/ReportModal";
 import ArchiveVisibilityModal, { VISIBILITY_LABEL, VISIBILITY_ICON, DEFAULT_VISIBILITY } from "@/components/ArchiveVisibilityModal";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
@@ -50,6 +52,7 @@ function TopicSpectrum({ t }) {
 
 function FriendButton({ profile, userId, onChange }) {
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const act = async (endpoint) => {
     setBusy(true);
     try { await api.post(`/friends/${endpoint}/${userId}`); onChange(); }
@@ -58,12 +61,27 @@ function FriendButton({ profile, userId, onChange }) {
   };
   const remove = async () => {
     setBusy(true);
-    try { await api.delete(`/friends/${userId}`); onChange(); }
+    try { await api.delete(`/friends/${userId}`); setConfirmRemove(false); onChange(); }
     catch { toast.error("Couldn't remove friend"); }
     finally { setBusy(false); }
   };
 
-  if (profile.friend_status === "friends") return <button className="btn-outline" onClick={remove} disabled={busy} data-testid="btn-unfriend">Friends ✓</button>;
+  if (profile.friend_status === "friends") return (
+    <>
+      <button className="btn-outline" onClick={() => setConfirmRemove(true)} disabled={busy} data-testid="btn-unfriend">Friends ✓</button>
+      {confirmRemove && (
+        <ConfirmModal
+          title="Remove this friend?"
+          body="You'll stop seeing each other in Friends, and you'll need to send a new request to reconnect."
+          confirmLabel="Remove friend"
+          busy={busy}
+          onConfirm={remove}
+          onClose={() => setConfirmRemove(false)}
+          testIdPrefix="confirm-unfriend"
+        />
+      )}
+    </>
+  );
   if (profile.friend_status === "pending_outgoing") return <button className="btn-outline" disabled data-testid="btn-friend-pending">Request sent</button>;
   if (profile.friend_status === "pending_incoming") return (
     <div className="flex gap-2">
@@ -176,6 +194,7 @@ export default function Profile() {
   const [editingClip, setEditingClip] = useState(null);
   const [deletingClip, setDeletingClip] = useState(null);
   const [visibilityDebate, setVisibilityDebate] = useState(null);
+  const [showReport, setShowReport] = useState(false);
 
   const load = () => {
     api.get(`/users/${userId}`).then(({ data }) => setProfile(data)).catch(() => setNotFound(true));
@@ -373,7 +392,19 @@ export default function Profile() {
                 {profile.is_subscribed ? "Subscribed £2/mo ✓" : subLoading ? "…" : "Subscribe £2/mo"}
               </button>
             )}
+            <button
+              onClick={() => setShowReport(true)}
+              className="btn-ghost !px-2.5"
+              title="Report this profile"
+              aria-label="Report this profile"
+              data-testid="btn-report-profile"
+            >
+              <Flag className="w-4 h-4" />
+            </button>
           </div>
+        )}
+        {showReport && (
+          <ReportModal targetType="user" targetId={userId} onClose={() => setShowReport(false)} />
         )}
 
         {/* Tabs */}

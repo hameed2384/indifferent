@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Heart, Share2, ThumbsDown, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Flag, Heart, Share2, ThumbsDown, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import AdSlot from "@/components/AdSlot";
 import BackButton from "@/components/BackButton";
+import ReportModal from "@/components/ReportModal";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
@@ -561,6 +562,7 @@ export default function WatchRoom() {
   const [mobileTab, setMobileTab] = useState("debater"); // "debater" | "viewer" | "vote" — phone tab strip
   const [unreadDebater, setUnreadDebater] = useState(false);
   const [unreadViewer, setUnreadViewer] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const sinceRef = useRef(null);
   // Bumped by applyReaction (a like/dislike click), never by pollOnce itself.
@@ -895,6 +897,15 @@ export default function WatchRoom() {
                 <ThumbsDown className="w-4 h-4" /> {dislikes}
               </button>
               <button onClick={share} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-share-2"><Share2 className="w-4 h-4" /> Share</button>
+              <button
+                onClick={() => { if (!user) { toast.info("Sign in to report"); return; } setShowReportModal(true); }}
+                className="btn-ghost !px-2.5"
+                title="Report this debate"
+                aria-label="Report this debate"
+                data-testid="btn-report-room"
+              >
+                <Flag className="w-4 h-4" />
+              </button>
               {debate.opposition_score != null && (
                 <div className="text-xs text-[var(--fg-subtle)]">
                   Opposition score {debate.opposition_score?.toFixed?.(1) ?? debate.opposition_score}
@@ -944,6 +955,8 @@ export default function WatchRoom() {
       >
         Not interested
       </button>
+
+      {showReportModal && <ReportModal targetType="room" targetId={roomId} onClose={() => setShowReportModal(false)} />}
     </div>
   );
 }

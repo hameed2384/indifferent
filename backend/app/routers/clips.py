@@ -40,6 +40,7 @@ from ..config import APP_NAME
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..models import ClipUpdate, User
+from ..ratelimit import rate_limit
 from ..reactions import react_once
 from ..storage import delete_object, put_object
 
@@ -77,6 +78,7 @@ async def upload_clip(
     video: UploadFile = File(...),
     user: User = Depends(get_current_user),
     _xhr: None = Depends(require_xhr),
+    _rl: None = Depends(rate_limit("clip_upload", limit=10, window_seconds=3600)),
 ):
     caption = caption.strip()[:MAX_CAPTION]
     if not caption:

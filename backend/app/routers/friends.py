@@ -11,6 +11,7 @@ from pymongo.errors import DuplicateKeyError
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..models import User
+from ..ratelimit import rate_limit
 from ..room_utils import find_live_room_id
 
 router = APIRouter()
@@ -21,7 +22,12 @@ def _pair_query(a: str, b: str) -> dict:
 
 
 @router.post("/friends/request/{user_id}")
-async def send_friend_request(user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+async def send_friend_request(
+    user_id: str,
+    user: User = Depends(get_current_user),
+    _xhr: None = Depends(require_xhr),
+    _rl: None = Depends(rate_limit("friend_request", limit=20, window_seconds=3600)),
+):
     if user_id == user.user_id:
         raise HTTPException(status_code=400, detail="Can't friend yourself")
     target = await db.users.find_one({"user_id": user_id}, {"_id": 0})

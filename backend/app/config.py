@@ -65,3 +65,17 @@ STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_ID_MEMBERSHIP = os.environ.get("STRIPE_PRICE_ID_MEMBERSHIP", "")
 STRIPE_PRICE_ID_DEBATER = os.environ.get("STRIPE_PRICE_ID_DEBATER", "")
+
+# Trust & safety. Real manual-review infrastructure exists now (see
+# routers/verify.py: a pending queue + admin decide endpoint), but defaults
+# to auto-approve — the exact behavior this replaces — so a fresh deploy
+# doesn't silently lock every new signup out of matchmaking the moment
+# nobody's watching the admin queue. Flip to "false" once ready to actually
+# review submissions by hand.
+VERIFY_AUTO_APPROVE = os.environ.get("VERIFY_AUTO_APPROVE", "true").strip().lower() == "true"
+
+# Emails allowed to hit moderator-only endpoints (the verification review
+# queue for now). No real role system exists yet — this is the lightest
+# gate that doesn't require building one. Defaults to the project owner's
+# own email so it works with zero extra config.
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "rehman2384@gmail.com").split(",") if e.strip()}

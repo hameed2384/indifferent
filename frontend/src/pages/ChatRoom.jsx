@@ -8,6 +8,7 @@ import { useLiveKit } from "@/lib/livekit";
 import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function ChatRoom() {
   const { roomId } = useParams();
@@ -30,6 +31,8 @@ export default function ChatRoom() {
   const [chatTab, setChatTab] = useState("debater"); // "debater" | "viewer"
   const [viewerComments, setViewerComments] = useState([]);
   const [decidingId, setDecidingId] = useState(null);
+  const [kickTarget, setKickTarget] = useState(null); // {user_id, display_name} pending confirmation, or null
+  const [kicking, setKicking] = useState(false);
   // Unread indicators (a boolean per tab, not a count — one red dot no
   // matter how many messages piled up while you weren't looking).
   const [unreadDebater, setUnreadDebater] = useState(false);
@@ -203,12 +206,16 @@ export default function ChatRoom() {
   };
 
   const castKickVote = async (targetUserId) => {
+    setKicking(true);
     try {
       const { data } = await api.post(`/rooms/${roomId}/kick-votes`, { target_user_id: targetUserId });
       toast(data.status === "kicked" ? "Removed from the debate." : `Vote recorded (${data.votes?.length || 0}/${data.needed?.length || "?"})`);
+      setKickTarget(null);
       pollRoom();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't cast vote");
+    } finally {
+      setKicking(false);
     }
   };
 
@@ -267,7 +274,7 @@ export default function ChatRoom() {
         placeholderFooter: lk.status === "connected" ? "Waiting for camera…" : "Connecting…",
         overlay: canKick ? (
           <button
-            onClick={() => castKickVote(p.user_id)}
+            onClick={() => setKickTarget({ user_id: p.user_id, display_name: p.display_name })}
             className="absolute top-2 right-2 bg-[var(--danger)]/90 text-white text-[10px] font-medium px-2 py-1 rounded-full hover:bg-[var(--danger)]"
             data-testid={`btn-kick-${p.user_id}`}
           >
@@ -454,6 +461,18 @@ export default function ChatRoom() {
             unreadDebater={unreadDebater} unreadViewer={unreadViewer}
           />
         </div>
+      )}
+
+      {kickTarget && (
+        <ConfirmModal
+          title={`Vote to remove ${kickTarget.display_name}?`}
+          body="This needs every founding debater to agree before it takes effect. It can't be undone once the vote is unanimous."
+          confirmLabel="Vote to kick"
+          busy={kicking}
+          onConfirm={() => castKickVote(kickTarget.user_id)}
+          onClose={() => setKickTarget(null)}
+          testIdPrefix="confirm-kick"
+        />
       )}
 
       {showFeedback && (
