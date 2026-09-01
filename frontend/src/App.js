@@ -16,6 +16,7 @@ import PrivateChat from "@/pages/PrivateChat";
 import Claims from "@/pages/Claims";
 import ClaimTree from "@/pages/ClaimTree";
 import Settings from "@/pages/Settings";
+import Admin from "@/pages/Admin";
 import NotFound from "@/pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { REFERRAL_KEY } from "@/lib/referral";
@@ -49,6 +50,7 @@ function RouterInner() {
       <Route path="/verify" element={<ProtectedRoute requireOnboarded><Verify /></ProtectedRoute>} />
       <Route path="/friends" element={<ProtectedRoute requireOnboarded><Friends /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute requireOnboarded><Settings /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       <Route path="/match" element={<ProtectedRoute requireOnboarded requireVerified><Match /></ProtectedRoute>} />
       <Route path="/room/:roomId" element={<ProtectedRoute requireOnboarded requireVerified><ChatRoom /></ProtectedRoute>} />
       <Route path="/private/:friendId" element={<ProtectedRoute requireOnboarded><PrivateChat /></ProtectedRoute>} />

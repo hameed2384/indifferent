@@ -155,6 +155,7 @@ async def create_indexes():
     # queue sorted oldest-first is the shape a future review UI will want.
     await db.reports.create_index([("reporter_id", 1), ("target_type", 1), ("target_id", 1)], unique=True)
     await db.reports.create_index([("status", 1), ("created_at", 1)])
+    await db.reports.create_index("report_id", unique=True, sparse=True)
 
     # Rate limiting (app/ratelimit.py) — the TTL index is what keeps this
     # collection from growing unbounded; each doc names its own expiry.
