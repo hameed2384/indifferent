@@ -96,6 +96,58 @@ async def search_users(q: str, viewer: Optional[User] = Depends(get_current_user
     } for d in docs]}
 
 
+@router.get("/users/discover")
+async def discover_users(viewer: Optional[User] = Depends(get_current_user_optional)):
+    """A passive browse surface for people — until now, Friends.jsx's search
+    box was the ONLY way to find anyone, which does nothing for a brand-new
+    user with zero contacts and nobody's name to type. Recently-joined
+    debaters first (the people most worth surfacing to someone new), then
+    recently-joined non-debaters, capped small since this is a taster, not
+    a full directory. Registered before /users/{user_id} for the same
+    static-route-ordering reason as /users/search above."""
+    query: dict = {}
+    if viewer:
+        query["user_id"] = {"$ne": viewer.user_id}
+    docs = await db.users.find(
+        query,
+        {"_id": 0, "user_id": 1, "display_name": 1, "name": 1, "handle": 1, "picture": 1, "is_debater": 1, "id_verified": 1, "created_at": 1},
+    ).sort([("is_debater", -1), ("created_at", -1)]).to_list(12)
+
+    ids = [d["user_id"] for d in docs]
+    following_ids = set()
+    friend_status_by_id = {}
+    if ids and viewer:
+        following_ids = {
+            f["followee_id"]
+            async for f in db.follows.find(
+                {"follower_id": viewer.user_id, "followee_id": {"$in": ids}}, {"_id": 0, "followee_id": 1}
+            )
+        }
+        friendship_docs = await db.friendships.find(
+            {"$or": [{"user_a": viewer.user_id, "user_b": {"$in": ids}}, {"user_a": {"$in": ids}, "user_b": viewer.user_id}]},
+            {"_id": 0},
+        ).to_list(len(ids))
+        for fdoc in friendship_docs:
+            other = fdoc["user_b"] if fdoc["user_a"] == viewer.user_id else fdoc["user_a"]
+            if fdoc["status"] == "accepted":
+                friend_status_by_id[other] = "friends"
+            elif fdoc["requested_by"] == viewer.user_id:
+                friend_status_by_id[other] = "pending_outgoing"
+            else:
+                friend_status_by_id[other] = "pending_incoming"
+
+    return {"users": [{
+        "user_id": d["user_id"],
+        "display_name": d.get("display_name") or d.get("name"),
+        "handle": d.get("handle"),
+        "picture": d.get("picture"),
+        "is_debater": bool(d.get("is_debater")),
+        "id_verified": bool(d.get("id_verified")),
+        "is_following": d["user_id"] in following_ids,
+        "friend_status": friend_status_by_id.get(d["user_id"], "none"),
+    } for d in docs]}
+
+
 @router.get("/users/{user_id}")
 async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_current_user_optional)):
     doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})

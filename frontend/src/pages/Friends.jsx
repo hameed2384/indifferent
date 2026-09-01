@@ -91,6 +91,27 @@ function SearchSection({ q, results, searching, searched, onChange }) {
   );
 }
 
+function DiscoverSection({ q }) {
+  const [people, setPeople] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = () => {
+    api.get("/users/discover").then(({ data }) => setPeople(data.users || [])).catch(() => {}).finally(() => setLoaded(true));
+  };
+  useEffect(load, []);
+
+  if (q.trim() || !loaded || people.length === 0) return null;
+  return (
+    <div className="card p-5 sm:p-6" data-testid="discover-people">
+      <div className="eyebrow mb-1">Discover people</div>
+      <p className="text-xs text-[var(--fg-subtle)] mb-4">No contacts yet? Here are a few people to start with.</p>
+      <div className="divide-y divide-[var(--border)]">
+        {people.map((r) => <SearchResultRow key={r.user_id} result={r} onChange={load} />)}
+      </div>
+    </div>
+  );
+}
+
 function RequestsAndFriends() {
   const [data, setData] = useState(null);
   const navigate = useNavigate();
@@ -248,6 +269,7 @@ export default function Friends() {
 
       <main id="main-content" className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 py-8 space-y-6`}>
         <SearchSection q={q} results={results} searching={searching} searched={searched} onChange={() => runSearch(q)} />
+        <DiscoverSection q={q} />
         <RequestsAndFriends />
         <FollowingSection />
       </main>
