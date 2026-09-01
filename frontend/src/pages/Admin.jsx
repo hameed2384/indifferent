@@ -1,21 +1,152 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Flag, ShieldCheck } from "lucide-react";
+import { Flag, ShieldCheck, Trash2, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import BackButton from "@/components/BackButton";
+import ConfirmModal from "@/components/ConfirmModal";
 import { STICKY_NAV } from "@/lib/navChrome";
-import { CONTAINER_MEDIUM } from "@/lib/layout";
+import { CONTAINER_WIDE } from "@/lib/layout";
 
 function timeAgo(iso) {
+  if (!iso) return "—";
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+function UsersManagement() {
+  const [q, setQ] = useState("");
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // {user_id, label} or null
+  const navigate = useNavigate();
+
+  const load = () => {
+    setLoading(true);
+    api.get("/admin/users", { params: q.trim() ? { q: q.trim() } : {} })
+      .then(({ data }) => setUsers(data.users || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => {
+    const t = setTimeout(load, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+
+  const toggleFlag = async (u) => {
+    const next = !u.admin_flagged;
+    let note = "";
+    if (next) {
+      note = window.prompt(`Note for flagging ${u.display_name || u.email} (optional):`) || "";
+    }
+    setBusyId(u.user_id);
+    try {
+      await api.post(`/admin/users/${u.user_id}/flag`, { flagged: next, note });
+      setUsers((prev) => prev.map((x) => (x.user_id === u.user_id ? { ...x, admin_flagged: next, admin_flag_note: next ? note : null } : x)));
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't update flag");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setBusyId(deleteTarget.user_id);
+    try {
+      await api.delete(`/admin/users/${deleteTarget.user_id}`);
+      toast.success("Account deleted");
+      setUsers((prev) => prev.filter((x) => x.user_id !== deleteTarget.user_id));
+      setDeleteTarget(null);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't delete account");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="card p-5 sm:p-6">
+      <div className="eyebrow mb-4">User management</div>
+      <div className="relative mb-4">
+        <Search className="w-4 h-4 text-[var(--fg-subtle)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by email, name, or handle…"
+          className="field !py-2 !pl-9 w-full !rounded-full"
+          data-testid="admin-user-search"
+        />
+      </div>
+
+      {loading && <p className="text-sm text-[var(--fg-subtle)]">Loading…</p>}
+      {!loading && users.length === 0 && <p className="text-sm text-[var(--fg-subtle)]">No users found.</p>}
+
+      {!loading && users.length > 0 && (
+        <div className="overflow-x-auto">
+          <div className="divide-y divide-[var(--border)] min-w-[720px]">
+            {users.map((u) => (
+              <div key={u.user_id} className="flex items-center justify-between gap-3 py-3" data-testid={`admin-user-${u.user_id}`}>
+                <button onClick={() => navigate(`/u/${u.user_id}`)} className="min-w-0 text-left hover:underline">
+                  <div className="text-sm font-medium truncate inline-flex items-center gap-1.5">
+                    {u.display_name || "—"}
+                    {u.is_admin && <span className="chip-accent !py-0 !px-1.5 text-[10px]">Admin</span>}
+                    {u.admin_flagged && <span className="chip !py-0 !px-1.5 text-[10px] !border-[var(--danger)] !text-[var(--danger)]">Flagged</span>}
+                    {u.is_debater && <span className="chip !py-0 !px-1.5 text-[10px]">Debater</span>}
+                    {u.id_verified && <span className="chip !py-0 !px-1.5 text-[10px]">Verified</span>}
+                  </div>
+                  <div className="text-xs text-[var(--fg-subtle)] truncate">
+                    {u.email} · joined {timeAgo(u.created_at)} · {u.debates} debates
+                    {u.admin_flag_note && <span className="text-[var(--danger)]"> · "{u.admin_flag_note}"</span>}
+                  </div>
+                </button>
+                <div className="flex gap-1.5 shrink-0">
+                  <button
+                    onClick={() => toggleFlag(u)}
+                    disabled={busyId === u.user_id || u.is_admin}
+                    className={u.admin_flagged ? "btn-danger !px-2.5 !py-1 !text-xs" : "btn-outline !px-2.5 !py-1 !text-xs"}
+                    title={u.admin_flagged ? "Unflag" : "Flag this account"}
+                    data-testid={`btn-flag-${u.user_id}`}
+                  >
+                    <Flag className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget({ user_id: u.user_id, label: u.display_name || u.email })}
+                    disabled={busyId === u.user_id || u.is_admin}
+                    className="btn-danger !px-2.5 !py-1 !text-xs"
+                    title="Delete account"
+                    data-testid={`btn-delete-${u.user_id}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title={`Permanently delete ${deleteTarget.label}?`}
+          body="Removes the account, sessions, friendships, follows, subscriptions, and topic history — frees up the email to sign up fresh. Past debates and claims they were part of stay (other people's history), just showing a generic name. This can't be undone."
+          confirmLabel="Delete account"
+          busy={busyId === deleteTarget.user_id}
+          onConfirm={confirmDelete}
+          onClose={() => setDeleteTarget(null)}
+          testIdPrefix="confirm-delete-user"
+        />
+      )}
+    </div>
+  );
 }
 
 function VerificationQueue() {
@@ -48,7 +179,7 @@ function VerificationQueue() {
         <div key={u.user_id} className="flex items-center justify-between gap-3 py-3" data-testid={`verify-pending-${u.user_id}`}>
           <div className="min-w-0">
             <div className="text-sm font-medium truncate">{u.display_name || u.name}</div>
-            <div className="text-xs text-[var(--fg-subtle)] truncate">{u.email} · submitted {u.submitted_at ? timeAgo(u.submitted_at) : "—"}</div>
+            <div className="text-xs text-[var(--fg-subtle)] truncate">{u.email} · submitted {timeAgo(u.submitted_at)}</div>
           </div>
           <div className="flex gap-1.5 shrink-0">
             <button onClick={() => decide(u.user_id, true)} disabled={busyId === u.user_id} className="btn-accent !px-2.5 !py-1 !text-xs" data-testid={`btn-approve-${u.user_id}`}>Approve</button>
@@ -117,27 +248,48 @@ function ReportsQueue() {
   );
 }
 
+const TABS = [
+  { key: "users", label: "Users" },
+  { key: "verify", label: "Verification" },
+  { key: "reports", label: "Reports" },
+];
+
 export default function Admin() {
   const { user } = useAuth();
   const [accessDenied, setAccessDenied] = useState(false);
+  const [tab, setTab] = useState("users");
 
   useEffect(() => {
-    api.get("/verify/pending").catch((e) => { if (e.response?.status === 403) setAccessDenied(true); });
+    api.get("/admin/users", { params: { limit: 1 } }).catch((e) => { if (e.response?.status === 403) setAccessDenied(true); });
   }, []);
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <nav className={STICKY_NAV}>
-        <div className={`${CONTAINER_MEDIUM} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3`}>
+        <div className={`${CONTAINER_WIDE} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3`}>
           <div className="flex items-center gap-3 min-w-0">
             <BackButton to="/" label="Home" data-testid="nav-back-home" />
             <span className="font-heading text-lg font-semibold inline-flex items-center gap-1.5 truncate"><ShieldCheck className="w-4 h-4 shrink-0" /> Admin</span>
           </div>
           <ThemeToggle />
         </div>
+        {!accessDenied && (
+          <div className={`${CONTAINER_WIDE} mx-auto px-4 sm:px-6 pb-3 flex gap-1`}>
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={tab === t.key ? "chip-accent" : "chip"}
+                data-testid={`admin-tab-${t.key}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </nav>
 
-      <main className={`${CONTAINER_MEDIUM} mx-auto px-4 sm:px-6 py-8 space-y-6`}>
+      <main className={`${CONTAINER_WIDE} mx-auto px-4 sm:px-6 py-8`}>
         {accessDenied ? (
           <div className="card p-10 text-center">
             <div className="font-heading text-lg font-semibold">Admin only</div>
@@ -145,14 +297,19 @@ export default function Admin() {
           </div>
         ) : (
           <>
-            <div className="card p-5 sm:p-6">
-              <div className="eyebrow mb-4">ID verification queue</div>
-              <VerificationQueue />
-            </div>
-            <div className="card p-5 sm:p-6">
-              <div className="eyebrow mb-4 inline-flex items-center gap-1.5"><Flag className="w-3.5 h-3.5" /> Open reports</div>
-              <ReportsQueue />
-            </div>
+            {tab === "users" && <UsersManagement />}
+            {tab === "verify" && (
+              <div className="card p-5 sm:p-6">
+                <div className="eyebrow mb-4">ID verification queue</div>
+                <VerificationQueue />
+              </div>
+            )}
+            {tab === "reports" && (
+              <div className="card p-5 sm:p-6">
+                <div className="eyebrow mb-4 inline-flex items-center gap-1.5"><Flag className="w-3.5 h-3.5" /> Open reports</div>
+                <ReportsQueue />
+              </div>
+            )}
           </>
         )}
       </main>
