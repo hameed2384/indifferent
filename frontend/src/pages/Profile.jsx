@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
 import EditClipCaptionModal from "@/components/EditClipCaptionModal";
 import DeleteClipModal from "@/components/DeleteClipModal";
@@ -295,6 +296,7 @@ export default function Profile() {
           <div className="flex items-center gap-2">
             <button onClick={share} className="btn-outline text-sm inline-flex items-center gap-1.5" data-testid="btn-share-profile"><Share2 className="w-4 h-4" /> Share</button>
             <ThemeToggle />
+            {viewer && <NotificationBell />}
             {viewer
               ? <AccountMenu user={viewer} logout={logout} />
               : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_NARROW } from "@/lib/layout";
@@ -100,6 +101,7 @@ export default function Settings() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <NotificationBell />
             <AccountMenu user={user} logout={logout} />
           </div>
         </div>

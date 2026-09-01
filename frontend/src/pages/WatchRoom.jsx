@@ -8,6 +8,7 @@ import { useLiveKit } from "@/lib/livekit";
 import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import AdSlot from "@/components/AdSlot";
 import BackButton from "@/components/BackButton";
 import ReportModal from "@/components/ReportModal";
@@ -816,6 +817,7 @@ export default function WatchRoom() {
           <div className="flex items-center gap-2">
             <button onClick={share} className="btn-outline text-sm inline-flex items-center gap-1.5" data-testid="btn-share"><Share2 className="w-4 h-4" /> Share</button>
             <ThemeToggle />
+            {user && <NotificationBell />}
             {user
               ? <AccountMenu user={user} logout={logout} />
               : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}

@@ -8,6 +8,7 @@ import { useLiveKit } from "@/lib/livekit";
 import { VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import ConfirmModal from "@/components/ConfirmModal";
 
 export default function ChatRoom() {
@@ -307,6 +308,7 @@ export default function ChatRoom() {
           )}
           <button onClick={endDebate} className="btn-danger text-xs px-3 py-1.5" data-testid="btn-end-debate">End</button>
           <ThemeToggle />
+          <NotificationBell />
           <AccountMenu user={user} logout={logout} />
         </div>
       </header>

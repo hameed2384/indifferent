@@ -13,6 +13,7 @@ from pymongo.errors import DuplicateKeyError
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..models import User
+from ..notifications import create_notification
 from ..room_utils import find_live_room_id
 
 router = APIRouter()
@@ -314,7 +315,7 @@ async def follow_user(user_id: str, user: User = Depends(get_current_user), _xhr
     target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    await db.follows.update_one(
+    result = await db.follows.update_one(
         {"follower_id": user.user_id, "followee_id": user_id},
         {"$setOnInsert": {
             "follower_id": user.user_id, "followee_id": user_id,
@@ -322,6 +323,11 @@ async def follow_user(user_id: str, user: User = Depends(get_current_user), _xhr
         }},
         upsert=True,
     )
+    if result.upserted_id is not None:  # only notify the first time, not on a repeat follow call
+        await create_notification(
+            recipient_id=user_id, type="new_follower",
+            actor_id=user.user_id, actor_name=user.display_name or user.name,
+        )
     return {"following": True}
 
 

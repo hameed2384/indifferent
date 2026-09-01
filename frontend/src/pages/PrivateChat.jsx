@@ -7,6 +7,7 @@ import { useLiveKit } from "@/lib/livekit";
 import { VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_COMPACT } from "@/lib/layout";
@@ -130,6 +131,7 @@ export default function PrivateChat() {
           <div className="text-sm font-medium truncate">{friend?.display_name || "…"}</div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <NotificationBell />
             <AccountMenu user={user} logout={logout} />
           </div>
         </div>

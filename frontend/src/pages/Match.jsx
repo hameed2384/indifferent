@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import AdSlot from "@/components/AdSlot";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,6 +75,7 @@ export default function Match() {
           <div className="flex items-center gap-2">
             <button onClick={cancel} className="btn-ghost text-sm" data-testid="btn-cancel-match">Cancel</button>
             <ThemeToggle />
+            <NotificationBell />
             <AccountMenu user={user} logout={logout} />
           </div>
         </div>

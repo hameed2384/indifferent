@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import DebateCard from "@/components/DebateCard";
 import AdSlot from "@/components/AdSlot";
 import SideNav from "@/components/SideNav";
@@ -154,6 +155,7 @@ export default function Watch() {
           <div className="flex items-center gap-2 ml-auto shrink-0">
             {user && <StartDebateMenu onGoLive={goLive} onFindMatch={findMatch} />}
             <ThemeToggle />
+            {user && <NotificationBell />}
             {user
               ? <AccountMenu user={user} logout={logout} />
               : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}

@@ -40,6 +40,7 @@ from ..config import APP_NAME
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..models import ClipUpdate, User
+from ..notifications import create_notification
 from ..ratelimit import rate_limit
 from ..reactions import react_once
 from ..storage import delete_object, put_object
@@ -126,6 +127,11 @@ async def upload_clip(
     })
     if parent_clip_id:
         await db.clips.update_one({"clip_id": parent_clip_id}, {"$inc": {"reply_count": 1}})
+        await create_notification(
+            recipient_id=parent["uploader_id"], type="clip_reply",
+            actor_id=user.user_id, actor_name=user.display_name or user.name,
+            payload={"clip_id": clip_id, "parent_clip_id": parent_clip_id},
+        )
     return {"clip_id": clip_id}
 
 

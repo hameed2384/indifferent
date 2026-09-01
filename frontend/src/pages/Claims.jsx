@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import SideNav from "@/components/SideNav";
 import Logo from "@/components/Logo";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
@@ -92,6 +93,7 @@ export default function Claims() {
               <span className="hidden sm:inline">State a claim</span>
             </button>
             <ThemeToggle />
+            {user && <NotificationBell />}
             {user
               ? <AccountMenu user={user} logout={logout} />
               : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}

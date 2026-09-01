@@ -11,6 +11,7 @@ from pymongo.errors import DuplicateKeyError
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..models import User
+from ..notifications import create_notification
 from ..ratelimit import rate_limit
 from ..room_utils import find_live_room_id
 
@@ -54,6 +55,10 @@ async def send_friend_request(
         })
     except DuplicateKeyError:
         raise HTTPException(status_code=400, detail="A request between you two already exists")
+    await create_notification(
+        recipient_id=user_id, type="friend_request",
+        actor_id=user.user_id, actor_name=user.display_name or user.name,
+    )
     return {"status": "pending"}
 
 
@@ -67,6 +72,10 @@ async def accept_friend_request(user_id: str, user: User = Depends(get_current_u
     await db.friendships.update_one(
         _pair_query(user.user_id, user_id),
         {"$set": {"status": "accepted", "responded_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await create_notification(
+        recipient_id=user_id, type="friend_accept",
+        actor_id=user.user_id, actor_name=user.display_name or user.name,
     )
     return {"status": "accepted"}
 

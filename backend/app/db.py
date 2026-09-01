@@ -147,3 +147,7 @@ async def create_indexes():
     # Rate limiting (app/ratelimit.py) — the TTL index is what keeps this
     # collection from growing unbounded; each doc names its own expiry.
     await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
+
+    # Notification center (app/notifications.py, routers/notifications.py).
+    await db.notifications.create_index([("recipient_id", 1), ("created_at", -1)])
+    await db.notifications.create_index([("recipient_id", 1), ("read", 1)])

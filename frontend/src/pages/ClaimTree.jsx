@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
 import RecordClipModal from "@/components/RecordClipModal";
 import EditClipCaptionModal from "@/components/EditClipCaptionModal";
@@ -85,6 +86,7 @@ export default function ClaimTree() {
           <BackButton to="/claims" label="Claims" data-testid="nav-back-claims" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            {user && <NotificationBell />}
             {user
               ? <AccountMenu user={user} logout={logout} />
               : <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="nav-enter">Sign in</button>}

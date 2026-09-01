@@ -10,6 +10,7 @@ from ..categories import CATEGORIES
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..hubs import maybe_detect_topic_drift, maybe_run_coach
+from ..notifications import create_notification
 from ..ratelimit import rate_limit
 from ..models import (
     ArchiveVisibility,
@@ -85,6 +86,13 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
         "is_public": True,
         "published_at": now,
     })
+    subscribers = await db.subscriptions_debater.find({"debater_id": user.user_id, "active": True}, {"_id": 0, "subscriber_id": 1}).to_list(500)
+    for sub in subscribers:
+        await create_notification(
+            recipient_id=sub["subscriber_id"], type="debater_live",
+            actor_id=user.user_id, actor_name=user.display_name or user.name,
+            payload={"room_id": room_id, "category": payload.category},
+        )
     return {"room_id": room_id}
 
 
@@ -290,6 +298,11 @@ async def decide_join_request(room_id: str, requester_id: str, payload: JoinRequ
 
     if not payload.approve:
         await db.room_join_requests.delete_one({"room_id": room_id, "user_id": requester_id})
+        await create_notification(
+            recipient_id=requester_id, type="join_request_decided",
+            actor_id=user.user_id, actor_name=user.display_name or user.name,
+            payload={"room_id": room_id, "approved": False},
+        )
         return {"status": "rejected"}
 
     # $addToSet on find_one_and_update is a single atomic document op — unlike
@@ -338,6 +351,11 @@ async def decide_join_request(room_id: str, requester_id: str, payload: JoinRequ
     )
     if not room_after:
         raise HTTPException(status_code=400, detail="That side filled up while this request was pending")
+    await create_notification(
+        recipient_id=requester_id, type="join_request_decided",
+        actor_id=user.user_id, actor_name=user.display_name or user.name,
+        payload={"room_id": room_id, "approved": True},
+    )
     return {"status": "approved"}
 
 
