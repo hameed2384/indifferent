@@ -8,6 +8,15 @@ const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabi
  * on that same element. */
 export function useModalA11y(onClose) {
   const ref = useRef(null);
+  // Callers routinely pass an inline `() => setOpen(false)`, a fresh
+  // function identity on every render of THEIR component (e.g. a parent
+  // that polls on an interval, unrelated to this modal). Reading through a
+  // ref instead of putting onClose in the effect's deps keeps the effect
+  // below from re-running — and re-stealing focus back to the first
+  // element — on every one of those unrelated re-renders; confirmed live,
+  // that was yanking focus out of a mid-typed text field every ~8s.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     const el = ref.current;
@@ -17,7 +26,7 @@ export function useModalA11y(onClose) {
     focusable()[0]?.focus();
 
     const onKeyDown = (e) => {
-      if (e.key === "Escape") { onClose?.(); return; }
+      if (e.key === "Escape") { onCloseRef.current?.(); return; }
       if (e.key !== "Tab") return;
       const items = focusable();
       if (items.length === 0) return;
@@ -28,7 +37,7 @@ export function useModalA11y(onClose) {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount/unmount only, see onCloseRef above
 
   return ref;
 }
