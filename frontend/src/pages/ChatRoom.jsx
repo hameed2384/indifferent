@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Track } from "livekit-client";
 import { useLiveKit } from "@/lib/livekit";
 import { pickMimeType } from "@/lib/mediaRecording";
-import { VideoControls, VideoStage } from "@/components/VideoStage";
+import { ActionTile, VideoControls, VideoStage } from "@/components/VideoStage";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -509,6 +509,12 @@ export default function ChatRoom() {
             spotlightIdentity={spotlightIdentity}
             onSpotlightChange={setSpotlightIdentity}
             mobileSpotlightIdentity={others[0] ? `user-${others[0].user_id}` : myIdentity}
+            extraTiles={[
+              <ActionTile key="settings" icon={Settings} label="Stream settings" onClick={() => setShowSettings(true)} testId="tile-stream-settings" />,
+              room.is_founding && (
+                <ActionTile key="invite" icon={UserPlus} label="Invite friends" onClick={() => setShowInvite(true)} testId="tile-invite-friends" />
+              ),
+            ]}
           />
 
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">

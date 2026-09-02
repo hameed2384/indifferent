@@ -97,7 +97,7 @@ export function VideoControls({
  * text badge (WatchRoom uses this for the viewer name/pic/follow chip).
  * `mobileSpotlightIdentity`: identity to spotlight on mobile (defaults to tiles[1] — usually the partner/remote)
  */
-export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChange, mobileSpotlightIdentity }) {
+export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChange, mobileSpotlightIdentity, extraTiles }) {
   const isCinema = viewMode === "cinema";
   const spot = tiles.find((t) => t.identity === spotlightIdentity) || tiles[0];
   // Every non-spotlighted tile stacks as a PiP — with only 2 tiles total this
@@ -111,6 +111,8 @@ export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChan
     tiles.find((t) => t.key !== "local") ||
     tiles[tiles.length - 1] ||
     tiles[0];
+
+  const validExtraCount = (extraTiles || []).filter(Boolean).length;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -146,12 +148,42 @@ export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChan
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 lg:gap-4 w-full">
+          // extraTiles: non-video cards (e.g. ChatRoom's Settings/Invite
+          // shortcuts) sitting in this same grid — Cinema mode never sees
+          // these, it has its own spotlight+PiP layout entirely. Column
+          // count grows to fit them in the SAME row as the real tiles (a
+          // solo broadcaster's one camera tile + 2 action tiles = 3 columns,
+          // so "next to my camera" is literal, not wrapped onto a new row)
+          // rather than staying pinned at 2 regardless of what's on screen.
+          <div
+            className="grid gap-3 lg:gap-4 w-full"
+            style={{ gridTemplateColumns: `repeat(${validExtraCount > 0 ? Math.min(Math.max(tiles.length + validExtraCount, 2), 4) : 2}, minmax(0, 1fr))` }}
+          >
             {tiles.map((t) => <VideoTile key={t.key} tile={t} />)}
+            {extraTiles}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/** A video-tile-shaped (same aspect-video cell) button for non-video actions
+ * dropped into VideoStage's Normal-mode grid — e.g. ChatRoom's Settings/
+ * Invite shortcuts filling an otherwise-empty seat next to a solo
+ * broadcaster's camera. Deliberately styled close to VideoTile's own
+ * placeholder look (dark fill, centered content) so it reads as part of
+ * the same row rather than a stray control. */
+export function ActionTile({ icon: Icon, label, onClick, testId }) {
+  return (
+    <button
+      onClick={onClick}
+      className="relative aspect-video rounded-lg overflow-hidden bg-[var(--surface)] border border-dashed border-[var(--border-strong)] hover:border-[var(--fg)] hover:bg-[var(--bg-muted)] transition flex flex-col items-center justify-center gap-2 text-[var(--fg-muted)] hover:text-[var(--fg)]"
+      data-testid={testId}
+    >
+      <Icon className="w-6 h-6" />
+      <span className="text-sm font-medium">{label}</span>
+    </button>
   );
 }
 
