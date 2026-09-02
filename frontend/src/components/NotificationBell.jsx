@@ -25,6 +25,7 @@ function messageFor(n) {
     case "clip_reply": return `${name} replied to your claim`;
     case "join_request_decided": return n.payload?.approved ? `You were let into ${name}'s debate` : `Your request to join ${name}'s debate was declined`;
     case "debater_live": return `${name} just went live`;
+    case "room_invite": return n.payload?.title ? `${name} invited you to "${n.payload.title}"` : `${name} invited you to their live debate`;
     case "visibility_request": return `${name} wants to make your debate ${n.payload?.target_visibility || "more visible"}`;
     default: return `${name} did something`;
   }
@@ -38,6 +39,7 @@ function destinationFor(n, myUserId) {
     case "clip_reply": return n.payload?.clip_id ? `/claims/${n.payload.clip_id}` : null;
     case "join_request_decided": return n.payload?.room_id ? `/watch/${n.payload.room_id}` : null;
     case "debater_live": return n.payload?.room_id ? `/watch/${n.payload.room_id}` : null;
+    case "room_invite": return n.payload?.room_id ? `/watch/${n.payload.room_id}` : null;
     // Deciding a visibility request happens on the recipient's own profile
     // (where ArchiveVisibilityModal lives), not the requester's page.
     case "visibility_request": return myUserId ? `/u/${myUserId}` : null;

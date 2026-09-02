@@ -91,6 +91,13 @@ class ArchiveVisibilityDecision(BaseModel):
 class PublishConsent(BaseModel):
     topic_index: Optional[int] = None  # 0/1/2 — this side's preferred pre-generated topic, optional
 
+class RoomInfoUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+class RoomInviteIn(BaseModel):
+    friend_ids: List[str]
+
 
 class ClipUpdate(BaseModel):
     caption: Optional[str] = None

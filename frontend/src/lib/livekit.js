@@ -225,9 +225,19 @@ export function useLiveKit({ roomId, mode, enabled = true, tokenEndpoint }) {
     }
   }, [camEnabled]);
 
+  const switchDevice = useCallback(async (kind, deviceId) => {
+    const room = roomRef.current;
+    if (!room) return;
+    try {
+      await room.switchActiveDevice(kind, deviceId);
+    } catch {
+      toast.error(`Couldn't switch ${kind === "audioinput" ? "microphone" : "camera"}`);
+    }
+  }, []);
+
   return {
     status, remoteParticipants, localVideoEl,
-    micEnabled, camEnabled, toggleMic, toggleCamera,
+    micEnabled, camEnabled, toggleMic, toggleCamera, switchDevice,
     room: roomRef.current,
   };
 }

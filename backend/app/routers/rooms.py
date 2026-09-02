@@ -23,6 +23,8 @@ from ..models import (
     JoinRequestDecision,
     KickVoteCreate,
     MatchFeedback,
+    RoomInfoUpdate,
+    RoomInviteIn,
     User,
 )
 from ..room_utils import (
@@ -163,7 +165,79 @@ async def get_room(room_id: str, user: User = Depends(get_current_user)):
         # whether THIS viewer already made one, so the UI doesn't re-prompt.
         "topic_pref_a": room.get("topic_pref_a"),
         "topic_pref_b": room.get("topic_pref_b"),
+        # Only the original Go-Live broadcaster can edit title/description
+        # after the fact — a matched debate's topics come from
+        # generate_topics() and the mutual-agreement flow in
+        # public.py:set_topic_preference, never a free-text edit (see
+        # update_room_info below for why non-empty topics excludes this).
+        "can_edit_info": room.get("user_a") == user.user_id and not room.get("topics"),
     }
+
+
+@router.post("/rooms/{room_id}/info")
+async def update_room_info(room_id: str, payload: RoomInfoUpdate, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+    """Lets the original Go-Live broadcaster fix a typo or add/change their
+    description after going live. Restricted to rooms with no AI-generated
+    topics (i.e. Go-Live rooms, not matched ones) and to user_a specifically
+    (the room's original creator) — a later joiner filling the open seat
+    never gets to rewrite a stream that was already named before they
+    arrived."""
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if room.get("user_a") != user.user_id or room.get("topics"):
+        raise HTTPException(status_code=403, detail="Only the broadcaster can edit this stream's info")
+
+    updates = {}
+    if payload.title is not None:
+        title = payload.title.strip()[:200]
+        if not title:
+            raise HTTPException(status_code=400, detail="Title can't be empty")
+        updates["custom_title"] = title
+    if payload.description is not None:
+        updates["description"] = payload.description.strip()[:2000] or None
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+
+    await db.rooms.update_one({"room_id": room_id}, {"$set": updates})
+    return {
+        "custom_title": updates.get("custom_title", room.get("custom_title")),
+        "description": updates.get("description", room.get("description")),
+    }
+
+
+@router.post("/rooms/{room_id}/invite")
+async def invite_friends(room_id: str, payload: RoomInviteIn, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+    """Notify a friend that this room is live so they can come watch or,
+    if there's an open seat, request to join — reuses the same
+    accept/decline join-request flow every other viewer goes through
+    rather than dropping an invited friend straight into the debate, so
+    a founding debater still gets a say either way."""
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_founding(room, user.user_id)
+    if room.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Room isn't live")
+    friend_ids = list(dict.fromkeys(payload.friend_ids))[:20]  # de-dupe, sane cap
+    if not friend_ids:
+        raise HTTPException(status_code=400, detail="Pick at least one friend")
+
+    invited = []
+    for fid in friend_ids:
+        if fid == user.user_id:
+            continue
+        pair = await db.friendships.find_one({
+            "$or": [{"user_a": user.user_id, "user_b": fid}, {"user_a": fid, "user_b": user.user_id}],
+            "status": "accepted",
+        })
+        if not pair:
+            continue
+        await create_notification(
+            recipient_id=fid, type="room_invite",
+            actor_id=user.user_id, actor_name=user.display_name or user.name,
+            payload={"room_id": room_id, "title": room.get("custom_title"), "category": (room.get("categories") or [None])[0]},
+        )
+        invited.append(fid)
+    return {"invited": invited}
 
 
 class ChatSend(BaseModel):

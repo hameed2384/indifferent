@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Heart, PanelRightClose, PanelRightOpen, Settings, ThumbsDown, UserPlus, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -12,6 +12,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import NotificationBell from "@/components/NotificationBell";
 import ConfirmModal from "@/components/ConfirmModal";
+import StreamSettingsModal from "@/components/StreamSettingsModal";
+import InviteFriendsModal from "@/components/InviteFriendsModal";
 import { useModalA11y } from "@/hooks/useModalA11y";
 
 function PostDebateFeedbackModal({ rating, setRating, mindChanged, setMindChanged, notes, setNotes, onCancel, onSubmit }) {
@@ -69,6 +71,12 @@ export default function ChatRoom() {
   const [decidingId, setDecidingId] = useState(null);
   const [kickTarget, setKickTarget] = useState(null); // {user_id, display_name} pending confirmation, or null
   const [kicking, setKicking] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  // Live viewer-facing stats — piggybacks on pollViewerChat below (same
+  // public poll WatchRoom uses), so a debater gets a passive read on how
+  // their own stream is landing without a separate request.
+  const [liveStats, setLiveStats] = useState({ spectator_count: 0, likes: 0, dislikes: 0 });
   // Unread indicators (a boolean per tab, not a count — one red dot no
   // matter how many messages piled up while you weren't looking).
   const [unreadDebater, setUnreadDebater] = useState(false);
@@ -221,6 +229,7 @@ export default function ChatRoom() {
     try {
       const { data } = await api.get(`/public/debates/${roomId}/updates`, { params: { since: viewerSinceRef.current || undefined } });
       viewerSinceRef.current = data.server_time;
+      setLiveStats({ spectator_count: data.spectator_count || 0, likes: data.likes || 0, dislikes: data.dislikes || 0 });
       const newComments = (data.events || []).filter((e) => e.type === "comment");
       if (newComments.length) {
         setViewerComments((c) => [...c, ...newComments]);
@@ -388,6 +397,26 @@ export default function ChatRoom() {
               {myConsent ? "✓ Publish" : "Go public"}
             </button>
           )}
+          {room.is_founding && (
+            <button
+              onClick={() => setShowInvite(true)}
+              className="btn-ghost !px-2.5"
+              title="Invite friends"
+              aria-label="Invite friends"
+              data-testid="btn-invite-friends"
+            >
+              <UserPlus className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="btn-ghost !px-2.5"
+            title="Stream settings"
+            aria-label="Stream settings"
+            data-testid="btn-stream-settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
           <button onClick={endDebate} className="btn-danger text-xs px-3 py-1.5" data-testid="btn-end-debate">End</button>
           <ThemeToggle />
           <NotificationBell />
@@ -497,16 +526,33 @@ export default function ChatRoom() {
               ]}
               onSpotlightChange={setSpotlightIdentity}
             />
+            {publishState.is_public && (
+              <div className="flex items-center gap-3 text-xs text-[var(--fg-subtle)]" data-testid="live-stats">
+                <span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {liveStats.spectator_count}</span>
+                <span className="inline-flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> {liveStats.likes}</span>
+                <span className="inline-flex items-center gap-1"><ThumbsDown className="w-3.5 h-3.5" /> {liveStats.dislikes}</span>
+              </div>
+            )}
           </div>
 
-          <div className="hidden sm:block shrink-0 card p-4 max-h-[22vh] overflow-y-auto">
-            <div className="eyebrow mb-2">Debate prompts</div>
-            <ol className="space-y-2">
-              {(room.topics || []).map((t, i) => (
-                <li key={i} className="text-sm leading-snug border-l-2 border-[var(--accent)] pl-3" data-testid={`topic-${i}`}>{t}</li>
-              ))}
-            </ol>
-          </div>
+          {room.topics?.length > 0 ? (
+            <div className="hidden sm:block shrink-0 card p-4 max-h-[22vh] overflow-y-auto">
+              <div className="eyebrow mb-2">Debate prompts</div>
+              <ol className="space-y-2">
+                {room.topics.map((t, i) => (
+                  <li key={i} className="text-sm leading-snug border-l-2 border-[var(--accent)] pl-3" data-testid={`topic-${i}`}>{t}</li>
+                ))}
+              </ol>
+            </div>
+          ) : room.custom_title && (
+            <div className="hidden sm:block shrink-0 card p-4 max-h-[22vh] overflow-y-auto">
+              <div className="eyebrow mb-2">About this stream</div>
+              <div className="text-sm font-medium leading-snug" data-testid="chatroom-title">{room.custom_title}</div>
+              {room.description && (
+                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-[var(--fg-muted)]" data-testid="chatroom-description">{room.description}</p>
+              )}
+            </div>
+          )}
         </div>
 
         <aside className="hidden lg:flex flex-col border-l border-[var(--border)] bg-[var(--surface)] min-h-0 overflow-hidden">
@@ -598,6 +644,18 @@ export default function ChatRoom() {
           onSubmit={submitFeedback}
         />
       )}
+
+      {showSettings && (
+        <StreamSettingsModal
+          room={room}
+          micEnabled={lk.micEnabled} camEnabled={lk.camEnabled}
+          toggleMic={lk.toggleMic} toggleCamera={lk.toggleCamera} switchDevice={lk.switchDevice}
+          onClose={() => setShowSettings(false)}
+          onInfoSaved={(data) => setRoom((r) => ({ ...r, custom_title: data.custom_title, description: data.description }))}
+        />
+      )}
+
+      {showInvite && <InviteFriendsModal roomId={roomId} onClose={() => setShowInvite(false)} />}
     </div>
   );
 }
