@@ -51,9 +51,20 @@ async def _touch_heartbeat(room_id: str, client_id: Optional[str]):
 def _side(doc: Optional[dict], user_id: Optional[str], fallback_label: str) -> dict:
     """Build a side_a/side_b summary. user_id is None for a go-live room's
     still-open seat — the client tells "waiting for an opponent" apart from
-    a real, resolvable debater this way rather than a fake identity string."""
-    if not user_id or not doc:
-        return {"identity": None, "display_name": fallback_label, "stance": None, "id_verified": False, "open": not user_id}
+    a real, resolvable debater this way rather than a fake identity string.
+
+    A THIRD case, distinct from both: user_id is set but doc is missing —
+    a real match happened and that account was later deleted (admin.py's
+    delete_user deliberately leaves rooms alone so the other participant's
+    history isn't corrupted). Confirmed live: this used to collapse into
+    the same branch as a genuine open seat, mislabeling a permanently-
+    vacated ended-debate slot as "Open seat — request to join" — actively
+    misleading (there's no one to match into; the account is just gone),
+    not just a missing name."""
+    if not user_id:
+        return {"identity": None, "display_name": fallback_label, "stance": None, "id_verified": False, "open": True}
+    if not doc:
+        return {"identity": None, "display_name": "Deleted account", "stance": None, "id_verified": False, "open": False}
     return {
         "identity": f"user-{user_id}",
         "display_name": doc.get("display_name") or doc.get("name") or fallback_label,
