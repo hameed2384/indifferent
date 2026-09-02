@@ -68,7 +68,12 @@ export default function DebateCard({ d, onClick }) {
           <Avatar info={d.side_b} />
         </div>
         <div className="min-w-0">
-          <div className="font-heading text-sm font-semibold leading-snug line-clamp-2">
+          {/* min-h, not just line-clamp-2: line-clamp only caps the MAX at
+              two lines, it doesn't reserve a minimum — a one-line title
+              collapsed shorter than a two-line one, so cards in the same
+              row ended up different heights even though the grid's own
+              stretch behavior was already uniform everywhere else. */}
+          <div className="font-heading text-sm font-semibold leading-snug line-clamp-2 min-h-[2.5rem]">
             "{d.topics?.[0] || "An unrecorded disagreement"}"
           </div>
           <div className="mt-1 text-xs text-[var(--fg-subtle)] truncate">
