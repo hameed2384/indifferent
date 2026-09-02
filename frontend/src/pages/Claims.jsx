@@ -14,7 +14,7 @@ import RecordClipModal from "@/components/RecordClipModal";
 import { ClaimCardSkeleton, SkeletonGrid } from "@/components/SkeletonCard";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV, useNavHeightVar } from "@/lib/navChrome";
-import { CONTAINER_WIDE } from "@/lib/layout";
+import { CONTAINER_WIDE, FEED_GRID } from "@/lib/layout";
 
 function ClaimCard({ clip, onClick }) {
   return (
@@ -155,7 +155,7 @@ export default function Claims() {
           )}
 
           {!loading && (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <div className={FEED_GRID}>
               {claims.map((c) => (
                 <ClaimCard key={c.clip_id} clip={c} onClick={() => navigate(`/claims/${c.clip_id}`)} />
               ))}

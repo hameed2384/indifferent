@@ -1,3 +1,5 @@
+import { FEED_GRID } from "@/lib/layout";
+
 /** Loading placeholders for the two primary feed grids (Watch, Claims) —
  * both used to pop content in against a bare "Loading…" line with nothing
  * to anchor to. Shapes roughly match DebateCard/ClaimCard's own layout so
@@ -32,9 +34,9 @@ export function ClaimCardSkeleton() {
   );
 }
 
-export function SkeletonGrid({ Skeleton, count = 4 }) {
+export function SkeletonGrid({ Skeleton, count = 8 }) {
   return (
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+    <div className={FEED_GRID}>
       {Array.from({ length: count }).map((_, i) => <Skeleton key={i} />)}
     </div>
   );

@@ -17,7 +17,7 @@ import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV, useNavHeightVar } from "@/lib/navChrome";
 import { useModalA11y } from "@/hooks/useModalA11y";
-import { CONTAINER_WIDE } from "@/lib/layout";
+import { CONTAINER_WIDE, FEED_GRID } from "@/lib/layout";
 
 /** Interleaves one ad card into a feed row at a fixed position, YouTube-style
  * — only when the row has enough real cards for it not to dominate. */
@@ -386,7 +386,7 @@ function Row({ title, badge, accent, children }) {
           : <div className="eyebrow">{title}</div>}
         {badge && <span className="text-xs text-[var(--fg-subtle)]">{badge}</span>}
       </div>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">{children}</div>
+      <div className={FEED_GRID}>{children}</div>
     </section>
   );
 }
