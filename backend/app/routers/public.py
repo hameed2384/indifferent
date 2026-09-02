@@ -281,6 +281,7 @@ async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_c
         "opposition_score": r.get("opposition_score"),
         "topics": r.get("topics", []),
         "custom_title": r.get("custom_title"),
+        "description": r.get("description"),
         "categories": r.get("categories", []),
         "likes": int(r.get("likes", 0)),
         "dislikes": int(r.get("dislikes", 0)),

@@ -905,6 +905,13 @@ export default function WatchRoom() {
               </div>
             )}
 
+            {debate.description && (
+              <div className="mt-6 card p-5">
+                <div className="eyebrow mb-2">Description</div>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-[var(--fg-muted)]" data-testid="watch-description">{debate.description}</p>
+              </div>
+            )}
+
             {isLive && <JoinRequestPanel roomId={roomId} debate={debate} navigate={navigate} />}
 
             <div className="mt-6 flex flex-wrap items-center gap-3">

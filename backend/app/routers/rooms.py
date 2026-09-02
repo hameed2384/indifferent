@@ -69,6 +69,9 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Set your account as a debater first")
     if payload.category not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Unknown category")
+    title = (payload.title or "").strip()[:200]
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
 
     room_id = f"room_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
@@ -87,7 +90,11 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
         # you go live. Kept separate from `topics` (AI-suggested prompts for
         # matched rooms) so provenance never blurs: human-typed vs.
         # AI-generated are always distinguishable in the data itself.
-        "custom_title": (payload.title or "").strip()[:200] or None,
+        "custom_title": title,
+        # Longer, optional context — deliberately NOT shown on cards/feeds,
+        # only on the watch page itself once a viewer opens the stream and
+        # scrolls past the video, so the feed stays scannable.
+        "description": (payload.description or "").strip()[:2000] or None,
         "categories": [payload.category],
         "created_at": now,
         "status": "active",
@@ -143,6 +150,7 @@ async def get_room(room_id: str, user: User = Depends(get_current_user)):
         "opposition_score": room.get("opposition_score"),
         "topics": room.get("topics", []),
         "custom_title": room.get("custom_title"),
+        "description": room.get("description"),
         "categories": room.get("categories", []),
         "participants": participants,
         "my_role": my_side,

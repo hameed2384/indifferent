@@ -59,7 +59,8 @@ class SpectatorComment(BaseModel):
 
 class GoLiveRequest(BaseModel):
     category: str
-    title: Optional[str] = None  # the broadcaster's own words — the one case with a real single decider
+    title: str  # required — the broadcaster's own words; the one case with a real single decider
+    description: Optional[str] = None  # optional longer context, shown only on the watch page
 
 
 class JoinRequestCreate(BaseModel):

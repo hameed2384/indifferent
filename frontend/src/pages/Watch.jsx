@@ -394,13 +394,16 @@ function Row({ title, badge, accent, children }) {
 function GoLiveModal({ categories, onClose, onStarted }) {
   const [category, setCategory] = useState(categories[0] || "");
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [starting, setStarting] = useState(false);
   const modalRef = useModalA11y(onClose);
 
   const start = async () => {
     setStarting(true);
     try {
-      const { data } = await api.post("/rooms/golive", { category, title: title.trim() || undefined });
+      const { data } = await api.post("/rooms/golive", {
+        category, title: title.trim(), description: description.trim() || undefined,
+      });
       onStarted(data.room_id);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't go live");
@@ -427,7 +430,7 @@ function GoLiveModal({ categories, onClose, onStarted }) {
           ))}
         </div>
         <div className="mt-4">
-          <label className="text-xs text-[var(--fg-subtle)]" htmlFor="golive-title">What are you debating? (optional)</label>
+          <label className="text-xs text-[var(--fg-subtle)]" htmlFor="golive-title">What are you debating?</label>
           <input
             id="golive-title"
             value={title}
@@ -438,9 +441,22 @@ function GoLiveModal({ categories, onClose, onStarted }) {
             data-testid="golive-title-input"
           />
         </div>
+        <div className="mt-4">
+          <label className="text-xs text-[var(--fg-subtle)]" htmlFor="golive-description">Description (optional)</label>
+          <textarea
+            id="golive-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder="Add context viewers will see when they open the stream…"
+            className="textarea mt-1 w-full"
+            data-testid="golive-description-input"
+          />
+        </div>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button className="btn-outline" onClick={onClose} data-testid="golive-cancel">Cancel</button>
-          <button className="btn-accent" onClick={start} disabled={!category || starting} data-testid="golive-start">
+          <button className="btn-accent" onClick={start} disabled={!category || !title.trim() || starting} data-testid="golive-start">
             {starting ? "Going live…" : "Go live"}
           </button>
         </div>
