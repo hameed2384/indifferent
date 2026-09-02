@@ -4,12 +4,19 @@ import { Heart } from "lucide-react";
 // always reads as the same color, giving the feed a bit of visual rhythm
 // without needing a real thumbnail image (debates aren't recorded
 // server-side in a way that gives a poster frame for a live one).
+// Deliberately NOT theme-reactive (fixed dark tones even in light mode)
+// — a thumbnail is content, not chrome, same as a real photo thumbnail
+// wouldn't re-theme either. The end stop must NOT match either theme's
+// page background: it used to fade to #0a0a0a, which is dark mode's
+// exact --bg value — the card's true edge became invisible there, and
+// different gradients disappearing by different amounts read as
+// different-sized cards even though every card measured pixel-identical.
 const PALETTE = [
-  "from-[#1a2e2a] to-[#0a0a0a]",
-  "from-[#2a1a2e] to-[#0a0a0a]",
-  "from-[#1a1e2e] to-[#0a0a0a]",
-  "from-[#2e2a1a] to-[#0a0a0a]",
-  "from-[#2e1a1a] to-[#0a0a0a]",
+  "from-[#1a2e2a] to-[#161616]",
+  "from-[#2a1a2e] to-[#161616]",
+  "from-[#1a1e2e] to-[#161616]",
+  "from-[#2e2a1a] to-[#161616]",
+  "from-[#2e1a1a] to-[#161616]",
 ];
 function paletteFor(category) {
   if (!category) return PALETTE[0];
@@ -44,7 +51,7 @@ export default function DebateCard({ d, onClick }) {
           stat badge standing in for YouTube's duration badge). "Who's
           debating" lives below, next to the title, the same place YouTube
           puts the channel identity — not inside the thumbnail itself. */}
-      <div className={`relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br ${paletteFor(d.categories?.[0])} ring-1 ring-white/5 group-hover:ring-white/15 transition-all`}>
+      <div className={`relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br ${paletteFor(d.categories?.[0])} border border-[var(--border-strong)] group-hover:border-[var(--fg-subtle)] transition-colors`}>
         {isLive && (
           <span className="absolute top-2 left-2 inline-flex items-center gap-1 bg-[var(--danger)] text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
             <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
