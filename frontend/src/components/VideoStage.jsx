@@ -198,6 +198,12 @@ function VideoTile({ tile, fill, compact }) {
     <div className={containerCls}>
       {tile.videoEl ? (
         <MediaMount el={tile.videoEl} />
+      ) : tile.body && !compact ? (
+        // `body`: a fully custom interactive placeholder (e.g. WatchRoom's
+        // "join this stream" card for an open seat) instead of the plain
+        // title/subtitle/footer text below — an empty seat is real screen
+        // real estate, not just a status message.
+        <div className="absolute inset-0 flex items-center justify-center px-3">{tile.body}</div>
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-white text-center px-3">
           <div className={`font-heading font-semibold break-words ${compact ? "text-[10px]" : fill ? "text-2xl sm:text-3xl lg:text-4xl" : "text-xl sm:text-2xl md:text-3xl"}`}>

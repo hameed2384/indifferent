@@ -18,6 +18,7 @@ import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
+import { DEBATER_SUB_PRICE } from "@/lib/pricing";
 
 function ViewerOverlay({ side, navigate }) {
   const [following, setFollowing] = useState(null); // null = unknown/self/open, else bool
@@ -61,6 +62,136 @@ function ViewerOverlay({ side, navigate }) {
         </button>
       )}
     </div>
+  );
+}
+
+/** Fills the "Open seat" video tile itself — the empty seat IS the call to
+ * action, so putting it there beats a text hint further down the page.
+ * Two-step gate, same rule the backend already enforces
+ * (rooms.py:request_to_join): subscribe to the broadcaster first, THEN pick
+ * a side. "Oppose" fills the open seat (B); "Support" tags in alongside
+ * the broadcaster (A) — reuses the exact same join-request/approval
+ * machinery as JoinRequestPanel below, just entered from inside the tile. */
+function JoinStreamCard({ roomId, debate, navigate }) {
+  const { user } = useAuth();
+  const broadcasterId = debate.side_a.identity?.startsWith("user-") ? debate.side_a.identity.slice(5) : null;
+  const [isSubscribed, setIsSubscribed] = useState(null); // null = loading
+  const [reqStatus, setReqStatus] = useState("none"); // none | pending | approved
+  const [choosing, setChoosing] = useState(false);
+  const [subLoading, setSubLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!user || !broadcasterId) return;
+    let cancelled = false;
+    api.get(`/users/${broadcasterId}`).then(({ data }) => { if (!cancelled) setIsSubscribed(data.is_subscribed); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user, broadcasterId]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    api.get(`/rooms/${roomId}/join-status`).then(({ data }) => { if (!cancelled) setReqStatus(data.status); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user, roomId]);
+
+  useEffect(() => {
+    if (reqStatus !== "pending") return;
+    const iv = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/rooms/${roomId}/join-status`);
+        setReqStatus(data.status);
+        if (data.status === "approved") { toast.success("You're in — joining the debate…"); navigate(`/room/${roomId}`); }
+      } catch { /* transient — next tick retries */ }
+    }, 4000);
+    return () => clearInterval(iv);
+  }, [reqStatus, roomId, navigate]);
+
+  const subscribe = async () => {
+    setSubLoading(true);
+    try {
+      const { data } = await api.post(`/payments/checkout/debater/${broadcasterId}`);
+      window.location.href = data.checkout_url;
+    } catch (e) {
+      toast.error(e.response?.status === 503 ? "Subscriptions aren't live yet" : "Couldn't start checkout");
+      setSubLoading(false);
+    }
+  };
+
+  const requestJoin = async (side) => {
+    setSending(true);
+    try {
+      await api.post(`/rooms/${roomId}/join-requests`, { side });
+      setReqStatus("pending");
+      toast.success("Request sent — waiting for approval.");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't send request");
+    } finally {
+      setSending(false);
+      setChoosing(false);
+    }
+  };
+
+  const wrap = (children) => <div className="text-center text-white">{children}</div>;
+
+  if (!user) {
+    return wrap(
+      <>
+        <div className="font-heading text-lg font-semibold mb-3">Open seat</div>
+        <button onClick={startGoogleLogin} className="btn-primary text-sm" data-testid="btn-join-signin">Sign in to join</button>
+      </>
+    );
+  }
+  if (reqStatus === "pending") {
+    return wrap(
+      <>
+        <div className="font-heading text-lg font-semibold">Request sent</div>
+        <div className="text-xs text-white/60 mt-1">Waiting for approval…</div>
+      </>
+    );
+  }
+  if (isSubscribed === null) return wrap(<div className="text-sm text-white/50">Loading…</div>);
+  if (!isSubscribed) {
+    return wrap(
+      <>
+        <div className="font-heading text-lg font-semibold mb-1">Open seat</div>
+        <p className="text-xs text-white/60 mb-3 max-w-[220px]">Subscribe to request joining this debate</p>
+        <button onClick={subscribe} disabled={subLoading} className="btn-primary text-sm" data-testid="btn-join-subscribe">
+          {subLoading ? "…" : `Subscribe ${DEBATER_SUB_PRICE}`}
+        </button>
+      </>
+    );
+  }
+  if (!choosing) {
+    return wrap(
+      <>
+        <div className="font-heading text-lg font-semibold mb-3">Join this debate?</div>
+        <button onClick={() => setChoosing(true)} className="btn-primary text-sm" data-testid="btn-join-choose">Request to join</button>
+      </>
+    );
+  }
+  return wrap(
+    <>
+      <div className="font-heading text-base font-semibold mb-3">Which side?</div>
+      <div className="flex items-center justify-center gap-2">
+        <button
+          onClick={() => requestJoin("b")}
+          disabled={sending || debate.side_full?.b}
+          className="btn-accent text-xs disabled:opacity-40"
+          data-testid="btn-join-oppose"
+        >
+          Oppose{debate.side_full?.b ? " (full)" : ""}
+        </button>
+        <button
+          onClick={() => requestJoin("a")}
+          disabled={sending || debate.side_full?.a}
+          className="btn-outline text-xs disabled:opacity-40"
+          data-testid="btn-join-support"
+        >
+          Support{debate.side_full?.a ? " (full)" : ""}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -482,7 +613,7 @@ function MobileWatch({
         <button onClick={notInterested} className="btn-ghost !text-[11px] !px-2 !py-1" data-testid="btn-not-interested-mobile">Not interested</button>
       </div>
 
-      {isLive && (
+      {isLive && !debate.side_b.open && (
         <div className="shrink-0 px-3">
           <JoinRequestPanel roomId={roomId} debate={debate} navigate={navigate} />
         </div>
@@ -809,6 +940,8 @@ export default function WatchRoom() {
       placeholderTitle: debate.side_b.open ? "Open seat" : debate.side_b.display_name,
       placeholderSubtitle: debate.side_b.stance ? `e ${debate.side_b.stance.economic?.toFixed?.(1)} · s ${debate.side_b.stance.social?.toFixed?.(1)}` : null,
       placeholderFooter: debate.side_b.open ? "Waiting for a debater to join" : (isLive ? (lk.status === "connected" ? "Waiting for camera…" : "Connecting…") : "Debate ended"),
+      body: debate.side_b.open && isLive && debate.side_a.identity !== `user-${user?.user_id}`
+        ? <JoinStreamCard roomId={roomId} debate={debate} navigate={navigate} /> : undefined,
     },
     ...extraTiles(debate.side_b_extra, "b", "Side B"),
   ];
@@ -912,7 +1045,7 @@ export default function WatchRoom() {
               </div>
             )}
 
-            {isLive && <JoinRequestPanel roomId={roomId} debate={debate} navigate={navigate} />}
+            {isLive && !debate.side_b.open && <JoinRequestPanel roomId={roomId} debate={debate} navigate={navigate} />}
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
