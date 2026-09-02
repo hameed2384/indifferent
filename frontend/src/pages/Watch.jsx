@@ -393,13 +393,14 @@ function Row({ title, badge, accent, children }) {
 
 function GoLiveModal({ categories, onClose, onStarted }) {
   const [category, setCategory] = useState(categories[0] || "");
+  const [title, setTitle] = useState("");
   const [starting, setStarting] = useState(false);
   const modalRef = useModalA11y(onClose);
 
   const start = async () => {
     setStarting(true);
     try {
-      const { data } = await api.post("/rooms/golive", { category });
+      const { data } = await api.post("/rooms/golive", { category, title: title.trim() || undefined });
       onStarted(data.room_id);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't go live");
@@ -424,6 +425,18 @@ function GoLiveModal({ categories, onClose, onStarted }) {
               <Tag className="w-3.5 h-3.5" /> {c}
             </button>
           ))}
+        </div>
+        <div className="mt-4">
+          <label className="text-xs text-[var(--fg-subtle)]" htmlFor="golive-title">What are you debating? (optional)</label>
+          <input
+            id="golive-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={200}
+            placeholder="e.g. Is remote work actually better for productivity?"
+            className="field mt-1 w-full !py-2"
+            data-testid="golive-title-input"
+          />
         </div>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button className="btn-outline" onClick={onClose} data-testid="golive-cancel">Cancel</button>

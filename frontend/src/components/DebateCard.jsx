@@ -1,4 +1,5 @@
 import { Heart } from "lucide-react";
+import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 
 // A fixed small palette keyed by category, not random — same category
 // always reads as the same color, giving the feed a bit of visual rhythm
@@ -68,13 +69,22 @@ export default function DebateCard({ d, onClick }) {
           <Avatar info={d.side_b} />
         </div>
         <div className="min-w-0">
+          {/* Fixed h-3.5 whether or not the label renders — same lesson as
+              min-h below: a row that only sometimes exists is exactly what
+              made cards different heights last time. This tells a viewer
+              the quoted text is still a pre-match AI guess, not a record of
+              what was actually said, without a new backend mechanism —
+              just reading data that already exists (see lib/debateTitle.js). */}
+          <div className="h-3.5 text-[10px] uppercase tracking-wide text-[var(--fg-subtle)]">
+            {!isTitleConfirmed(d) && "Suggested topic"}
+          </div>
           {/* min-h, not just line-clamp-2: line-clamp only caps the MAX at
               two lines, it doesn't reserve a minimum — a one-line title
               collapsed shorter than a two-line one, so cards in the same
               row ended up different heights even though the grid's own
               stretch behavior was already uniform everywhere else. */}
           <div className="font-heading text-sm font-semibold leading-snug line-clamp-2 min-h-[2.5rem]">
-            "{d.topics?.[0] || "An unrecorded disagreement"}"
+            "{titleFor(d)}"
           </div>
           <div className="mt-1 text-xs text-[var(--fg-subtle)] truncate">
             {d.side_a?.open ? "Open seat" : d.side_a?.display_name} vs {d.side_b?.open ? "Open seat" : d.side_b?.display_name}

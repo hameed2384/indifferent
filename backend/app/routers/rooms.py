@@ -16,6 +16,8 @@ from ..ratelimit import rate_limit
 from ..storage import put_object
 from ..models import (
     ArchiveVisibility,
+    ArchiveVisibilityDecision,
+    ArchiveVisibilityRequestIn,
     GoLiveRequest,
     JoinRequestCreate,
     JoinRequestDecision,
@@ -79,6 +81,13 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
         "founding_members": [user.user_id],
         "opposition_score": None,
         "topics": [],
+        # The one case with a real, unambiguous single decider — the
+        # broadcaster is the only participant when this is created, same as
+        # any livestream platform asking "what's this stream about?" before
+        # you go live. Kept separate from `topics` (AI-suggested prompts for
+        # matched rooms) so provenance never blurs: human-typed vs.
+        # AI-generated are always distinguishable in the data itself.
+        "custom_title": (payload.title or "").strip()[:200] or None,
         "categories": [payload.category],
         "created_at": now,
         "status": "active",
@@ -133,6 +142,7 @@ async def get_room(room_id: str, user: User = Depends(get_current_user)):
         "room_id": room_id,
         "opposition_score": room.get("opposition_score"),
         "topics": room.get("topics", []),
+        "custom_title": room.get("custom_title"),
         "categories": room.get("categories", []),
         "participants": participants,
         "my_role": my_side,
@@ -140,6 +150,11 @@ async def get_room(room_id: str, user: User = Depends(get_current_user)):
         "side_full": {s: len(side_members(room, s)) >= MAX_PER_SIDE for s in ("a", "b")},
         "join_requests": join_requests,
         "kick_votes": kick_votes,
+        # For the topic-preference picker bundled into the publish toggle
+        # (see public.py:toggle_publish) — each side's own pick, if any, and
+        # whether THIS viewer already made one, so the UI doesn't re-prompt.
+        "topic_pref_a": room.get("topic_pref_a"),
+        "topic_pref_b": room.get("topic_pref_b"),
     }
 
 
@@ -265,20 +280,91 @@ async def submit_feedback(room_id: str, fb: MatchFeedback, user: User = Depends(
     return {"ok": True}
 
 
+_VISIBILITY_RANK = {"private": 0, "unlisted": 1, "public": 2}
+
+
+def _visibility_rank(room: dict) -> int:
+    return _VISIBILITY_RANK.get(room.get("archive_visibility"), 0)  # unset == private
+
+
 @router.post("/rooms/{room_id}/archive-visibility")
 async def set_archive_visibility(room_id: str, payload: ArchiveVisibility, user: User = Depends(get_current_user)):
-    """Once a debate has ended, either participant can choose how the archived
-    record is exposed: public (shows in the feed/search), unlisted (works via
-    direct link, not listed), or private (participants only) — the YouTube
-    unlisted-video model, per client brief #16."""
+    """Moving to MORE privacy only — either founding debater can always do
+    this unilaterally, no consent needed, at any time (even with a request
+    pending; this always wins over that). Moving to LESS privacy is a
+    different, mutual-consent action — see /request and /decide below.
+    Integrity guarantee: nothing in this file ever sets archive_visibility
+    to a less-private value except decide_archive_visibility's own
+    approve=True branch, and that always requires the OTHER founding
+    debater's explicit action."""
     if payload.visibility not in ("private", "unlisted", "public"):
         raise HTTPException(status_code=400, detail="visibility must be private, unlisted, or public")
     room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
-    _require_participant(room, user.user_id)
+    _require_founding(room, user.user_id)
     if room.get("status") != "ended":
         raise HTTPException(status_code=400, detail="Debate must have ended first")
-    await db.rooms.update_one({"room_id": room_id}, {"$set": {"archive_visibility": payload.visibility}})
+    if _VISIBILITY_RANK[payload.visibility] > _visibility_rank(room):
+        raise HTTPException(status_code=400, detail="Making this MORE visible needs the other debater's approval — use /archive-visibility/request")
+    await db.rooms.update_one({"room_id": room_id}, {"$set": {"archive_visibility": payload.visibility, "pending_visibility_request": None}})
     return {"archive_visibility": payload.visibility}
+
+
+@router.post("/rooms/{room_id}/archive-visibility/request")
+async def request_archive_visibility(
+    room_id: str, payload: ArchiveVisibilityRequestIn,
+    user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr),
+):
+    """Requesting MORE exposure than today — the one case that can't just
+    happen unilaterally. A solo go-live room (no second founding debater)
+    has no one else whose consent is needed, so it applies immediately;
+    a two-debater room stores a single pending request for the other
+    founding debater to approve or deny (see decide_archive_visibility) —
+    archive_visibility itself is never touched here."""
+    if payload.visibility not in ("unlisted", "public"):
+        raise HTTPException(status_code=400, detail="Can only request 'unlisted' or 'public' — becoming more private never needs a request")
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_founding(room, user.user_id)
+    if room.get("status") != "ended":
+        raise HTTPException(status_code=400, detail="Debate must have ended first")
+    if _VISIBILITY_RANK[payload.visibility] <= _visibility_rank(room):
+        raise HTTPException(status_code=400, detail="Already at least that visible")
+
+    founding = founding_members(room)
+    other = next((m for m in founding if m != user.user_id), None)
+    if not other:
+        await db.rooms.update_one({"room_id": room_id}, {"$set": {"archive_visibility": payload.visibility}})
+        return {"archive_visibility": payload.visibility}
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.rooms.update_one({"room_id": room_id}, {"$set": {
+        "pending_visibility_request": {"requested_by": user.user_id, "target_visibility": payload.visibility, "requested_at": now},
+    }})
+    await create_notification(
+        recipient_id=other, type="visibility_request",
+        actor_id=user.user_id, actor_name=user.display_name or user.name,
+        payload={"room_id": room_id, "target_visibility": payload.visibility},
+    )
+    return {"status": "pending"}
+
+
+@router.post("/rooms/{room_id}/archive-visibility/decide")
+async def decide_archive_visibility(
+    room_id: str, payload: ArchiveVisibilityDecision,
+    user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr),
+):
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_founding(room, user.user_id)
+    pending = room.get("pending_visibility_request")
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending request")
+    if pending["requested_by"] == user.user_id:
+        raise HTTPException(status_code=400, detail="Can't approve your own request")
+
+    updates = {"pending_visibility_request": None}
+    if payload.approve:
+        updates["archive_visibility"] = pending["target_visibility"]
+    await db.rooms.update_one({"room_id": room_id}, {"$set": updates})
+    return {"archive_visibility": updates.get("archive_visibility", room.get("archive_visibility"))}
 
 
 @router.post("/rooms/{room_id}/join-requests")

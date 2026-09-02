@@ -17,6 +17,7 @@ import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_MEDIUM } from "@/lib/layout";
 import { DEBATER_SUB_PRICE } from "@/lib/pricing";
+import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 
 function formatJoinDate(iso) {
   if (!iso) return null;
@@ -124,7 +125,8 @@ function DebateCardSmall({ d, isSelf, onClick, onManageVisibility }) {
             : <span className="chip !py-0 !px-1.5">Published</span>}
           {d.categories?.[0] && <span className="chip !py-0 !px-1.5">{d.categories[0]}</span>}
         </div>
-        <div className="text-sm font-medium leading-snug line-clamp-2">{d.topics?.[0] || "An unrecorded disagreement"}</div>
+        {!isTitleConfirmed(d) && <div className="text-[10px] uppercase tracking-wide text-[var(--fg-subtle)]">Suggested topic</div>}
+        <div className="text-sm font-medium leading-snug line-clamp-2">{titleFor(d)}</div>
         <div className="text-xs text-[var(--fg-subtle)] mt-1.5 inline-flex items-center gap-1"><Heart className="w-3 h-3" /> {d.likes}</div>
       </button>
       {isSelf && d.status === "ended" && (
@@ -133,7 +135,11 @@ function DebateCardSmall({ d, isSelf, onClick, onManageVisibility }) {
           className="absolute top-3 right-3 z-10 btn-outline !px-2 !py-1 !text-xs inline-flex items-center gap-1"
           data-testid={`btn-manage-visibility-${d.room_id}`}
         >
-          <VisibilityIcon className="w-3 h-3" /> {VISIBILITY_LABEL[visibility]}
+          {d.pending_visibility_request ? (
+            <>Request pending</>
+          ) : (
+            <><VisibilityIcon className="w-3 h-3" /> {VISIBILITY_LABEL[visibility]}</>
+          )}
         </button>
       )}
     </div>
@@ -253,9 +259,13 @@ export default function Profile() {
       : cs.map((c) => (c.clip_id === id ? { ...c, deleted: true, caption: "[deleted]" } : c)));
     setDeletingClip(null);
   };
-  const onVisibilitySaved = (visibility) => {
+  const onVisibilitySaved = (visibility, { pending = false, target = null } = {}) => {
     const id = visibilityDebate.room_id;
-    setDebates((ds) => ds.map((d) => (d.room_id === id ? { ...d, archive_visibility: visibility } : d)));
+    setDebates((ds) => ds.map((d) => (d.room_id === id ? {
+      ...d,
+      archive_visibility: visibility,
+      pending_visibility_request: pending ? { requested_by: viewer.user_id, target_visibility: target } : null,
+    } : d)));
     setVisibilityDebate(null);
   };
   const toggleClipVisibility = async (clip) => {
@@ -505,7 +515,7 @@ export default function Profile() {
 
       {editingClip && <EditClipCaptionModal clip={editingClip} onClose={() => setEditingClip(null)} onSaved={onClipEdited} />}
       {deletingClip && <DeleteClipModal clip={deletingClip} onClose={() => setDeletingClip(null)} onDeleted={onClipDeleted} />}
-      {visibilityDebate && <ArchiveVisibilityModal debate={visibilityDebate} onClose={() => setVisibilityDebate(null)} onSaved={onVisibilitySaved} />}
+      {visibilityDebate && <ArchiveVisibilityModal debate={visibilityDebate} viewerId={viewer.user_id} onClose={() => setVisibilityDebate(null)} onSaved={onVisibilitySaved} />}
     </div>
   );
 }

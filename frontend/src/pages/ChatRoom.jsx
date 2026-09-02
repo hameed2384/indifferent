@@ -258,6 +258,14 @@ export default function ChatRoom() {
     } catch { toast.error("Failed to update publish state"); }
   };
 
+  const pickTopic = async (index) => {
+    try {
+      const { data } = await api.post(`/rooms/${roomId}/topic-preference`, { topic_index: index });
+      setRoom((r) => ({ ...r, topic_pref_a: data.topic_pref_a, topic_pref_b: data.topic_pref_b, custom_title: data.custom_title }));
+      if (data.custom_title) toast.success("Title set — you both picked the same one.");
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't set topic preference"); }
+  };
+
   const endDebate = () => setShowFeedback(true);
 
   const submitFeedback = async () => {
@@ -390,6 +398,36 @@ export default function ChatRoom() {
       {canTogglePublish && (myConsent || partnerConsent) && !publishState.is_public && (
         <div className="shrink-0 bg-[var(--accent-soft)] text-[color:var(--accent)] px-4 py-2 text-xs text-center border-b border-[var(--border)]">
           {myConsent ? "Waiting for your opposite to consent to publish…" : "Your opposite wants to go public — tap 'Go public' to agree."}
+        </div>
+      )}
+
+      {hasCoDebater && !room.custom_title && room.topics?.length > 0 && (
+        <div className="shrink-0 bg-[var(--surface)] border-b border-[var(--border)] px-4 py-2">
+          <div className="text-[10px] uppercase tracking-wide text-[var(--fg-subtle)] mb-1.5">
+            {(() => {
+              const myPref = room.my_role === "a" ? room.topic_pref_a : room.topic_pref_b;
+              const partnerPref = room.my_role === "a" ? room.topic_pref_b : room.topic_pref_a;
+              if (myPref != null && partnerPref != null) return "You picked different topics — the debate stays untitled until you agree";
+              if (myPref != null) return "Waiting for your opposite to pick a topic too…";
+              return "Pick the topic that best matches this debate (optional — needs agreement from both sides)";
+            })()}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {room.topics.map((t, i) => {
+              const myPref = room.my_role === "a" ? room.topic_pref_a : room.topic_pref_b;
+              const selected = myPref === i;
+              return (
+                <button
+                  key={i}
+                  onClick={() => pickTopic(i)}
+                  data-testid={`btn-topic-${i}`}
+                  className={selected ? "chip-accent text-xs" : "chip text-xs hover:bg-[var(--bg-muted)]"}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

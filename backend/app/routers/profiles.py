@@ -257,9 +257,11 @@ async def list_user_debates(user_id: str, viewer: Optional[User] = Depends(get_c
         "status": d.get("status", "active"),
         "categories": d.get("categories", []),
         "topics": d.get("topics", []),
+        "custom_title": d.get("custom_title"),
         "likes": int(d.get("likes", 0)),
         "published_at": d.get("published_at"),
         "archive_visibility": d.get("archive_visibility"),
+        "pending_visibility_request": d.get("pending_visibility_request"),
     } for d in docs]
     return {"debates": debates, "live_room_id": await find_live_room_id(user_id)}
 

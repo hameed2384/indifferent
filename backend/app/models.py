@@ -59,6 +59,7 @@ class SpectatorComment(BaseModel):
 
 class GoLiveRequest(BaseModel):
     category: str
+    title: Optional[str] = None  # the broadcaster's own words — the one case with a real single decider
 
 
 class JoinRequestCreate(BaseModel):
@@ -78,7 +79,16 @@ class PartyEnqueueRequest(BaseModel):
 
 
 class ArchiveVisibility(BaseModel):
-    visibility: str  # "private" | "unlisted" | "public"
+    visibility: str  # "private" | "unlisted" | "public" — only accepts a MORE-private move; see routers/rooms.py
+
+class ArchiveVisibilityRequestIn(BaseModel):
+    visibility: str  # the LESS-private state being requested — "unlisted" | "public"
+
+class ArchiveVisibilityDecision(BaseModel):
+    approve: bool
+
+class PublishConsent(BaseModel):
+    topic_index: Optional[int] = None  # 0/1/2 — this side's preferred pre-generated topic, optional
 
 
 class ClipUpdate(BaseModel):

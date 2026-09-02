@@ -17,6 +17,7 @@ import RecordedDebatePlayer from "@/components/RecordedDebatePlayer";
 import { excludeCategories } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 
 function ViewerOverlay({ side, navigate }) {
   const [following, setFollowing] = useState(null); // null = unknown/self/open, else bool
@@ -290,8 +291,11 @@ function RelatedDebates({ category, excludeRoomId, navigate, collapsed, onToggle
                     ? <span className="chip-accent !py-0 !px-1.5"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" /> Live</span>
                     : <span className="chip !py-0 !px-1.5">Published</span>}
                 </div>
+                {!isTitleConfirmed(d) && (
+                  <div className="text-[9px] uppercase tracking-wide text-[var(--fg-subtle)] mb-0.5">Suggested topic</div>
+                )}
                 <div className="text-sm font-medium leading-snug line-clamp-2">
-                  {d.topics?.[0] || "An unrecorded disagreement"}
+                  {titleFor(d)}
                 </div>
               </button>
             ))}
@@ -884,9 +888,15 @@ export default function WatchRoom() {
               )}
             </div>
 
-            {debate.topics?.length > 0 && (
+            {debate.custom_title ? (
               <div className="mt-6 card p-5">
-                <div className="eyebrow mb-2">Debate prompts</div>
+                <div className="eyebrow mb-2">Topic</div>
+                <div className="text-sm font-medium leading-snug" data-testid="watch-custom-title">{debate.custom_title}</div>
+              </div>
+            ) : debate.topics?.length > 0 && (
+              <div className="mt-6 card p-5">
+                <div className="eyebrow mb-2">Suggested prompts</div>
+                <p className="text-xs text-[var(--fg-subtle)] mb-2">Generated before the debate started — not confirmed by either side.</p>
                 <ol className="space-y-2">
                   {debate.topics.map((t, i) => (
                     <li key={i} className="text-sm leading-snug border-l-2 border-[var(--accent)] pl-3" data-testid={`watch-topic-${i}`}>{t}</li>

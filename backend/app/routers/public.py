@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..llm import analyze_vote_reasoning
-from ..models import User
+from ..models import PublishConsent, User
 from ..ratelimit import rate_limit
 from ..reactions import toggle_reaction
 from ..room_utils import MAX_PER_SIDE, is_participant, member_side, side_members
@@ -146,6 +146,41 @@ async def toggle_publish(room_id: str, user: User = Depends(get_current_user), _
             "is_public": updates["is_public"]}
 
 
+@router.post("/rooms/{room_id}/topic-preference")
+async def set_topic_preference(room_id: str, payload: PublishConsent, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+    """A DELIBERATELY separate call from toggle_publish above, even though
+    the plan was to fold topic selection "into the same moment" — the two
+    actions must never share one HTTP call, or expressing a topic
+    preference would silently also flip the caller's publish consent as a
+    side effect. Same UI moment (ChatRoom.jsx shows both together), two
+    independent calls. Deliberately dumb resolution, no adjudication:
+    once BOTH sides have picked, if they picked the SAME index, it becomes
+    `custom_title`; if they differ (or either skipped it), nothing happens
+    and topics[0] keeps showing by default. Agreement can override the
+    default; disagreement never fights over it."""
+    if payload.topic_index is None:
+        raise HTTPException(status_code=400, detail="topic_index required")
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if user.user_id not in (room["user_a"], room.get("user_b")):
+        raise HTTPException(status_code=403, detail="Only the original two debaters pick the topic")
+    topics = room.get("topics") or []
+    if not (0 <= payload.topic_index < len(topics)):
+        raise HTTPException(status_code=400, detail="Invalid topic_index")
+
+    field = "topic_pref_a" if room["user_a"] == user.user_id else "topic_pref_b"
+    other_field = "topic_pref_b" if field == "topic_pref_a" else "topic_pref_a"
+    updates = {field: payload.topic_index}
+    other_pref = room.get(other_field)
+    if other_pref is not None and other_pref == payload.topic_index:
+        updates["custom_title"] = topics[payload.topic_index]
+    await db.rooms.update_one({"room_id": room_id}, {"$set": updates})
+    return {"topic_pref_a": updates.get("topic_pref_a", room.get("topic_pref_a")),
+            "topic_pref_b": updates.get("topic_pref_b", room.get("topic_pref_b")),
+            "custom_title": updates.get("custom_title", room.get("custom_title"))}
+
+
 @router.get("/public/debates")
 async def list_public_debates(category: Optional[str] = None, q: Optional[str] = None):
     """Live public rooms + ended rooms archived as public (client brief #16, #21-24).
@@ -183,6 +218,7 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
             "status": r.get("status", "active"),
             "opposition_score": r.get("opposition_score"),
             "topics": r.get("topics", []),
+            "custom_title": r.get("custom_title"),
             "categories": r.get("categories", []),
             "likes": int(r.get("likes", 0)),
             "spectator_count": spectator_counts.get(r["room_id"], 0),
@@ -244,6 +280,7 @@ async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_c
         "status": r.get("status", "active"),
         "opposition_score": r.get("opposition_score"),
         "topics": r.get("topics", []),
+        "custom_title": r.get("custom_title"),
         "categories": r.get("categories", []),
         "likes": int(r.get("likes", 0)),
         "dislikes": int(r.get("dislikes", 0)),

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 function timeAgo(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -24,11 +25,12 @@ function messageFor(n) {
     case "clip_reply": return `${name} replied to your claim`;
     case "join_request_decided": return n.payload?.approved ? `You were let into ${name}'s debate` : `Your request to join ${name}'s debate was declined`;
     case "debater_live": return `${name} just went live`;
+    case "visibility_request": return `${name} wants to make your debate ${n.payload?.target_visibility || "more visible"}`;
     default: return `${name} did something`;
   }
 }
 
-function destinationFor(n) {
+function destinationFor(n, myUserId) {
   switch (n.type) {
     case "friend_request": return "/friends";
     case "friend_accept": return n.actor_id ? `/u/${n.actor_id}` : "/friends";
@@ -36,6 +38,9 @@ function destinationFor(n) {
     case "clip_reply": return n.payload?.clip_id ? `/claims/${n.payload.clip_id}` : null;
     case "join_request_decided": return n.payload?.room_id ? `/watch/${n.payload.room_id}` : null;
     case "debater_live": return n.payload?.room_id ? `/watch/${n.payload.room_id}` : null;
+    // Deciding a visibility request happens on the recipient's own profile
+    // (where ArchiveVisibilityModal lives), not the requester's page.
+    case "visibility_request": return myUserId ? `/u/${myUserId}` : null;
     default: return null;
   }
 }
@@ -50,6 +55,7 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const ref = useRef(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const load = () => {
     api.get("/notifications").then(({ data }) => {
@@ -88,7 +94,7 @@ export default function NotificationBell() {
 
   const onItemClick = (n) => {
     setOpen(false);
-    const to = destinationFor(n);
+    const to = destinationFor(n, user?.user_id);
     if (to) navigate(to);
   };
 
