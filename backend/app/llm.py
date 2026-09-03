@@ -4,6 +4,7 @@ generation, the debate coach, and the category-drift watcher added later)
 share the same call-and-parse shape, so it lives in one place instead of
 being duplicated per feature.
 """
+import asyncio
 import json
 import logging
 import uuid
@@ -32,24 +33,38 @@ async def call_gemini_json(system_message: str, prompt: str, session_id: Optiona
     """Ask Gemini for a JSON response — requested directly via response_mime_type
     (no markdown-fence stripping needed). Returns None on any failure (unconfigured,
     network, non-JSON reply) — callers decide their own fallback.
+
+    Retries twice with a short backoff before giving up: a free-tier Flash
+    model — especially a newly-launched one — routinely 503s with "currently
+    experiencing high demand... spikes are usually temporary" (confirmed
+    live: ~2 of 5 back-to-back calls hit this the day gemini-3.8-flash
+    launched). Google's own SDK already retries once internally and still
+    surfaces that as a raised exception, so without a retry HERE, a normal
+    transient spike looked identical to "Gemini isn't configured" and fell
+    straight to the static fallback content on every other request.
     """
     client = _get_client()
     if not client:
         logger.error("Gemini not configured (GEMINI_API_KEY unset)")
         return None
-    try:
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=system_message,
-                response_mime_type="application/json",
-            ),
-        )
-        return json.loads(response.text)
-    except Exception as e:
-        logger.error(f"Gemini call failed (session={session_id}): {e}")
-        return None
+    last_error: Optional[Exception] = None
+    for attempt in range(3):
+        try:
+            response = await client.aio.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=system_message,
+                    response_mime_type="application/json",
+                ),
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            last_error = e
+            if attempt < 2:
+                await asyncio.sleep(0.6 * (attempt + 1))  # 0.6s, then 1.2s
+    logger.error(f"Gemini call failed (session={session_id}) after 3 attempts: {last_error}")
+    return None
 
 
 VOTE_REASONING_SYSTEM = (
@@ -122,10 +137,18 @@ async def generate_tag_questions(tags: List[str]) -> List[dict]:
     data = await call_gemini_json(TAG_QUESTIONS_SYSTEM, prompt, session_id=f"tagq-{uuid.uuid4().hex[:8]}")
     if data is None:
         return []
+    # Case-insensitive match, snapped back to OUR requested casing — a custom
+    # tag (typed via onboarding's "Other") isn't guaranteed to come back
+    # byte-identical (observed live: Gemini re-cased a lowercase custom tag
+    # in its own reply). Matching case-sensitively silently dropped every
+    # question for that tag, which reads identically to "Gemini failed"
+    # even though the call itself succeeded.
+    requested_by_lower = {t.lower(): t for t in tags}
     out = []
     for i, q in enumerate(data.get("questions") or []):
-        tag = str(q.get("tag", ""))
-        if tag not in tags:
+        raw_tag = str(q.get("tag", "")).strip()
+        tag = requested_by_lower.get(raw_tag.lower())
+        if tag is None:
             continue  # Gemini hallucinated a tag we didn't ask for — drop it, don't trust it
         out.append({"id": f"ai{i}", "tag": tag, "text": str(q.get("text", ""))[:200], "invert": bool(q.get("invert", False))})
     return out[:10]
