@@ -38,12 +38,24 @@ function SidePlayer({ urls, label }) {
   );
 }
 
-export default function RecordedDebatePlayer({ recording, sideALabel, sideBLabel }) {
+export default function RecordedDebatePlayer({ recording, sideALabel, sideBLabel, sideBOpen }) {
   // aspect-video (not h-full) on each tile deliberately — this renders in
   // both a fixed-pixel-height mobile wrapper AND a desktop Normal-mode
   // column with no resolved ancestor height at all (VideoStage's own tiles
   // use the same self-sizing trick for exactly that reason: a percentage
   // height here would collapse to zero in the desktop case).
+  //
+  // A seat nobody ever filled has no recording to show and never will —
+  // skip that column entirely (matches the live tile being dropped for
+  // the same case, see WatchRoom.jsx) instead of a permanent "No
+  // recording available" placeholder for a side that was never there.
+  if (sideBOpen) {
+    return (
+      <div className="relative aspect-video rounded-lg overflow-hidden w-full">
+        <SidePlayer urls={recording?.a} label={sideALabel} />
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-2 gap-2 w-full">
       <div className="relative aspect-video rounded-lg overflow-hidden">

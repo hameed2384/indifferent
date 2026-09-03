@@ -596,7 +596,7 @@ function MobileWatch({
           live, the whole video area rendered as blank space. */}
       <div className="shrink-0 h-[42dvh] p-2 flex">
         {!isLive && debate.recording ? (
-          <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} />
+          <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} sideBOpen={debate.side_b.open} />
         ) : (
           <VideoStage
             tiles={tiles}
@@ -930,7 +930,11 @@ export default function WatchRoom() {
       placeholderFooter: isLive ? (lk.status === "connected" ? "Waiting for camera…" : "Connecting…") : "Debate ended",
     },
     ...extraTiles(debate.side_a_extra, "a", "Side A"),
-    {
+    // A seat nobody ever filled has nothing to replay once the debate's
+    // over — "Waiting for a debater to join" on an ended debate reads as
+    // broken, not just empty, so the tile itself is dropped entirely
+    // rather than switching to different placeholder text.
+    ...(isLive || !debate.side_b.open ? [{
       key: "b",
       identity: debate.side_b.identity || "side-b-open",
       overlay: <ViewerOverlay side={debate.side_b} navigate={navigate} />,
@@ -942,7 +946,7 @@ export default function WatchRoom() {
       placeholderFooter: debate.side_b.open ? "Waiting for a debater to join" : (isLive ? (lk.status === "connected" ? "Waiting for camera…" : "Connecting…") : "Debate ended"),
       body: debate.side_b.open && isLive && debate.side_a.identity !== `user-${user?.user_id}`
         ? <JoinStreamCard roomId={roomId} debate={debate} navigate={navigate} /> : undefined,
-    },
+    }] : []),
     ...extraTiles(debate.side_b_extra, "b", "Side B"),
   ];
   const pickableSides = [
@@ -994,7 +998,7 @@ export default function WatchRoom() {
           <div className="min-w-0 flex flex-col relative">
             <div className={`flex flex-col min-h-0 ${viewMode === "cinema" ? "lg:min-h-[80vh]" : ""}`}>
               {!isLive && debate.recording ? (
-                <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} />
+                <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} sideBOpen={debate.side_b.open} />
               ) : (
                 <VideoStage
                   tiles={tiles}

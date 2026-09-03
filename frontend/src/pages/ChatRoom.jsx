@@ -141,18 +141,18 @@ export default function ChatRoom() {
   // server-side compositing — each participant's own browser records ITS
   // OWN local camera+mic in ~15s chunks and uploads them progressively
   // (see rooms.py upload_recording_chunk's docstring for the full
-  // reasoning). Depending on `hasCoDebaterNow` (a boolean, not the
-  // participants array) matters: `room` gets replaced by a new object on
-  // every ~4s poll even when nothing changed, and using the array itself
-  // as a dependency would tear down and restart the recorder every poll,
-  // fragmenting the recording into near-useless few-second chunks.
+  // reasoning). Runs for a solo Go-Live broadcaster too, not just once a
+  // co-debater is present — Go-Live content deserves a replay on its own,
+  // and requiring a second debater meant a stream that never got an
+  // opponent had literally zero recorded video, ever (confirmed live: an
+  // ended, never-filled Go-Live room's replay was just silent placeholder
+  // tiles, nothing to play back).
   const chunkSeqRef = useRef(0);
-  const hasCoDebaterNow = (room?.participants || []).filter((p) => p.is_founding).length > 1;
   useEffect(() => {
     const videoTrack = lk.localVideoEl?.srcObject?.getVideoTracks?.()[0];
     const micPub = lk.room?.localParticipant?.getTrackPublication?.(Track.Source.Microphone);
     const audioTrack = micPub?.audioTrack?.mediaStreamTrack;
-    if (!videoTrack || !audioTrack || !hasCoDebaterNow || !roomId) return;
+    if (!videoTrack || !audioTrack || !roomId) return;
 
     const mimeType = pickMimeType();
     let recorder;
@@ -174,7 +174,7 @@ export default function ChatRoom() {
     };
     recorder.start(15000);
     return () => { if (recorder.state !== "inactive") recorder.stop(); };
-  }, [lk.localVideoEl, lk.room, hasCoDebaterNow, roomId]);
+  }, [lk.localVideoEl, lk.room, roomId]);
   // block: "nearest" — see WatchRoom.jsx's identical fix: the default
   // ("start") drags every scrollable ancestor, including the page itself,
   // toward aligning this element to the top, not just the chat panel.

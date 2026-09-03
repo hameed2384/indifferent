@@ -113,6 +113,13 @@ export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChan
     tiles[0];
 
   const validExtraCount = (extraTiles || []).filter(Boolean).length;
+  // A lone tile (e.g. a solo broadcaster's replay once an unfilled open
+  // seat is dropped entirely — see WatchRoom.jsx) fills the whole row
+  // instead of sitting pinned to a 2-column grid's left half with empty
+  // space beside it.
+  const normalCols = validExtraCount > 0
+    ? Math.min(Math.max(tiles.length + validExtraCount, 2), 4)
+    : Math.min(Math.max(tiles.length, 1), 2);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -157,7 +164,7 @@ export function VideoStage({ tiles, viewMode, spotlightIdentity, onSpotlightChan
           // rather than staying pinned at 2 regardless of what's on screen.
           <div
             className="grid gap-3 lg:gap-4 w-full"
-            style={{ gridTemplateColumns: `repeat(${validExtraCount > 0 ? Math.min(Math.max(tiles.length + validExtraCount, 2), 4) : 2}, minmax(0, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(${normalCols}, minmax(0, 1fr))` }}
           >
             {tiles.map((t) => <VideoTile key={t.key} tile={t} />)}
             {extraTiles}
