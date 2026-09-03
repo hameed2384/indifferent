@@ -39,7 +39,12 @@ GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
 # product is designed around (see memory/PRD.md); override if that string
 # isn't a valid model id for your key/account.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
+# gemini-3.8-flash: latest Flash-tier model, still on Google AI Studio's free
+# tier as of Sept 2026 (Pro-tier models were pulled from the free tier in
+# April 2026) — Flash's reasoning depth is plenty for this app's AI calls
+# (debate topics, Likert questions, stance summaries), so free > paying for
+# Pro-tier headroom nothing here actually needs.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
 LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "")
 LIVEKIT_API_KEY = os.environ.get("LIVEKIT_API_KEY", "")
