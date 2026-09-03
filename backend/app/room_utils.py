@@ -15,10 +15,6 @@ def side_members(room: dict, side: str) -> List[str]:
     return ([primary] if primary else []) + [m for m in extra if m]
 
 
-def all_members(room: dict) -> List[str]:
-    return side_members(room, "a") + side_members(room, "b")
-
-
 def member_side(room: dict, user_id: str) -> Optional[str]:
     if user_id in side_members(room, "a"):
         return "a"

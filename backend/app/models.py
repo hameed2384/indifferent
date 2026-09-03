@@ -57,22 +57,11 @@ class OnboardingSubmit(BaseModel):
     bio: Optional[str] = None
 
 
-class ChatMessage(BaseModel):
-    room_id: str
-    sender_id: str
-    text: str
-
-
 class MatchFeedback(BaseModel):
     room_id: str
     rating: int  # 1-5
     mind_changed: bool
     notes: Optional[str] = ""
-
-
-class SpectatorComment(BaseModel):
-    text: str
-    display_name: Optional[str] = None
 
 
 class GoLiveRequest(BaseModel):

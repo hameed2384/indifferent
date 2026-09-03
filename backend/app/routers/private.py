@@ -42,28 +42,6 @@ async def _require_friends(user_id: str, friend_id: str):
         raise HTTPException(status_code=403, detail="Private chat is friends-only")
 
 
-@router.get("/private/threads")
-async def list_threads(user: User = Depends(get_current_user)):
-    docs = await db.friendships.find(
-        {"status": "accepted", "$or": [{"user_a": user.user_id}, {"user_b": user.user_id}]}, {"_id": 0}
-    ).to_list(500)
-    out = []
-    for d in docs:
-        friend_id = d["user_b"] if d["user_a"] == user.user_id else d["user_a"]
-        friend = await db.users.find_one({"user_id": friend_id}, {"_id": 0}) or {}
-        pair = _pair_key(user.user_id, friend_id)
-        last = await db.private_messages.find_one({"pair_key": pair}, {"_id": 0}, sort=[("created_at", -1)])
-        out.append({
-            "friend_id": friend_id,
-            "display_name": friend.get("display_name") or friend.get("name") or "Friend",
-            "picture": friend.get("picture"),
-            "last_message": last["text"] if last else None,
-            "last_at": last["created_at"] if last else None,
-        })
-    out.sort(key=lambda t: t["last_at"] or "", reverse=True)
-    return {"threads": out}
-
-
 class PrivateMessageIn(BaseModel):
     text: str
 

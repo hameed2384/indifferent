@@ -3,46 +3,37 @@
 ## Original Problem Statement
 > Omegle-type app and website that pairs users with other users with differentiating views on politics and contemporary issues. The app would integrate AI to listen to the users' conversations and put them in categories, the app would then use the information to find an opposition for the customer. The app would be called Indifferent.
 
-## User Choices Confirmed (2026-02)
-- Real-time chat: **Video + text via WebRTC**
-- AI stance model: **Gemini 3.1 Pro** (via Emergent Universal Key)
-- Onboarding: **Political stance quiz + free-text views** (both, AI-blended)
-- Auth: **Emergent-managed Google social login**
-- Anonymity: **Profile required + ID verification essential**
+## Current Architecture (2026-09)
+- **Frontend**: React 19 (CRA + craco), Tailwind + Shadcn UI primitives, editorial brutalist theme. Hosted on Vercel.
+- **Backend**: FastAPI + Motor (async MongoDB), all routes prefixed `/api`. Deployed on Vercel as a Python serverless function — build/deploy is driven by `backend/pyproject.toml` + `backend/uv.lock` via `uv` (NOT `requirements.txt`, which is dev-convenience only and can drift out of sync with what's actually deployed).
+- **Auth**: Direct Google OAuth (`routers/auth.py`) — first-party session cookie (`samesite=none` in production so it survives cross-origin `<img>`/`<a>` loads) plus a Bearer-token fallback for Safari/iOS ITP. No third-party auth proxy.
+- **AI**: Groq (`app/llm.py`), OpenAI-compatible chat-completions API, `openai/gpt-oss-120b` by default. Powers debate-prompt generation, tag-based onboarding questions, and free-text tag-stance analysis. Model catalogs shift on Groq — verify via `client.models.list()` before assuming a model string still resolves.
+- **Realtime**: LiveKit (`routers/livekit.py`, `app/hubs.py`) for video/audio in debate rooms and private calls — not raw WebRTC signaling. The rest of the app (chat, votes, reactions, spectator counts) is REST polling, not WebSockets; there are no `@router.websocket` routes anywhere in the backend.
+- **Storage**: Vercel Blob (`app/storage.py`) for clip video uploads and ID-verification documents — public URLs for clips, backend-proxied (never exposed directly) for verification docs. Local disk is never used for user uploads (Vercel's serverless filesystem is ephemeral and previously caused real data loss).
+- **Payments**: Stripe (`routers/payments.py`) — membership subscription checkout (`subscriptions_debater` collection tracks status).
+- **Admin**: `routers/admin.py` + `/admin` frontend page, gated by an `ADMIN_EMAILS` allowlist; a computed `is_admin` flag on `/auth/me` (not stored on the `User` model, to avoid it leaking into other users' profile responses) drives the nav entry point.
 
-## Architecture
-- **Frontend**: React 19 (CRA), Tailwind + Shadcn UI primitives (radius=0), Playfair Display + IBM Plex Sans/Mono fonts, editorial brutalist theme.
-- **Backend**: FastAPI + Motor (async MongoDB). All routes prefixed `/api`.
-- **DB**: MongoDB collections — `users`, `user_sessions`, `match_queue`, `rooms`, `pending_rooms`, `chat_messages`, `feedback`.
-- **AI**: `emergentintegrations` → Gemini `gemini-3.1-pro-preview`. Blended score = 60% free-text AI + 40% quiz Likert projection onto (economic, social) axes ∈ [-10, 10].
-- **Storage**: Emergent Object Storage for ID docs (path `indifferent/verify/{user_id}/{uuid}.{ext}`).
-- **WebRTC**: Browser peer connections with Google STUN servers; FastAPI WebSocket at `/api/ws/room/{room_id}` for signaling + text chat.
+## Core Data Model (MongoDB collections, see `app/db.py`)
+`users`, `user_sessions`, `match_queue` / `party_match_queue`, `pending_rooms`, `rooms`, `chat_messages`, `coach_nudges`, `spectator_comments`, `spectator_heartbeats`, `room_reactions`, `room_join_requests`, `room_kick_votes`, `topic_stances` / `topic_stance_history`, `follows`, `friendships`, `subscriptions_debater`, `debate_votes`, `private_messages`, `private_calls`, `clips` / `clip_reactions`, `debate_recordings`, `feedback`, `reports`, `rate_limits`, `notifications`.
 
-## Core User Personas
-1. **The Progressive** — economic left, social liberal, wants to be challenged on trade-offs.
-2. **The Traditionalist** — economic right, social conservative, wants to be heard by the other side.
-3. **The Curious Centrist** — mixed axes, wants to sharpen positions against opposites.
+## What's Been Implemented
+- **Onboarding**: tag-based (pick topics you care about, including custom tags), not a fixed political quiz — Groq generates per-tag Likert-style questions and analyzes free-text stance.
+- **Matchmaking**: 1:1 and party-queue (friends queuing together, up to 2 per side), opposition scoring against tag stances.
+- **Debate rooms**: LiveKit video/audio, text chat, live coach nudges + topic-drift detection (`app/hubs.py`), join requests for public rooms, kick voting (with retraction).
+- **Public watch/spectate**: public debate feed (`/`, `routers/public.py`), live/ended debate viewing, likes/dislikes, audience voting, spectator comments, search (topics/categories/custom title).
+- **Group debates and monetization are both fully built** — no longer out of scope.
+- **Clips**: claim-tree clip creation/browsing/reactions from debate recordings, backed by Vercel Blob.
+- **Private**: friend-to-friend private chat + private LiveKit call, structurally isolated from the AI coach (this file has no Groq call site at all, by design — not a flag someone could flip).
+- **Profiles**: public profile pages, follow/friend graph, per-tag stance display.
+- **ID verification**: upload → Vercel Blob → admin review queue (`/admin`) with an admin-only document-viewing endpoint (backend-proxied, session-cookie-gated); `VERIFY_AUTO_APPROVE` env flag for auto-approving in dev/testing.
+- **Reports & moderation**: user-submitted reports (`routers/reports.py`), admin review queue.
+- **Notifications**: in-app notification feed (`routers/notifications.py`).
 
-## What's Been Implemented (2026-02)
-- **Auth**: Emergent Google OAuth end-to-end; session cookie + Bearer header; `/api/auth/me`, `/auth/session`, `/auth/logout`, `/auth/ws-ticket`.
-- **Onboarding**: 8-question Likert quiz + free-text; Gemini analyzes and returns `{economic, social, summary, tags}`.
-- **ID Verification**: Emergent Object Storage upload — MOCKED auto-approval (human review deferred).
-- **Matchmaking**: Opposition score = |Δeconomic| + |Δsocial|. Best-of-queue selection; poll fallback for waiter.
-- **Room + WebRTC**: Signaling for offer/answer/ICE; text-chat broadcast; AI-generated debate prompts per pair.
-- **Post-debate feedback**: 1-5 rating, mind-changed flag, notes → `debates` / `minds_changed` counters.
-- **Dashboard**: Stance map (two-axis dot), stats, AI summary quote, matched by design guidelines.
-- **Frontend routing**: Landing → OAuth callback → Onboarding → Verify → Dashboard → Match → Room.
+## Known Gaps (from the 2026-09 redundancy/incompleteness audit)
+- Admin portal: no suspend/ban (only permanent delete or a no-op flag), no inline report-content preview for chat/comment report types, no analytics, no payments visibility, no audit log of admin actions, no force-end-room/remove-clip.
+- CSRF guard (`require_xhr`) is applied inconsistently across body-less mutating POST endpoints.
+- No TURN server — LiveKit's own infra handles this rather than raw STUN-only WebRTC, but NAT traversal at scale hasn't been load-tested.
+- No automated test suite currently in the repo (the previous one targeted WebSocket endpoints that no longer exist and had silently rotted with nothing running it in CI).
 
-## Backlog (Prioritized)
-- **P1**: Real human ID review workflow (replace MOCKED auto-approve). Admin dashboard for moderation.
-- **P1**: Real-time transcript & mid-debate stance refinement (Gemini live commentary).
-- **P2**: TURN server for NAT traversal beyond STUN (needed for prod at scale).
-- **P2**: Public leaderboard of "minds changed" (opt-in) — shareability lever.
-- **P2**: Debate replay + shareable clip cards.
-- **P2**: Report & block system, cooldowns for bad actors.
-- **P3**: Native mobile app (React Native/Expo).
-
-## Non-goals (for MVP)
-- Group debates (>2 people)
-- Public forums or feeds
-- Monetization / subscriptions
+## Non-goals
+- Native mobile app (React Native/Expo) — web-only for now.
