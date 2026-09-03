@@ -12,7 +12,7 @@ Implementation lives in app/:
   config.py   env-driven settings (.env loading happens here)
   deps.py     get_current_user auth dependency
   models.py   Pydantic models
-  llm.py      Gemini integration (direct, via google-genai)
+  llm.py      LLM integration (Groq, via the official groq SDK)
   storage.py  ID-verification upload storage (local disk for now)
   hubs.py     the AI debate coach (stateless, DB-backed — see its docstring)
   categories.py  fixed broad category list

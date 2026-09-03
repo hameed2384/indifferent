@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from .categories import CATEGORIES
 from .db import db
-from .llm import call_gemini_json
+from .llm import call_llm_json
 from .room_utils import member_side
 
 logger = logging.getLogger("indifferent")
@@ -37,7 +37,7 @@ COACH_SYSTEM = (
 async def maybe_run_coach(room_id: str, room: dict):
     """Call after persisting a chat message. Bumps the room's message counter;
     once it hits 5 (and the 15s cooldown has elapsed), analyzes the recent
-    transcript and persists a coach_nudges doc if Gemini flags something.
+    transcript and persists a coach_nudges doc if the model flags something.
     The counter is always reset when a check is attempted — cooldown-skipped
     or not — so a burst of messages during cooldown can't spin the counter up
     without bound (the original in-memory version had exactly this bug).
@@ -64,7 +64,7 @@ async def maybe_run_coach(room_id: str, room: dict):
     transcript = "\n".join(
         f"{(member_side(room, m['sender_id']) or 'b').upper()}: {m['text']}" for m in msgs
     )
-    data = await call_gemini_json(COACH_SYSTEM, f"Recent transcript:\n{transcript}", session_id=f"coach-{room_id}")
+    data = await call_llm_json(COACH_SYSTEM, f"Recent transcript:\n{transcript}", session_id=f"coach-{room_id}")
     if not data or not data.get("intervene"):
         return
 
@@ -122,7 +122,7 @@ async def maybe_detect_topic_drift(room_id: str, room: dict):
         return
     msgs.reverse()
     transcript = "\n".join(m["text"] for m in msgs)
-    data = await call_gemini_json(TOPIC_DRIFT_SYSTEM, f"Recent transcript:\n{transcript}", session_id=f"topicdrift-{room_id}")
+    data = await call_llm_json(TOPIC_DRIFT_SYSTEM, f"Recent transcript:\n{transcript}", session_id=f"topicdrift-{room_id}")
     if not data:
         return
     category = data.get("category")

@@ -1,8 +1,9 @@
-"""Gemini integration via Google's official google-genai SDK (direct — replaces
-the old Emergent LLM proxy). All AI features (stance analysis, topic
-generation, the debate coach, and the category-drift watcher added later)
-share the same call-and-parse shape, so it lives in one place instead of
-being duplicated per feature.
+"""LLM integration via Groq (fast, generous free tier, no credit card —
+replaces an earlier direct Gemini integration that kept 503ing "high
+demand" on a newly-launched free-tier Flash model). All AI features
+(stance analysis, topic generation, the debate coach, and the
+category-drift watcher) share the same call-and-parse shape, so it lives
+in one place instead of being duplicated per feature.
 """
 import asyncio
 import json
@@ -10,60 +11,57 @@ import logging
 import uuid
 from typing import List, Optional
 
-from google import genai
-from google.genai import types as genai_types
+from groq import AsyncGroq
 
-from .config import GEMINI_API_KEY, GEMINI_MODEL
+from .config import GROQ_API_KEY, GROQ_MODEL
 
 logger = logging.getLogger("indifferent")
 
-_client: Optional[genai.Client] = None
+_client: Optional[AsyncGroq] = None
 
 
-def _get_client() -> Optional[genai.Client]:
+def _get_client() -> Optional[AsyncGroq]:
     global _client
-    if not GEMINI_API_KEY:
+    if not GROQ_API_KEY:
         return None
     if _client is None:
-        _client = genai.Client(api_key=GEMINI_API_KEY)
+        _client = AsyncGroq(api_key=GROQ_API_KEY)
     return _client
 
 
-async def call_gemini_json(system_message: str, prompt: str, session_id: Optional[str] = None) -> Optional[dict]:
-    """Ask Gemini for a JSON response — requested directly via response_mime_type
-    (no markdown-fence stripping needed). Returns None on any failure (unconfigured,
-    network, non-JSON reply) — callers decide their own fallback.
+async def call_llm_json(system_message: str, prompt: str, session_id: Optional[str] = None) -> Optional[dict]:
+    """Ask the model for a JSON response via response_format={"type":
+    "json_object"} — Groq requires the word "JSON" to appear somewhere in
+    the messages for this mode, which every system prompt in this file
+    already satisfies ("Return ONLY valid JSON..."). Returns None on any
+    failure (unconfigured, network, non-JSON reply) — callers decide their
+    own fallback.
 
-    Retries twice with a short backoff before giving up: a free-tier Flash
-    model — especially a newly-launched one — routinely 503s with "currently
-    experiencing high demand... spikes are usually temporary" (confirmed
-    live: ~2 of 5 back-to-back calls hit this the day gemini-3.8-flash
-    launched). Google's own SDK already retries once internally and still
-    surfaces that as a raised exception, so without a retry HERE, a normal
-    transient spike looked identical to "Gemini isn't configured" and fell
-    straight to the static fallback content on every other request.
+    Retries twice with a short backoff before giving up — kept from the
+    earlier Gemini integration's defensive shape, since any hosted
+    free-tier model can have a transient bad moment.
     """
     client = _get_client()
     if not client:
-        logger.error("Gemini not configured (GEMINI_API_KEY unset)")
+        logger.error("Groq not configured (GROQ_API_KEY unset)")
         return None
     last_error: Optional[Exception] = None
     for attempt in range(3):
         try:
-            response = await client.aio.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt,
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=system_message,
-                    response_mime_type="application/json",
-                ),
+            response = await client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
             )
-            return json.loads(response.text)
+            return json.loads(response.choices[0].message.content)
         except Exception as e:
             last_error = e
             if attempt < 2:
                 await asyncio.sleep(0.6 * (attempt + 1))  # 0.6s, then 1.2s
-    logger.error(f"Gemini call failed (session={session_id}) after 3 attempts: {last_error}")
+    logger.error(f"Groq call failed (session={session_id}) after 3 attempts: {last_error}")
     return None
 
 
@@ -79,15 +77,15 @@ VOTE_REASONING_SYSTEM = (
 async def analyze_vote_reasoning(topic: str, side_a_label: str, side_b_label: str, reasoning: str) -> Optional[dict]:
     """Client brief #18 — a viewer's agree/disagree reasoning refines their own
     topic_stances position. Returns None (caller falls back to a flat
-    directional nudge) if there's no reasoning text or Gemini is unavailable."""
+    directional nudge) if there's no reasoning text or the model is unavailable."""
     if not reasoning or not reasoning.strip():
         return None
     prompt = f"Topic: {topic}\nSIDE A: {side_a_label}\nSIDE B: {side_b_label}\nSpectator's reasoning: {reasoning.strip()[:1000]}"
-    return await call_gemini_json(VOTE_REASONING_SYSTEM, prompt, session_id=f"vote-{uuid.uuid4().hex[:8]}")
+    return await call_llm_json(VOTE_REASONING_SYSTEM, prompt, session_id=f"vote-{uuid.uuid4().hex[:8]}")
 
 
 async def generate_topics(tag: str, a: dict, b: dict) -> List[str]:
-    """Ask Gemini for 3 debate prompts specific to one shared interest tag.
+    """Ask the model for 3 debate prompts specific to one shared interest tag.
     a, b: {"position": float, "summary": str} — each side's TopicStance for `tag`."""
     prompt = (
         f"Two people are about to have a civil debate about {tag}. "
@@ -97,7 +95,7 @@ async def generate_topics(tag: str, a: dict, b: dict) -> List[str]:
         "that highlight their likely disagreement. "
         'Return JSON only: {"topics": ["...", "...", "..."]}'
     )
-    data = await call_gemini_json(
+    data = await call_llm_json(
         "You generate short debate prompts. Return only valid JSON.",
         prompt,
         session_id=f"topics-{uuid.uuid4().hex[:8]}",
@@ -130,26 +128,27 @@ TAG_QUESTIONS_SYSTEM = (
 
 
 async def generate_tag_questions(tags: List[str]) -> List[dict]:
-    """Ask Gemini for up to ~10 Likert statements spread across the given tags.
-    Returns [] on any failure — caller (onboarding.py) owns the fallback bank,
-    same convention as every other function in this file."""
+    """Ask the model for up to ~10 Likert statements spread across the given
+    tags. Returns [] on any failure — caller (onboarding.py) owns the
+    fallback bank, same convention as every other function in this file."""
     prompt = f"Tags: {tags}. Generate up to 10 total Likert statements across these tags, split roughly evenly."
-    data = await call_gemini_json(TAG_QUESTIONS_SYSTEM, prompt, session_id=f"tagq-{uuid.uuid4().hex[:8]}")
+    data = await call_llm_json(TAG_QUESTIONS_SYSTEM, prompt, session_id=f"tagq-{uuid.uuid4().hex[:8]}")
     if data is None:
         return []
     # Case-insensitive match, snapped back to OUR requested casing — a custom
     # tag (typed via onboarding's "Other") isn't guaranteed to come back
-    # byte-identical (observed live: Gemini re-cased a lowercase custom tag
-    # in its own reply). Matching case-sensitively silently dropped every
-    # question for that tag, which reads identically to "Gemini failed"
-    # even though the call itself succeeded.
+    # byte-identical (observed live with the earlier Gemini integration: it
+    # re-cased a lowercase custom tag in its own reply — kept defensive here
+    # regardless of provider). Matching case-sensitively silently dropped
+    # every question for that tag, which reads identically to "the call
+    # failed" even though it actually succeeded.
     requested_by_lower = {t.lower(): t for t in tags}
     out = []
     for i, q in enumerate(data.get("questions") or []):
         raw_tag = str(q.get("tag", "")).strip()
         tag = requested_by_lower.get(raw_tag.lower())
         if tag is None:
-            continue  # Gemini hallucinated a tag we didn't ask for — drop it, don't trust it
+            continue  # model hallucinated a tag we didn't ask for — drop it, don't trust it
         out.append({"id": f"ai{i}", "tag": tag, "text": str(q.get("text", ""))[:200], "invert": bool(q.get("invert", False))})
     return out[:10]
 
@@ -171,12 +170,12 @@ TAG_STANCE_SYSTEM = (
 async def analyze_free_text_for_tags(text: str, tags: List[str]) -> dict:
     """-> {tag: {"position": float, "summary": str, "tags": [str]}} for whichever
     of `tags` the free text actually said something about. {} if no text or
-    Gemini is unavailable — caller blends 100% quiz-derived position for any
-    tag missing here, same fallback shape analyze_free_text used to have."""
+    the model is unavailable — caller blends 100% quiz-derived position for
+    any tag missing here."""
     if not text or not text.strip():
         return {}
     prompt = f"Tags: {tags}\nText: {text.strip()[:3000]}"
-    data = await call_gemini_json(TAG_STANCE_SYSTEM, prompt, session_id=f"tagstance-{uuid.uuid4().hex[:8]}")
+    data = await call_llm_json(TAG_STANCE_SYSTEM, prompt, session_id=f"tagstance-{uuid.uuid4().hex[:8]}")
     if data is None:
         return {}
     out = {}

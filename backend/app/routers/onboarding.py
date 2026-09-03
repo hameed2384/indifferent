@@ -11,10 +11,10 @@ from ..topic_stances import upsert_topic_stance
 
 router = APIRouter()
 
-# Real, hand-written fallback bank — not a stub. GEMINI_API_KEY is unset in
-# this environment right now, so this path runs on every onboarding until
-# that's configured; it needs to be a genuinely usable question set per tag,
-# same standard as the old fixed 8-question quiz it replaces.
+# Real, hand-written fallback bank — not a stub. This runs whenever the
+# GROQ_API_KEY is unset or a call fails, so it needs to be a genuinely
+# usable question set per tag, same standard as the old fixed 8-question
+# quiz it replaces.
 FALLBACK_TAG_QUESTIONS: Dict[str, List[dict]] = {
     "Politics": [
         {"text": "The government should tax the wealthy more to fund social programs.", "invert": True},
