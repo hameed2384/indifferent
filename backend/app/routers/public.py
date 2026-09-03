@@ -185,8 +185,11 @@ async def set_topic_preference(room_id: str, payload: PublishConsent, user: User
 async def list_public_debates(category: Optional[str] = None, q: Optional[str] = None):
     """Live public rooms + ended rooms archived as public (client brief #16, #21-24).
     `category` filters to rooms tagged with that exact category; `q` searches
-    topics/category text (title/description equivalents — rooms don't have a
-    separate user-authored title, the Gemini-generated topics serve that role)."""
+    title/topics/category text — `custom_title` (a Go-Live broadcaster's own
+    words, or a matched debate's mutually-agreed topic — see
+    lib/debateTitle.js on the frontend) takes priority as the room's real
+    title where it exists, but `topics` (the AI-suggested prompts) must stay
+    searchable too since most matched debates never resolve one."""
     query: dict = {"$or": [
         {"is_public": True, "status": "active"},
         {"archive_visibility": "public"},
@@ -200,6 +203,7 @@ async def list_public_debates(category: Optional[str] = None, q: Optional[str] =
         # matching server-side.
         pattern = re.escape(q.strip()[:200])
         query = {"$and": [query, {"$or": [
+            {"custom_title": {"$regex": pattern, "$options": "i"}},
             {"topics": {"$regex": pattern, "$options": "i"}},
             {"categories": {"$regex": pattern, "$options": "i"}},
         ]}]}

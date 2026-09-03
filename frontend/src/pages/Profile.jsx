@@ -18,6 +18,7 @@ import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_MEDIUM } from "@/lib/layout";
 import { DEBATER_SUB_PRICE } from "@/lib/pricing";
 import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
+import NotFound from "@/pages/NotFound";
 
 function formatJoinDate(iso) {
   if (!iso) return null;
@@ -288,11 +289,7 @@ export default function Profile() {
     } catch { /* noop */ }
   };
 
-  if (notFound) return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-sm text-[var(--fg-subtle)]">
-      Profile not found.
-    </div>
-  );
+  if (notFound) return <NotFound />;
   if (!profile) return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-sm text-[var(--fg-subtle)]">Loading…</div>;
 
   const joinDate = formatJoinDate(profile.created_at);

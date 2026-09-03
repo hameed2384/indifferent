@@ -995,14 +995,20 @@ export default function WatchRoom() {
         />
 
         <main className="min-w-0 flex-1 flex flex-col gap-6">
-          {/* Video + chat sidebar share a row sized to the VIDEO's own
-              height — previously this grid spanned the entire column
-              (video through the vote panel at the very bottom), so the
-              sidebar's flex-stretch made it match that full height too,
-              towering way past its own chat content. Topic/description/
-              etc. now live in a separate full-width block below instead
-              of inside this row. */}
-          <div className={`grid gap-6 ${chatSidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_64px]"}`}>
+          {/* Video + chat sidebar share a row, each sized to its OWN content
+              — items-start, not the grid default (stretch). Previously
+              whichever column was taller forced the other to match it:
+              first confirmed with a tall chat sidebar towering past a
+              short video column (the original bug this row split off the
+              rest of the page to fix), then confirmed AGAIN in the other
+              direction — an ended debate with two small "Deleted account"
+              placeholder tiles next to a chat sidebar that's naturally
+              taller (ad banner + min-height chat body + input footer)
+              stretched the video column to match, leaving ~780px of blank
+              dead space below the video controls before the next section.
+              Letting each column size independently fixes both directions
+              at once instead of guessing which one should dictate height. */}
+          <div className={`grid gap-6 items-start ${chatSidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_64px]"}`}>
             <div className="min-w-0 flex flex-col relative">
               <div className={`flex flex-col min-h-0 ${viewMode === "cinema" ? "lg:min-h-[80vh]" : ""}`}>
                 {!isLive && debate.recording ? (
