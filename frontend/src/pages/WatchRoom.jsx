@@ -994,44 +994,75 @@ export default function WatchRoom() {
           collapsed={relatedCollapsed} onToggleCollapsed={() => setRelatedCollapsed((v) => !v)}
         />
 
-        <main className={`min-w-0 flex-1 grid gap-6 ${chatSidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_64px]"}`}>
-          <div className="min-w-0 flex flex-col relative">
-            <div className={`flex flex-col min-h-0 ${viewMode === "cinema" ? "lg:min-h-[80vh]" : ""}`}>
-              {!isLive && debate.recording ? (
-                <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} sideBOpen={debate.side_b.open} />
-              ) : (
-                <VideoStage
-                  tiles={tiles}
+        <main className="min-w-0 flex-1 flex flex-col gap-6">
+          {/* Video + chat sidebar share a row sized to the VIDEO's own
+              height — previously this grid spanned the entire column
+              (video through the vote panel at the very bottom), so the
+              sidebar's flex-stretch made it match that full height too,
+              towering way past its own chat content. Topic/description/
+              etc. now live in a separate full-width block below instead
+              of inside this row. */}
+          <div className={`grid gap-6 ${chatSidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_64px]"}`}>
+            <div className="min-w-0 flex flex-col relative">
+              <div className={`flex flex-col min-h-0 ${viewMode === "cinema" ? "lg:min-h-[80vh]" : ""}`}>
+                {!isLive && debate.recording ? (
+                  <RecordedDebatePlayer recording={debate.recording} sideALabel={debate.side_a.display_name} sideBLabel={debate.side_b.display_name} sideBOpen={debate.side_b.open} />
+                ) : (
+                  <VideoStage
+                    tiles={tiles}
+                    viewMode={viewMode}
+                    spotlightIdentity={spotlightIdentity}
+                    onSpotlightChange={setSpotlightIdentity}
+                    mobileSpotlightIdentity={debate.side_a.identity}
+                  />
+                )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <VideoControls
                   viewMode={viewMode}
+                  onViewModeChange={setViewMode}
                   spotlightIdentity={spotlightIdentity}
+                  sides={pickableSides}
                   onSpotlightChange={setSpotlightIdentity}
-                  mobileSpotlightIdentity={debate.side_a.identity}
                 />
-              )}
+                {debate.categories?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {debate.categories.map((c) => <span key={c} className="chip">{c}</span>)}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <VideoControls
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                spotlightIdentity={spotlightIdentity}
-                sides={pickableSides}
-                onSpotlightChange={setSpotlightIdentity}
-              />
-              {debate.categories?.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {debate.categories.map((c) => <span key={c} className="chip">{c}</span>)}
-                </div>
-              )}
-            </div>
+            <WatchChatSidebar
+              collapsed={!chatSidebarOpen}
+              onToggleCollapsed={() => setChatSidebarOpen((v) => !v)}
+              chatTab={chatTab}
+              setChatTab={setChatTab}
+              unreadDebater={unreadDebater}
+              unreadViewer={unreadViewer}
+              chat={chat}
+              isLive={isLive}
+              connected={connected}
+              chatEndRef={chatEndRef}
+              comments={comments}
+              commentEndRef={commentEndRef}
+              commentText={commentText}
+              setCommentText={setCommentText}
+              sendComment={sendComment}
+              user={user}
+              spectatorCount={spectatorCount}
+            />
+          </div>
 
+          <div className="min-w-0">
             {debate.custom_title ? (
-              <div className="mt-6 card p-5">
+              <div className="card p-5">
                 <div className="eyebrow mb-2">Topic</div>
                 <div className="text-sm font-medium leading-snug" data-testid="watch-custom-title">{debate.custom_title}</div>
               </div>
             ) : debate.topics?.length > 0 && (
-              <div className="mt-6 card p-5">
+              <div className="card p-5">
                 <div className="eyebrow mb-2">Suggested prompts</div>
                 <p className="text-xs text-[var(--fg-subtle)] mb-2">Generated before the debate started — not confirmed by either side.</p>
                 <ol className="space-y-2">
@@ -1106,26 +1137,6 @@ export default function WatchRoom() {
               />
             </div>
           </div>
-
-          <WatchChatSidebar
-            collapsed={!chatSidebarOpen}
-            onToggleCollapsed={() => setChatSidebarOpen((v) => !v)}
-            chatTab={chatTab}
-            setChatTab={setChatTab}
-            unreadDebater={unreadDebater}
-            unreadViewer={unreadViewer}
-            chat={chat}
-            isLive={isLive}
-            connected={connected}
-            chatEndRef={chatEndRef}
-            comments={comments}
-            commentEndRef={commentEndRef}
-            commentText={commentText}
-            setCommentText={setCommentText}
-            sendComment={sendComment}
-            user={user}
-            spectatorCount={spectatorCount}
-          />
         </main>
       </div>
 
