@@ -1,64 +1,184 @@
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
+from ..categories import CATEGORIES
 from ..db import db
 from ..deps import get_current_user
-from ..llm import analyze_free_text
-from ..models import OnboardingSubmit, StanceScores, User
+from ..llm import analyze_free_text_for_tags, generate_tag_questions
+from ..models import LikertQuestion, OnboardingSubmit, TagQuestionsRequest, TagQuestionsResponse, User
 from ..topic_stances import upsert_topic_stance
 
 router = APIRouter()
 
-QUIZ_QUESTIONS = [
-    {"id": "q1", "text": "The government should tax the wealthy more to fund social programs.", "axis": "economic", "invert": True},
-    {"id": "q2", "text": "Free markets, with minimal regulation, produce the best outcomes.", "axis": "economic", "invert": False},
-    {"id": "q3", "text": "Immigration strengthens our country and should be expanded.", "axis": "social", "invert": True},
-    {"id": "q4", "text": "Traditional family values are essential to a healthy society.", "axis": "social", "invert": False},
-    {"id": "q5", "text": "Aggressive action on climate change is worth the economic cost.", "axis": "economic", "invert": True},
-    {"id": "q6", "text": "Stricter gun control laws would make our country safer.", "axis": "social", "invert": True},
-    {"id": "q7", "text": "Healthcare should be provided by the government as a right.", "axis": "economic", "invert": True},
-    {"id": "q8", "text": "National identity and cultural heritage should be prioritized in policy.", "axis": "social", "invert": False},
-]
+# Real, hand-written fallback bank — not a stub. GEMINI_API_KEY is unset in
+# this environment right now, so this path runs on every onboarding until
+# that's configured; it needs to be a genuinely usable question set per tag,
+# same standard as the old fixed 8-question quiz it replaces.
+FALLBACK_TAG_QUESTIONS: Dict[str, List[dict]] = {
+    "Politics": [
+        {"text": "The government should tax the wealthy more to fund social programs.", "invert": True},
+        {"text": "Traditional family values are essential to a healthy society.", "invert": False},
+        {"text": "Immigration strengthens our country and should be expanded.", "invert": True},
+        {"text": "Free markets, with minimal regulation, produce the best outcomes.", "invert": False},
+    ],
+    "Sports": [
+        {"text": "Superstar players matter more to a team's success than coaching.", "invert": False},
+        {"text": "Individual talent matters more than team chemistry.", "invert": False},
+        {"text": "Modern athletes are overpaid relative to their impact.", "invert": True},
+        {"text": "Statistics and analytics have made sports worse to watch.", "invert": True},
+    ],
+    "Music": [
+        {"text": "Mainstream pop is creatively inferior to underground/indie music.", "invert": False},
+        {"text": "Auto-tune and production tricks ruin authentic musical talent.", "invert": False},
+        {"text": "Streaming has been good for music as an art form.", "invert": True},
+        {"text": "Physical media (vinyl, CDs) sounds meaningfully better than digital.", "invert": False},
+    ],
+    "Anime": [
+        {"text": "Subbed anime is always better than dubbed.", "invert": False},
+        {"text": "Long-running shonen anime are overrated compared to shorter series.", "invert": False},
+        {"text": "Anime has become too focused on fan service in recent years.", "invert": False},
+        {"text": "Studio Ghibli-style films are more artistically valuable than typical shonen action.", "invert": False},
+    ],
+    "Movies & TV": [
+        {"text": "Streaming services have made movies and TV worse overall.", "invert": False},
+        {"text": "Remakes and reboots are creatively lazy.", "invert": False},
+        {"text": "Superhero movies have been good for the film industry.", "invert": True},
+        {"text": "Critics' opinions matter more than audience scores.", "invert": False},
+    ],
+    "Technology": [
+        {"text": "AI will do more good than harm for society.", "invert": True},
+        {"text": "Social media has been bad for society overall.", "invert": False},
+        {"text": "Big tech companies need much stricter regulation.", "invert": False},
+        {"text": "Newer isn't always better when it comes to technology.", "invert": False},
+    ],
+    "Gaming": [
+        {"text": "Single-player story-driven games matter more than competitive multiplayer.", "invert": False},
+        {"text": "Microtransactions have ruined modern gaming.", "invert": False},
+        {"text": "Remasters and remakes are usually worth it over playing the original.", "invert": True},
+        {"text": "Difficulty options should always be available in every game.", "invert": True},
+    ],
+    "Science": [
+        {"text": "Space exploration funding is worth the cost.", "invert": True},
+        {"text": "Scientific consensus should rarely be publicly questioned.", "invert": False},
+        {"text": "We should prioritize practical research over pure/theoretical science.", "invert": False},
+        {"text": "Genetic engineering in humans will do more good than harm.", "invert": True},
+    ],
+    "Relationships": [
+        {"text": "Long-distance relationships rarely work out.", "invert": False},
+        {"text": "Compatibility matters more than initial attraction.", "invert": True},
+        {"text": "Social media has made modern dating worse.", "invert": False},
+        {"text": "People should prioritize their career over relationships in their 20s.", "invert": False},
+    ],
+    "Religion": [
+        {"text": "Religion provides more good than harm to society.", "invert": True},
+        {"text": "Religious institutions should have less influence on public policy.", "invert": False},
+        {"text": "Faith and science are fundamentally compatible.", "invert": True},
+        {"text": "Organized religion is becoming less relevant in modern life.", "invert": False},
+    ],
+    "Other": [
+        {"text": "People online are ruder than they'd be in person.", "invert": False},
+        {"text": "Most viral trends are more annoying than entertaining.", "invert": False},
+        {"text": "Cancel culture does more good than harm.", "invert": True},
+        {"text": "People take most disagreements online too seriously.", "invert": False},
+    ],
+}
 
 
-def quiz_to_scores(answers: Dict[str, int]) -> tuple[float, float]:
-    """Convert quiz Likert answers (1-5) to two scores in [-10, 10]."""
-    econ_vals: List[float] = []
-    soc_vals: List[float] = []
-    for q in QUIZ_QUESTIONS:
-        raw = answers.get(q["id"])
+def _fallback_questions_for(tags: List[str], limit: int) -> List[LikertQuestion]:
+    """Round-robin across the chosen tags rather than exhausting one tag's
+    bank before moving to the next, so a 3-tag pick reliably samples all
+    three instead of front-loading whichever tag happened to be first."""
+    per_tag_idx = {t: 0 for t in tags}
+    out: List[LikertQuestion] = []
+    i = 0
+    while len(out) < limit and any(per_tag_idx[t] < len(FALLBACK_TAG_QUESTIONS.get(t, [])) for t in tags):
+        tag = tags[i % len(tags)]
+        bank = FALLBACK_TAG_QUESTIONS.get(tag, [])
+        idx = per_tag_idx[tag]
+        if idx < len(bank):
+            q = bank[idx]
+            out.append(LikertQuestion(id=f"fb{len(out)}", tag=tag, text=q["text"], invert=q["invert"]))
+            per_tag_idx[tag] += 1
+        i += 1
+    return out
+
+
+def quiz_to_tag_positions(questions: List[LikertQuestion], answers: Dict[str, int]) -> Dict[str, float]:
+    """Generalizes the old quiz_to_scores' (raw-3)*5 + invert + average math
+    from two fixed axes to arbitrary tags — grouped by question.tag instead."""
+    by_tag: Dict[str, List[float]] = {}
+    for q in questions:
+        raw = answers.get(q.id)
         if raw is None:
             continue
-        raw = max(1, min(5, int(raw)))  # clamp: a bogus answer shouldn't be able to blow the -10..10 stance range
+        raw = max(1, min(5, int(raw)))  # clamp: a bogus answer shouldn't blow the -10..10 range
         v = (raw - 3) * 5  # 1..5 -> -10..10
-        if q["invert"]:
+        if q.invert:
             v = -v
-        (econ_vals if q["axis"] == "economic" else soc_vals).append(v)
-    econ = sum(econ_vals) / len(econ_vals) if econ_vals else 0.0
-    soc = sum(soc_vals) / len(soc_vals) if soc_vals else 0.0
-    return econ, soc
+        by_tag.setdefault(q.tag, []).append(v)
+    return {tag: sum(vals) / len(vals) for tag, vals in by_tag.items()}
+
+
+@router.post("/onboarding/questions/generate", response_model=TagQuestionsResponse)
+async def generate_questions(payload: TagQuestionsRequest, user: User = Depends(get_current_user)):
+    tags = list(dict.fromkeys(payload.tags))[:3]  # de-dupe, cap at 3
+    if not tags:
+        raise HTTPException(status_code=400, detail="Pick at least one tag")
+    if any(t not in CATEGORIES for t in tags):
+        raise HTTPException(status_code=400, detail="Unknown tag")
+
+    ai = await generate_tag_questions(tags)
+    questions = [LikertQuestion(**q) for q in ai]
+
+    # Fill in any tag the AI skipped (partial failure) or the whole set if
+    # Gemini is unconfigured — never leave a chosen tag with zero questions.
+    covered = {q.tag for q in questions}
+    missing = [t for t in tags if t not in covered]
+    if missing or not questions:
+        remaining_slots = max(0, 10 - len(questions))
+        questions += _fallback_questions_for(missing or tags, remaining_slots)
+
+    return TagQuestionsResponse(questions=questions[:10])
 
 
 @router.post("/onboarding/submit", response_model=User)
 async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_current_user)):
+    tags = list(dict.fromkeys(payload.tags))[:3]
+    if not tags:
+        raise HTTPException(status_code=400, detail="Pick at least one tag")
+    if any(t not in CATEGORIES for t in tags):
+        raise HTTPException(status_code=400, detail="Unknown tag")
+    # Trust boundary: invert is echoed back by the client (no server-side
+    # session storage for the AI-generated question set — see
+    # Onboarding.jsx). Drop anything claiming a tag we didn't ask about
+    # rather than trusting it outright.
+    questions = [q for q in payload.questions if q.tag in tags]
+
     free_text = (payload.free_text or "")[:3000]
-    econ_q, soc_q = quiz_to_scores(payload.quiz_answers or {})
-    ai_stance = await analyze_free_text(free_text)
-    # Blend: 60% AI free-text (if provided) + 40% quiz. If no free text, 100% quiz.
-    if free_text.strip():
-        econ = 0.6 * ai_stance.economic + 0.4 * econ_q
-        soc = 0.6 * ai_stance.social + 0.4 * soc_q
-    else:
-        econ, soc = econ_q, soc_q
-    final = StanceScores(
-        economic=round(max(-10.0, min(10.0, econ)), 2),
-        social=round(max(-10.0, min(10.0, soc)), 2),
-        summary=ai_stance.summary or "Stance derived from quiz answers.",
-        tags=ai_stance.tags,
-    )
+    quiz_positions = quiz_to_tag_positions(questions, payload.quiz_answers or {})
+    ai_positions = await analyze_free_text_for_tags(free_text, tags)
+
+    final: Dict[str, dict] = {}
+    for tag in tags:
+        q_pos = quiz_positions.get(tag, 0.0)
+        ai_tag = ai_positions.get(tag)
+        if ai_tag is not None:
+            position = 0.6 * ai_tag["position"] + 0.4 * q_pos
+            summary = ai_tag["summary"] or "Stance derived from quiz answers."
+            sub_tags = ai_tag["tags"]
+        else:
+            position = q_pos
+            summary = "Stance derived from quiz answers."
+            sub_tags = []
+        final[tag] = {
+            "position": round(max(-10.0, min(10.0, position)), 2),
+            "summary": summary,
+            "tags": sub_tags,
+        }
+
     update = {
-        "stance": final.model_dump(),
+        "interest_tags": tags,
         "onboarded": True,
     }
     if payload.display_name:
@@ -67,16 +187,12 @@ async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_
         update["bio"] = payload.bio[:300]
     await db.users.update_one({"user_id": user.user_id}, {"$set": update})
 
-    # Mirror into the generalized per-topic spectrum model so the profile UI can
-    # render politics as two rows in the same list as every other category,
-    # instead of a one-off two-axis square map (client brief #10).
-    await upsert_topic_stance(user.user_id, "Politics: Economic", "Politics", final.economic, final.summary, final.tags)
-    await upsert_topic_stance(user.user_id, "Politics: Social", "Politics", final.social, final.summary, final.tags)
+    # One TopicStance row per tag — topic == category == the tag itself
+    # (a flat tag has no sub-axis the way Politics used to split into
+    # Economic/Social). This is what the profile page already renders and
+    # what matchmaking reads from — no other persistence needed.
+    for tag, data in final.items():
+        await upsert_topic_stance(user.user_id, tag, tag, data["position"], data["summary"], data["tags"])
 
     doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     return User(**doc)
-
-
-@router.get("/onboarding/questions")
-async def get_questions():
-    return {"questions": [{"id": q["id"], "text": q["text"]} for q in QUIZ_QUESTIONS]}

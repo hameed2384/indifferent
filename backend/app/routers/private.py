@@ -4,8 +4,9 @@ file never imports hubs.py (the debate coach / topic-drift watcher) and has
 no code path into Gemini — that's the actual "AI-blind" guarantee: it's
 structural (this file simply contains no AI call site), not a config flag
 someone could flip by mistake. The one AI call in here (generate_topics, in
-go_public below) only ever sees each side's already-public `stance` field,
-never anything from private_messages or the private call itself.
+go_public below) only ever sees each side's already-public per-tag
+TopicStance data, never anything from private_messages or the private call
+itself.
 
 Friends-only, checked against the same `friendships` collection
 routers/friends.py uses — no separate relationship concept for this.
@@ -22,7 +23,8 @@ from ..config import LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..llm import generate_topics
-from ..models import StanceScores, User
+from ..models import User
+from ..topic_stances import get_tag_positions, shared_tag_opposition
 
 router = APIRouter()
 
@@ -132,8 +134,13 @@ async def go_public(friend_id: str, user: User = Depends(get_current_user), _xhr
         raise HTTPException(status_code=400, detail="Both of you need to finish onboarding + verification first")
 
     topics = []
-    if user.stance and friend.stance:
-        topics = await generate_topics(StanceScores(**user.stance.model_dump()), StanceScores(**friend.stance.model_dump()))
+    if user.interest_tags and friend.interest_tags:
+        my_positions = await get_tag_positions(user.user_id, user.interest_tags)
+        friend_positions = await get_tag_positions(friend_id, friend.interest_tags)
+        best = shared_tag_opposition(my_positions, friend_positions)
+        if best:
+            tag, _ = best
+            topics = await generate_topics(tag, my_positions[tag], friend_positions[tag])
 
     room_id = f"room_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()

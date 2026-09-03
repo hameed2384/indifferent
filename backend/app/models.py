@@ -19,7 +19,8 @@ class User(BaseModel):
     display_name: Optional[str] = None
     handle: Optional[str] = None  # unique, e.g. "hameed" (displayed as "@hameed") — separate from the non-unique display_name
     bio: Optional[str] = None
-    stance: Optional[StanceScores] = None
+    stance: Optional[StanceScores] = None  # legacy 2-axis political field — dead for new-flow users, see interest_tags
+    interest_tags: List[str] = []  # up to 3 tags chosen at (new-style) onboarding; gates matchmaking
     onboarded: bool = False
     id_verified: bool = False
     verification_status: str = "unstarted"  # unstarted, pending, verified, rejected
@@ -32,9 +33,26 @@ class User(BaseModel):
     created_at: str
 
 
+class LikertQuestion(BaseModel):
+    id: str
+    tag: str
+    text: str
+    invert: bool = False
+
+
+class TagQuestionsRequest(BaseModel):
+    tags: List[str]  # 1..3, validated against CATEGORIES in the route
+
+
+class TagQuestionsResponse(BaseModel):
+    questions: List[LikertQuestion]
+
+
 class OnboardingSubmit(BaseModel):
-    free_text: Optional[str] = ""
+    tags: List[str] = []  # 1..3, subset of CATEGORIES
+    questions: List[LikertQuestion] = []  # echoed back verbatim from /onboarding/questions/generate
     quiz_answers: Optional[Dict[str, int]] = {}  # question_id -> 1..5 (Likert)
+    free_text: Optional[str] = ""
     display_name: Optional[str] = None
     bio: Optional[str] = None
 
@@ -105,12 +123,13 @@ class ClipUpdate(BaseModel):
 
 
 class TopicStance(BaseModel):
-    """Per-(user, topic) position, generalizing StanceScores to any category.
-
-    Politics keeps writing the legacy `User.stance` field unchanged, and mirrors
-    into two rows here (topic="Politics: Economic" / "Politics: Social") so the
-    profile UI can render every topic — political or not — as one spectrum list
-    instead of a one-off two-axis square map.
+    """Per-(user, topic) position — the single generalized model onboarding now
+    writes one row of per tag chosen (topic == category == the tag itself),
+    including Politics, which is no longer special-cased onto the legacy
+    `StanceScores`/`User.stance` two-axis fields. Matchmaking reads directly
+    from these rows (see topic_stances.py's get_tag_positions/
+    shared_tag_opposition). The profile UI renders every row as one spectrum
+    list regardless of which tag it's for.
     """
     user_id: str
     topic: str

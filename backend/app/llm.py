@@ -13,7 +13,6 @@ from google import genai
 from google.genai import types as genai_types
 
 from .config import GEMINI_API_KEY, GEMINI_MODEL
-from .models import StanceScores
 
 logger = logging.getLogger("indifferent")
 
@@ -53,35 +52,6 @@ async def call_gemini_json(system_message: str, prompt: str, session_id: Optiona
         return None
 
 
-STANCE_SYSTEM = (
-    "You are an objective political scientist. Analyze the user's political views. "
-    "Return ONLY valid JSON matching this schema exactly:\n"
-    '{"economic": <number -10 to 10>, "social": <number -10 to 10>, '
-    '"summary": "<1-2 sentences summarizing the person\'s views>", '
-    '"tags": ["<3-6 short topic tags>"]}\n'
-    "Scale: economic -10 = strongly progressive/left (redistribution, public services), "
-    "+10 = strongly conservative/right (free markets, low taxes). "
-    "social -10 = liberal/progressive (individual rights, secular, cosmopolitan), "
-    "+10 = traditional (family, religion, national identity). "
-    "No prose outside JSON. No markdown fences."
-)
-
-
-async def analyze_free_text(text: str) -> StanceScores:
-    """Send free-text views to Gemini and parse the JSON stance response."""
-    if not text or not text.strip():
-        return StanceScores()
-    data = await call_gemini_json(STANCE_SYSTEM, text.strip(), session_id=f"stance-{uuid.uuid4().hex[:8]}")
-    if data is None:
-        return StanceScores(summary="(AI analysis unavailable — will be refined during debates.)")
-    return StanceScores(
-        economic=max(-10, min(10, float(data.get("economic", 0)))),
-        social=max(-10, min(10, float(data.get("social", 0)))),
-        summary=str(data.get("summary", ""))[:400],
-        tags=[str(t)[:30] for t in (data.get("tags") or [])][:6],
-    )
-
-
 VOTE_REASONING_SYSTEM = (
     "You analyze a spectator's reasoning after watching a debate and place their view on a "
     "single -10..10 spectrum for the debate's topic, where -10 means fully agreeing with "
@@ -101,13 +71,15 @@ async def analyze_vote_reasoning(topic: str, side_a_label: str, side_b_label: st
     return await call_gemini_json(VOTE_REASONING_SYSTEM, prompt, session_id=f"vote-{uuid.uuid4().hex[:8]}")
 
 
-async def generate_topics(a: StanceScores, b: StanceScores) -> List[str]:
-    """Ask Gemini for 3 debate prompts tailored to two opposing stances."""
+async def generate_topics(tag: str, a: dict, b: dict) -> List[str]:
+    """Ask Gemini for 3 debate prompts specific to one shared interest tag.
+    a, b: {"position": float, "summary": str} — each side's TopicStance for `tag`."""
     prompt = (
-        f"Two people are about to have a civil debate. Person A stance: economic={a.economic}, "
-        f"social={a.social}, tags={a.tags}. Person B stance: economic={b.economic}, "
-        f"social={b.social}, tags={b.tags}. Generate 3 short, provocative but respectful debate "
-        "prompts (one sentence each) that highlight their likely disagreements. "
+        f"Two people are about to have a civil debate about {tag}. "
+        f"Person A's stance: {a.get('summary') or 'no summary available'} (position {a.get('position', 0)} on a -10..10 scale). "
+        f"Person B's stance: {b.get('summary') or 'no summary available'} (position {b.get('position', 0)} on a -10..10 scale). "
+        f"Generate 3 short, provocative but respectful debate prompts (one sentence each), specific to {tag}, "
+        "that highlight their likely disagreement. "
         'Return JSON only: {"topics": ["...", "...", "..."]}'
     )
     data = await call_gemini_json(
@@ -116,9 +88,82 @@ async def generate_topics(a: StanceScores, b: StanceScores) -> List[str]:
         session_id=f"topics-{uuid.uuid4().hex[:8]}",
     )
     if data is None:
+        # Can't be politics-flavored by default any more — tag is arbitrary now,
+        # so the fallback has to genuinely reference it rather than fall back to
+        # a fixed political list.
         return [
-            "Should the government redistribute wealth to reduce inequality?",
-            "Is immigration a net positive for society?",
-            "How should we balance economic growth with climate action?",
+            f"What's the most overrated thing in {tag} right now?",
+            f"Is the direction {tag} is heading in a good one?",
+            f"What's a widely-accepted opinion about {tag} that you think is actually wrong?",
         ]
     return (data.get("topics") or [])[:3]
+
+
+TAG_QUESTIONS_SYSTEM = (
+    "You write short Likert-scale (1=strongly disagree, 5=strongly agree) opinion "
+    "statements to help profile someone's views within specific interest areas, for "
+    "a debate-matching app. For EACH tag given, write 3-4 short, opinionated, "
+    "one-sentence statements a fan/follower of that area would have a real, "
+    "debatable opinion on — not trivia or factual questions. "
+    "Return ONLY valid JSON matching this schema exactly:\n"
+    '{"questions": [{"tag": "<one of the given tags, verbatim>", "text": "<statement>", "invert": <true|false>}, ...]}\n'
+    "invert=true means agreeing with the statement counts as the NEGATIVE end of "
+    "that tag's opinion spectrum, invert=false means agreeing counts as the "
+    "POSITIVE end — vary this across each tag's own statements so the mapping "
+    "isn't all one direction. No prose outside JSON. No markdown fences."
+)
+
+
+async def generate_tag_questions(tags: List[str]) -> List[dict]:
+    """Ask Gemini for up to ~10 Likert statements spread across the given tags.
+    Returns [] on any failure — caller (onboarding.py) owns the fallback bank,
+    same convention as every other function in this file."""
+    prompt = f"Tags: {tags}. Generate up to 10 total Likert statements across these tags, split roughly evenly."
+    data = await call_gemini_json(TAG_QUESTIONS_SYSTEM, prompt, session_id=f"tagq-{uuid.uuid4().hex[:8]}")
+    if data is None:
+        return []
+    out = []
+    for i, q in enumerate(data.get("questions") or []):
+        tag = str(q.get("tag", ""))
+        if tag not in tags:
+            continue  # Gemini hallucinated a tag we didn't ask for — drop it, don't trust it
+        out.append({"id": f"ai{i}", "tag": tag, "text": str(q.get("text", ""))[:200], "invert": bool(q.get("invert", False))})
+    return out[:10]
+
+
+TAG_STANCE_SYSTEM = (
+    "You are analyzing what someone wrote about their interests, in relation to a "
+    "specific set of tags. For EACH tag, infer their position within it and a short "
+    "summary. Return ONLY valid JSON matching this schema exactly:\n"
+    '{"<tag>": {"position": <number -10 to 10>, "summary": "<1 short sentence>", '
+    '"tags": ["<2-4 short sub-topic labels>"]}, ...}\n'
+    "Only include a tag if the text actually gives you something to go on for it — "
+    "omit tags you can't infer anything about. position is just a self-consistent "
+    "spectrum for that tag (no fixed meaning outside Politics) reflecting how "
+    "strongly, and in which direction, they lean based on what they wrote. "
+    "No prose outside JSON. No markdown fences."
+)
+
+
+async def analyze_free_text_for_tags(text: str, tags: List[str]) -> dict:
+    """-> {tag: {"position": float, "summary": str, "tags": [str]}} for whichever
+    of `tags` the free text actually said something about. {} if no text or
+    Gemini is unavailable — caller blends 100% quiz-derived position for any
+    tag missing here, same fallback shape analyze_free_text used to have."""
+    if not text or not text.strip():
+        return {}
+    prompt = f"Tags: {tags}\nText: {text.strip()[:3000]}"
+    data = await call_gemini_json(TAG_STANCE_SYSTEM, prompt, session_id=f"tagstance-{uuid.uuid4().hex[:8]}")
+    if data is None:
+        return {}
+    out = {}
+    for tag in tags:
+        d = data.get(tag)
+        if not isinstance(d, dict):
+            continue
+        out[tag] = {
+            "position": max(-10.0, min(10.0, float(d.get("position", 0)))),
+            "summary": str(d.get("summary", ""))[:400],
+            "tags": [str(t)[:30] for t in (d.get("tags") or [])][:6],
+        }
+    return out

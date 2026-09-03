@@ -100,7 +100,11 @@ export default function Match() {
               : <>Average wait is under 60 seconds when the queue has partners. Feel free to grab water.</>)}
           </p>
           {error && (
-            <button onClick={start} className="btn-accent mt-4" data-testid="btn-retry-match">Try again</button>
+            error.includes("updated onboarding") ? (
+              <button onClick={() => navigate("/onboarding")} className="btn-accent mt-4" data-testid="btn-finish-onboarding">Finish onboarding</button>
+            ) : (
+              <button onClick={start} className="btn-accent mt-4" data-testid="btn-retry-match">Try again</button>
+            )
           )}
           <div className="mt-10 grid grid-cols-2 gap-4">
             <div className="card p-4 text-left">
