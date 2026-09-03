@@ -59,7 +59,7 @@ async def go_live(payload: GoLiveRequest, user: User = Depends(get_current_user)
     and discoverable — no matchmaking, no scheduling (client brief: "a debater
     should not have to think 'this debate is scheduled for 8pm'"). Starts with
     only side A filled; side B is an open seat a subscriber can request to
-    fill later (see #13 — join-request flow lands in a later phase). Reuses
+    fill (see #13 — request_to_join/decide_join_request below). Reuses
     the exact same rooms/publish/chat/coach machinery as a matched room from
     that point on — a live-feed card doesn't know or care how its room started.
     """

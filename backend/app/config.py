@@ -3,7 +3,6 @@ here rather than touching os.environ directly, so there's one place that knows
 about .env loading order and defaults.
 """
 import os
-import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -48,17 +47,6 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "")
 LIVEKIT_API_KEY = os.environ.get("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
-
-# ID-verification upload storage. Interim local-disk implementation (see
-# storage.py) — swap for real cloud object storage (S3/R2/etc.) before this
-# handles production traffic; put_object/get_object is the seam that swap
-# goes behind, so no router changes needed when that day comes.
-# Default is the OS temp dir, not a path under the app itself: serverless
-# platforms (Vercel included) ship the app on a READ-ONLY filesystem — only
-# the temp dir is writable, and even that doesn't persist across cold starts.
-# tempfile.gettempdir() resolves correctly on both Windows (local dev) and
-# Vercel's Linux runtime (/tmp), unlike a hardcoded "/tmp".
-STORAGE_DIR = os.environ.get("STORAGE_DIR", "") or str(Path(tempfile.gettempdir()) / "indifferent-uploads")
 
 # Stripe — two separate products (see routers/payments.py): a £9/mo site-wide
 # membership (not called a "subscription" — that word is reserved for the

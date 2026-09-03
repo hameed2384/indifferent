@@ -13,7 +13,7 @@ Implementation lives in app/:
   deps.py     get_current_user auth dependency
   models.py   Pydantic models
   llm.py      LLM integration (Groq, via the official groq SDK)
-  storage.py  ID-verification upload storage (local disk for now)
+  storage.py  Vercel Blob object storage (clip uploads, ID-verification docs)
   hubs.py     the AI debate coach (stateless, DB-backed — see its docstring)
   categories.py  fixed broad category list
   routers/    one module per REST feature area

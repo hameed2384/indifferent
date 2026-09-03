@@ -285,6 +285,16 @@ export default function ChatRoom() {
     } catch { toast.error("Feedback failed"); }
   };
 
+  const retractKickVote = async (targetUserId) => {
+    try {
+      await api.delete(`/rooms/${roomId}/kick-votes/${targetUserId}`);
+      toast("Vote retracted.");
+      pollRoom();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't retract vote");
+    }
+  };
+
   const decideJoinRequest = async (requesterId, approve) => {
     setDecidingId(requesterId);
     try {
@@ -355,6 +365,13 @@ export default function ChatRoom() {
       const identity = `user-${p.user_id}`;
       const lkP = lk.remoteParticipants.find((rp) => rp.identity === identity);
       const canKick = room.is_founding && !p.is_founding;
+      // Was rendering "Vote to kick" forever, even after you'd already
+      // voted — no visible state change and no way to undo a misclick. The
+      // backend's own retract endpoint (DELETE .../kick-votes/{id}) already
+      // existed with nothing in the UI ever calling it.
+      const alreadyVoted = !!(me && (room.kick_votes || []).find(
+        (k) => k.target_user_id === p.user_id && (k.votes || []).includes(me.user_id)
+      ));
       return {
         key: p.user_id,
         identity,
@@ -365,13 +382,23 @@ export default function ChatRoom() {
         placeholderTitle: p.display_name,
         placeholderFooter: lk.status === "connected" ? "Waiting for camera…" : "Connecting…",
         overlay: canKick ? (
-          <button
-            onClick={() => setKickTarget({ user_id: p.user_id, display_name: p.display_name })}
-            className="absolute top-2 right-2 bg-[var(--danger)]/90 text-white text-[10px] font-medium px-2 py-1 rounded-full hover:bg-[var(--danger)]"
-            data-testid={`btn-kick-${p.user_id}`}
-          >
-            Vote to kick
-          </button>
+          alreadyVoted ? (
+            <button
+              onClick={() => retractKickVote(p.user_id)}
+              className="absolute top-2 right-2 bg-white/90 text-black text-[10px] font-medium px-2 py-1 rounded-full hover:bg-white"
+              data-testid={`btn-retract-kick-${p.user_id}`}
+            >
+              Retract vote
+            </button>
+          ) : (
+            <button
+              onClick={() => setKickTarget({ user_id: p.user_id, display_name: p.display_name })}
+              className="absolute top-2 right-2 bg-[var(--danger)]/90 text-white text-[10px] font-medium px-2 py-1 rounded-full hover:bg-[var(--danger)]"
+              data-testid={`btn-kick-${p.user_id}`}
+            >
+              Vote to kick
+            </button>
+          )
         ) : undefined,
       };
     }),

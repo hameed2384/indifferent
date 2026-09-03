@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Flag, ShieldCheck, Trash2, Search } from "lucide-react";
-import { api } from "@/lib/api";
+import { Flag, ShieldCheck, Trash2, Search, FileText } from "lucide-react";
+import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -181,7 +181,17 @@ function VerificationQueue() {
             <div className="text-sm font-medium truncate">{u.display_name || u.name}</div>
             <div className="text-xs text-[var(--fg-subtle)] truncate">{u.email} · submitted {timeAgo(u.submitted_at)}</div>
           </div>
-          <div className="flex gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a
+              href={`${API}/verify/${u.user_id}/document`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-outline !px-2.5 !py-1 !text-xs inline-flex items-center gap-1"
+              data-testid={`btn-view-document-${u.user_id}`}
+              title="Opens the submitted ID document in a new tab — the only place this document is ever viewable, no public link exists"
+            >
+              <FileText className="w-3 h-3" /> View ID
+            </a>
             <button onClick={() => decide(u.user_id, true)} disabled={busyId === u.user_id} className="btn-accent !px-2.5 !py-1 !text-xs" data-testid={`btn-approve-${u.user_id}`}>Approve</button>
             <button onClick={() => decide(u.user_id, false)} disabled={busyId === u.user_id} className="btn-danger !px-2.5 !py-1 !text-xs" data-testid={`btn-reject-${u.user_id}`}>Reject</button>
           </div>
