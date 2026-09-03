@@ -41,3 +41,22 @@ export function SkeletonGrid({ Skeleton, count = 8 }) {
     </div>
   );
 }
+
+/** Avatar + name row placeholder for list-shaped views (Friends, Admin's
+ * user table) — the other common loading shape besides a card grid. */
+export function RowSkeleton() {
+  return (
+    <div className="flex items-center gap-3 py-1.5 animate-pulse" aria-hidden="true">
+      <div className="w-8 h-8 rounded-full bg-[var(--bg-muted)] shrink-0" />
+      <div className="h-3.5 w-1/3 rounded bg-[var(--bg-muted)]" />
+    </div>
+  );
+}
+
+export function RowSkeletonList({ count = 4 }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: count }).map((_, i) => <RowSkeleton key={i} />)}
+    </div>
+  );
+}

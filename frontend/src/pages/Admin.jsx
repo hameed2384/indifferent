@@ -9,6 +9,7 @@ import BackButton from "@/components/BackButton";
 import ConfirmModal from "@/components/ConfirmModal";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_WIDE } from "@/lib/layout";
+import { RowSkeletonList } from "@/components/SkeletonCard";
 
 function timeAgo(iso) {
   if (!iso) return "—";
@@ -87,7 +88,7 @@ function UsersManagement() {
         />
       </div>
 
-      {loading && <p className="text-sm text-[var(--fg-subtle)]">Loading…</p>}
+      {loading && <RowSkeletonList />}
       {!loading && users.length === 0 && <p className="text-sm text-[var(--fg-subtle)]">No users found.</p>}
 
       {!loading && users.length > 0 && (

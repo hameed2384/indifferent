@@ -10,6 +10,7 @@ import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_NARROW } from "@/lib/layout";
+import { RowSkeletonList } from "@/components/SkeletonCard";
 
 function Avatar({ picture, name, size = "w-9 h-9" }) {
   return picture
@@ -147,7 +148,7 @@ function RequestsAndFriends() {
       <div className="card p-5 sm:p-6">
         <div className="eyebrow mb-4 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Friends {data ? `· ${data.friends.length}` : ""}</div>
         {!data ? (
-          <p className="text-sm text-[var(--fg-subtle)]">Loading…</p>
+          <RowSkeletonList />
         ) : data.friends.length === 0 ? (
           <p className="text-sm text-[var(--fg-subtle)]">No friends yet — search above to find people.</p>
         ) : (
@@ -196,7 +197,7 @@ function FollowingSection() {
     <div className="card p-5 sm:p-6">
       <div className="eyebrow mb-4 flex items-center gap-1.5"><Rss className="w-3.5 h-3.5" /> Following {following ? `· ${following.length}` : ""}</div>
       {!following ? (
-        <p className="text-sm text-[var(--fg-subtle)]">Loading…</p>
+        <RowSkeletonList />
       ) : following.length === 0 ? (
         <p className="text-sm text-[var(--fg-subtle)]">Not following anyone yet — search above to find debaters.</p>
       ) : (
