@@ -424,12 +424,12 @@ async def _react_to_debate(room_id: str, user: User, kind: str) -> dict:
 
 
 @router.post("/public/debates/{room_id}/like")
-async def like_debate(room_id: str, user: User = Depends(get_current_user)):
+async def like_debate(room_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     return await _react_to_debate(room_id, user, "like")
 
 
 @router.post("/public/debates/{room_id}/dislike")
-async def dislike_debate(room_id: str, user: User = Depends(get_current_user)):
+async def dislike_debate(room_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     return await _react_to_debate(room_id, user, "dislike")
 
 

@@ -37,6 +37,9 @@ async def create_indexes():
         "handle", unique=True, partialFilterExpression={"handle": {"$type": "string"}}
     )
     await db.user_sessions.create_index("session_token", unique=True)
+    # Admin review queue (routers/verify.py list_pending) — same shape as
+    # reports.py's queue index below: filter by status, sort oldest-first.
+    await db.users.create_index([("verification_status", 1), ("submitted_at", 1)])
     await db.match_queue.create_index("user_id", unique=True)
     # Upserted by _create_room() for every non-caller founding member — unique
     # so a race between two concurrent matches for the same user can't leave

@@ -25,7 +25,7 @@ from ..config import (
     STRIPE_WEBHOOK_SECRET,
 )
 from ..db import db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_xhr
 from ..models import User
 
 router = APIRouter()
@@ -38,7 +38,7 @@ def _require_stripe():
 
 
 @router.post("/payments/checkout/membership")
-async def checkout_membership(user: User = Depends(get_current_user)):
+async def checkout_membership(user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """£9/mo site-wide membership — removes ads everywhere. Not a
     "subscription": see this module's docstring for why that word is
     reserved for checkout_debater below."""
@@ -57,7 +57,7 @@ async def checkout_membership(user: User = Depends(get_current_user)):
 
 
 @router.post("/payments/checkout/debater/{debater_user_id}")
-async def checkout_debater(debater_user_id: str, user: User = Depends(get_current_user)):
+async def checkout_debater(debater_user_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """£2/mo subscription to one specific debater — separate product from
     the £9/mo site-wide membership above."""
     _require_stripe()

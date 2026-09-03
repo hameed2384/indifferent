@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..db import db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_xhr
 from ..llm import generate_topics
 from ..models import PartyEnqueueRequest, User
 from ..topic_stances import get_tag_positions, shared_tag_opposition
@@ -65,7 +65,7 @@ async def _create_room(*, caller_id: str, user_a: str, extra_a: list, user_b: st
 
 
 @router.post("/match/enqueue")
-async def enqueue(user: User = Depends(get_current_user)):
+async def enqueue(user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     if not user.onboarded:
         raise HTTPException(status_code=400, detail="Complete onboarding first")
     if not user.id_verified:
@@ -244,7 +244,7 @@ async def poll_match(user: User = Depends(get_current_user)):
 
 
 @router.post("/match/cancel")
-async def cancel_match(user: User = Depends(get_current_user)):
+async def cancel_match(user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     await db.match_queue.delete_one({"user_id": user.user_id})
     await db.party_match_queue.delete_one({"user_ids": user.user_id})
     return {"ok": True}

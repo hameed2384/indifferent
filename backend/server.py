@@ -19,11 +19,11 @@ Implementation lives in app/:
   routers/    one module per REST feature area
 """
 import logging
-import os
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
+from app.config import CORS_ORIGINS
 from app.db import client, create_indexes
 from app.routers import admin, auth, categories, clips, friends, health, livekit, match, notifications, onboarding, payments, private, profiles, public, reports, rooms, verify
 from app.storage import init_storage
@@ -46,7 +46,7 @@ app.add_middleware(
     # Defaulting to localhost instead keeps local dev working out of the box
     # while making a missing var in any real deployment fail loudly and
     # immediately (every cross-origin request blocked) rather than silently.
-    allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

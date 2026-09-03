@@ -13,10 +13,11 @@ suffix to the actual stored pathname, so the requested path alone can't be
 used to reconstruct where the object really lives.
 """
 import logging
-import os
 
 import requests
 from fastapi import HTTPException
+
+from .config import BLOB_READ_WRITE_TOKEN
 
 logger = logging.getLogger("indifferent")
 
@@ -24,7 +25,7 @@ BLOB_API_URL = "https://blob.vercel-storage.com"
 
 
 def _token() -> str:
-    token = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
+    token = BLOB_READ_WRITE_TOKEN
     if not token:
         raise HTTPException(status_code=503, detail="Upload storage not configured")
     return token

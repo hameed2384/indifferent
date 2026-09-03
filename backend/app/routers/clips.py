@@ -328,7 +328,7 @@ async def get_clip_video(clip_id: str):
 
 
 @router.post("/clips/{clip_id}/like")
-async def like_clip(clip_id: str, user: User = Depends(get_current_user)):
+async def like_clip(clip_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")
@@ -341,7 +341,7 @@ async def like_clip(clip_id: str, user: User = Depends(get_current_user)):
 
 
 @router.post("/clips/{clip_id}/dislike")
-async def dislike_clip(clip_id: str, user: User = Depends(get_current_user)):
+async def dislike_clip(clip_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     doc = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Clip not found")

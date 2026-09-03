@@ -23,6 +23,11 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 # same-site (SameSite only cares about the registrable domain, not the port).
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").strip().lower() == "true"
 
+# Comma-separated list of origins CORSMiddleware will allow credentialed
+# cross-origin requests from — see server.py for why an unset var must fail
+# loud (default: localhost only) rather than silently wildcarding.
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 # Google OAuth (direct — replaces the old Emergent-managed auth proxy).
 # Create a client at https://console.cloud.google.com/apis/credentials
 # (OAuth client ID, type "Web application"), add both your frontend's
@@ -71,3 +76,8 @@ VERIFY_AUTO_APPROVE = os.environ.get("VERIFY_AUTO_APPROVE", "true").strip().lowe
 # gate that doesn't require building one. Defaults to the project owner's
 # own email so it works with zero extra config.
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "rehman2384@gmail.com").split(",") if e.strip()}
+
+# Vercel Blob storage (see storage.py) — auto-populated by Vercel when a Blob
+# store is connected to the project; set manually for local dev against a
+# real store.
+BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")

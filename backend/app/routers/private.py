@@ -85,7 +85,7 @@ def _mint_private_call_token(identity: str, name: str, call_room: str) -> str:
 
 
 @router.post("/private/calls/{friend_id}/token")
-async def private_call_token(friend_id: str, user: User = Depends(get_current_user)):
+async def private_call_token(friend_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     """A LiveKit room namespace ('private_<pair>') entirely separate from any
     public debate room — no shared code path with routers/livekit.py."""
     await _require_friends(user.user_id, friend_id)
