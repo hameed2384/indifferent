@@ -84,17 +84,35 @@ FALLBACK_TAG_QUESTIONS: Dict[str, List[dict]] = {
     ],
 }
 
+# For a custom tag typed via "Other" — there's no hand-written bank for an
+# arbitrary user-chosen string, so these {tag}-substituted templates are what
+# actually runs whenever Gemini is unconfigured (the live case in this
+# environment right now) and the tag isn't one of the fixed 11.
+GENERIC_FALLBACK_QUESTIONS = [
+    {"text": "{tag} is more overrated than people give it credit for.", "invert": False},
+    {"text": "Most mainstream opinions about {tag} are basically right.", "invert": True},
+    {"text": "I have strong opinions about {tag} that most people I know don't share.", "invert": False},
+    {"text": "{tag} has gotten worse, not better, in recent years.", "invert": False},
+]
+
+
+def _fallback_bank_for(tag: str) -> List[dict]:
+    if tag in FALLBACK_TAG_QUESTIONS:
+        return FALLBACK_TAG_QUESTIONS[tag]
+    return [{"text": q["text"].format(tag=tag), "invert": q["invert"]} for q in GENERIC_FALLBACK_QUESTIONS]
+
 
 def _fallback_questions_for(tags: List[str], limit: int) -> List[LikertQuestion]:
     """Round-robin across the chosen tags rather than exhausting one tag's
     bank before moving to the next, so a 3-tag pick reliably samples all
     three instead of front-loading whichever tag happened to be first."""
+    banks = {t: _fallback_bank_for(t) for t in tags}
     per_tag_idx = {t: 0 for t in tags}
     out: List[LikertQuestion] = []
     i = 0
-    while len(out) < limit and any(per_tag_idx[t] < len(FALLBACK_TAG_QUESTIONS.get(t, [])) for t in tags):
+    while len(out) < limit and any(per_tag_idx[t] < len(banks[t]) for t in tags):
         tag = tags[i % len(tags)]
-        bank = FALLBACK_TAG_QUESTIONS.get(tag, [])
+        bank = banks[tag]
         idx = per_tag_idx[tag]
         if idx < len(bank):
             q = bank[idx]
@@ -102,6 +120,23 @@ def _fallback_questions_for(tags: List[str], limit: int) -> List[LikertQuestion]
             per_tag_idx[tag] += 1
         i += 1
     return out
+
+
+def _normalize_tags(raw_tags: List[str]) -> List[str]:
+    """Trim/cap each tag and snap it to a fixed CATEGORIES entry's canonical
+    casing if it matches one case-insensitively — otherwise it's a genuine
+    custom tag (typed via "Other"). Without this, someone typing "sports" as
+    a custom tag would silently fork away from the fixed "Sports" tag: two
+    different TopicStance rows meaning the same thing, and two people who'd
+    otherwise share a tag no longer matching each other."""
+    out = []
+    for raw in raw_tags:
+        t = (raw or "").strip()[:30]
+        if not t:
+            continue
+        canonical = next((c for c in CATEGORIES if c.lower() == t.lower()), None)
+        out.append(canonical or t)
+    return list(dict.fromkeys(out))[:3]  # de-dupe (post-normalization), cap at 3
 
 
 def quiz_to_tag_positions(questions: List[LikertQuestion], answers: Dict[str, int]) -> Dict[str, float]:
@@ -122,11 +157,9 @@ def quiz_to_tag_positions(questions: List[LikertQuestion], answers: Dict[str, in
 
 @router.post("/onboarding/questions/generate", response_model=TagQuestionsResponse)
 async def generate_questions(payload: TagQuestionsRequest, user: User = Depends(get_current_user)):
-    tags = list(dict.fromkeys(payload.tags))[:3]  # de-dupe, cap at 3
+    tags = _normalize_tags(payload.tags)
     if not tags:
         raise HTTPException(status_code=400, detail="Pick at least one tag")
-    if any(t not in CATEGORIES for t in tags):
-        raise HTTPException(status_code=400, detail="Unknown tag")
 
     ai = await generate_tag_questions(tags)
     questions = [LikertQuestion(**q) for q in ai]
@@ -144,11 +177,9 @@ async def generate_questions(payload: TagQuestionsRequest, user: User = Depends(
 
 @router.post("/onboarding/submit", response_model=User)
 async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_current_user)):
-    tags = list(dict.fromkeys(payload.tags))[:3]
+    tags = _normalize_tags(payload.tags)
     if not tags:
         raise HTTPException(status_code=400, detail="Pick at least one tag")
-    if any(t not in CATEGORIES for t in tags):
-        raise HTTPException(status_code=400, detail="Unknown tag")
     # Trust boundary: invert is echoed back by the client (no server-side
     # session storage for the AI-generated question set — see
     # Onboarding.jsx). Drop anything claiming a tag we didn't ask about

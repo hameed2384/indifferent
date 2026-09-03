@@ -18,7 +18,9 @@ export default function Onboarding() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
-  const [tags, setTags] = useState([]);
+  const [tags, setTags] = useState([]); // fixed-list picks only — "Other" itself is never pushed in here
+  const [otherActive, setOtherActive] = useState(false);
+  const [customTag, setCustomTag] = useState("");
   const [questions, setQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState(false);
@@ -32,31 +34,58 @@ export default function Onboarding() {
     api.get("/categories").then(({ data }) => setCategories(data.categories || [])).catch(() => {});
   }, []);
 
-  const toggleTag = (t) => {
-    setTags((prev) => {
-      if (prev.includes(t)) return prev.filter((x) => x !== t);
-      if (prev.length >= MAX_TAGS) return prev;
-      return [...prev, t];
-    });
-    // A tag change invalidates whatever questions were already generated for
-    // the old set — force a fresh /questions/generate call rather than
+  // The number of slots in use — "Other" takes up a slot the instant it's
+  // toggled on, even before any text is typed, so a user can't pick 3 fixed
+  // tags and then also open a 4th custom one.
+  const slotsUsed = tags.length + (otherActive ? 1 : 0);
+  // What actually gets sent to the backend — the custom tag only counts once
+  // there's real text in it, so an empty, still-being-typed-into Other slot
+  // never submits a blank tag.
+  const effectiveTags = [...tags, ...(otherActive && customTag.trim() ? [customTag.trim()] : [])];
+
+  const invalidateQuestions = () => {
+    // Any tag change invalidates whatever questions were already generated
+    // for the old set — force a fresh /questions/generate call rather than
     // silently submitting answers that no longer match the chosen tags.
     setQuestions([]);
     setAnswers({});
   };
 
+  const toggleTag = (t) => {
+    setTags((prev) => {
+      if (prev.includes(t)) return prev.filter((x) => x !== t);
+      if (slotsUsed >= MAX_TAGS) return prev;
+      return [...prev, t];
+    });
+    invalidateQuestions();
+  };
+
+  const toggleOther = () => {
+    setOtherActive((prev) => {
+      if (prev) { setCustomTag(""); return false; }
+      return slotsUsed >= MAX_TAGS ? prev : true;
+    });
+    invalidateQuestions();
+  };
+
+  const onCustomTagChange = (v) => {
+    setCustomTag(v.slice(0, 30));
+    invalidateQuestions();
+  };
+
   const generateQuestions = () => {
-    if (tags.length === 0) return;
+    if (effectiveTags.length === 0) return;
     setQuestionsLoading(true);
     setQuestionsError(false);
-    api.post("/onboarding/questions/generate", { tags })
+    api.post("/onboarding/questions/generate", { tags: effectiveTags })
       .then(({ data }) => setQuestions(data.questions || []))
       .catch(() => setQuestionsError(true))
       .finally(() => setQuestionsLoading(false));
   };
 
   const canSubmit = displayName.trim().length >= 2 &&
-    tags.length > 0 &&
+    effectiveTags.length > 0 &&
+    !(otherActive && !customTag.trim()) &&
     questions.length > 0 &&
     Object.keys(answers).length === questions.length &&
     freeText.trim().length >= 20;
@@ -65,7 +94,7 @@ export default function Onboarding() {
     setSubmitting(true);
     try {
       const { data } = await api.post("/onboarding/submit", {
-        tags,
+        tags: effectiveTags,
         questions,
         quiz_answers: answers,
         free_text: freeText,
@@ -120,12 +149,13 @@ export default function Onboarding() {
           <p className="text-sm text-[var(--fg-muted)] mb-4">What do you have real opinions about? This decides what we'll ask next — and what you'll get matched to debate.</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {categories.map((c) => {
-              const selected = tags.includes(c);
-              const disabled = !selected && tags.length >= MAX_TAGS;
+              const isOther = c === "Other";
+              const selected = isOther ? otherActive : tags.includes(c);
+              const disabled = !selected && slotsUsed >= MAX_TAGS;
               return (
                 <button
                   key={c}
-                  onClick={() => toggleTag(c)}
+                  onClick={() => (isOther ? toggleOther() : toggleTag(c))}
                   disabled={disabled}
                   data-testid={`onboarding-tag-${c}`}
                   className={`py-2 rounded-lg border text-sm font-medium transition inline-flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${selected ? "bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]" : "bg-[var(--surface)] border-[var(--border-strong)] hover:bg-[var(--bg-muted)]"}`}
@@ -135,12 +165,25 @@ export default function Onboarding() {
               );
             })}
           </div>
+          {otherActive && (
+            <div className="mt-3">
+              <input
+                autoFocus
+                value={customTag}
+                onChange={(e) => onCustomTagChange(e.target.value)}
+                className="field"
+                placeholder="Type your own — e.g. Cooking, Crypto, Philosophy"
+                maxLength={30}
+                data-testid="onboarding-custom-tag-input"
+              />
+            </div>
+          )}
           <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-xs text-[var(--fg-subtle)]">{tags.length}/{MAX_TAGS} picked</div>
+            <div className="text-xs text-[var(--fg-subtle)]">{slotsUsed}/{MAX_TAGS} picked</div>
             {questions.length === 0 && (
               <button
                 onClick={generateQuestions}
-                disabled={tags.length === 0 || questionsLoading}
+                disabled={effectiveTags.length === 0 || (otherActive && !customTag.trim()) || questionsLoading}
                 className="btn-outline text-sm"
                 data-testid="btn-generate-questions"
               >
@@ -203,7 +246,7 @@ export default function Onboarding() {
 
         <div className="mt-10 flex items-center justify-between flex-wrap gap-3">
           <div className="text-xs text-[var(--fg-subtle)]">
-            {tags.length > 0 ? `Our AI will map your stance on ${tags.join(", ")}.` : "Pick your tags above to get started."}
+            {effectiveTags.length > 0 ? `Our AI will map your stance on ${effectiveTags.join(", ")}.` : "Pick your tags above to get started."}
           </div>
           <button data-testid="btn-submit-onboarding" className="btn-accent" onClick={submit} disabled={!canSubmit || submitting}>
             {submitting ? "Analyzing…" : "Map my interests"}
