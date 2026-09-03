@@ -205,6 +205,7 @@ export default function Profile() {
   const [clips, setClips] = useState([]);
   const [liveRoomId, setLiveRoomId] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
   const [tab, setTab] = useState("debates");
   const [search, setSearch] = useState("");
@@ -214,7 +215,14 @@ export default function Profile() {
   const [showReport, setShowReport] = useState(false);
 
   const load = () => {
-    api.get(`/users/${userId}`).then(({ data }) => setProfile(data)).catch(() => setNotFound(true));
+    setLoadError(false);
+    api.get(`/users/${userId}`).then(({ data }) => setProfile(data)).catch((e) => {
+      // A real 404 means the profile genuinely doesn't exist; anything else
+      // (network blip, 5xx) previously collapsed into the exact same
+      // permanent "Profile not found" dead end with no way to retry.
+      if (e.response?.status === 404) setNotFound(true);
+      else setLoadError(true);
+    });
     api.get(`/users/${userId}/topic-stances`).then(({ data }) => setTopics(data.topics || [])).catch(() => {});
     api.get(`/users/${userId}/debates`).then(({ data }) => { setDebates(data.debates || []); setLiveRoomId(data.live_room_id || null); }).catch(() => {});
     api.get(`/users/${userId}/clips`).then(({ data }) => setClips(data.clips || [])).catch(() => {});
@@ -290,6 +298,12 @@ export default function Profile() {
   };
 
   if (notFound) return <NotFound />;
+  if (loadError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg)] gap-3 px-4 text-center">
+      <p className="text-sm text-[var(--fg-muted)]">Couldn't load this profile.</p>
+      <button onClick={load} className="btn-outline text-sm" data-testid="btn-retry-profile">Try again</button>
+    </div>
+  );
   if (!profile) return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-sm text-[var(--fg-subtle)]">Loading…</div>;
 
   const joinDate = formatJoinDate(profile.created_at);

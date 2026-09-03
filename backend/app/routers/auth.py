@@ -6,7 +6,7 @@ import requests
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from pydantic import BaseModel
 
-from ..config import COOKIE_SECURE, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
+from ..config import ADMIN_EMAILS, COOKIE_SECURE, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 from ..db import db
 from ..deps import get_current_user
 from ..models import User
@@ -120,9 +120,14 @@ async def google_callback(payload: GoogleAuthCallback, response: Response):
     return {"user": user_doc, "session_token": session_token}
 
 
-@router.get("/auth/me", response_model=User)
+@router.get("/auth/me")
 async def auth_me_ep(user: User = Depends(get_current_user)):
-    return user
+    # is_admin deliberately isn't a User model field — this is the one place
+    # it's computed and returned, purely so the frontend can show/hide the
+    # admin nav link for the CURRENT viewer. Adding it to the shared User
+    # model would risk it leaking (even if unset/False) into every other
+    # endpoint that returns a User for someone other than the caller.
+    return {**user.model_dump(), "is_admin": user.email.lower() in ADMIN_EMAILS}
 
 
 @router.post("/auth/logout")

@@ -59,6 +59,15 @@ export default function AccountMenu({ user, logout }) {
           >
             Settings
           </button>
+          {user?.is_admin && (
+            <button
+              onClick={() => { setOpen(false); navigate("/admin"); }}
+              className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--bg-muted)]"
+              data-testid="account-menu-admin"
+            >
+              Admin
+            </button>
+          )}
           <div className="my-1 border-t border-[var(--border)]" />
           <button
             onClick={() => { setOpen(false); logout(); }}

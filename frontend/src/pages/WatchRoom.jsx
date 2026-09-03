@@ -688,6 +688,7 @@ export default function WatchRoom() {
   const { user, logout } = useAuth();
 
   const [debate, setDebate] = useState(null);
+  const [loadError, setLoadError] = useState(false);
   const [chat, setChat] = useState([]);
   const [comments, setComments] = useState([]);
   const [likes, setLikes] = useState(0);
@@ -744,6 +745,7 @@ export default function WatchRoom() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoadError(false);
     api.get(`/public/debates/${roomId}`)
       .then(({ data }) => {
         if (cancelled) return;
@@ -757,9 +759,42 @@ export default function WatchRoom() {
         setSpectatorCount(data.spectator_count || 0);
         sinceRef.current = data.server_time;
       })
-      .catch(() => { toast.error("Debate not available"); navigate("/watch"); });
+      .catch((e) => {
+        if (cancelled) return;
+        if (e.response?.status === 404) {
+          toast.error("Debate not available");
+          navigate("/watch");
+        } else {
+          setLoadError(true);
+        }
+      });
     return () => { cancelled = true; };
   }, [roomId, navigate]);
+
+  const reloadDebate = () => {
+    setDebate(null);
+    setLoadError(false);
+    api.get(`/public/debates/${roomId}`)
+      .then(({ data }) => {
+        setDebate(data);
+        setChat(data.chat || []);
+        setComments((data.comments || []).slice().reverse());
+        setLikes(data.likes || 0);
+        setDislikes(data.dislikes || 0);
+        setMyReaction(data.my_reaction || null);
+        setVotes({ votes_a: data.votes_a || 0, votes_b: data.votes_b || 0, my_vote: data.my_vote || null });
+        setSpectatorCount(data.spectator_count || 0);
+        sinceRef.current = data.server_time;
+      })
+      .catch((e) => {
+        if (e.response?.status === 404) {
+          toast.error("Debate not available");
+          navigate("/watch");
+        } else {
+          setLoadError(true);
+        }
+      });
+  };
 
   const pollOnce = async () => {
     const seq = reactionSeqRef.current;
@@ -891,6 +926,12 @@ export default function WatchRoom() {
     if (debate && !spotlightIdentity) setSpotlightIdentity(debate.side_a.identity);
   }, [debate, spotlightIdentity]);
 
+  if (loadError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg)] gap-3 px-4 text-center">
+      <p className="text-sm text-[var(--fg-muted)]">Couldn't load this debate.</p>
+      <button onClick={reloadDebate} className="btn-outline text-sm" data-testid="btn-retry-watchroom">Try again</button>
+    </div>
+  );
   if (!debate) return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-sm text-[var(--fg-subtle)]">Loading…</div>;
   const isLive = debate.status === "active";
 

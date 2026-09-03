@@ -31,10 +31,17 @@ export default function ClaimTree() {
   const [treeNodes, setTreeNodes] = useState([]);
   const [treeRootId, setTreeRootId] = useState(null);
   const [showTree, setShowTree] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = () => {
-    api.get(`/clips/${clipId}`).then(({ data }) => setClip(data)).catch(() => {
-      toast.error("Clip not found"); navigate("/claims");
+    setLoadError(false);
+    api.get(`/clips/${clipId}`).then(({ data }) => setClip(data)).catch((e) => {
+      // A real 404 means the clip genuinely doesn't exist — leaving makes
+      // sense. Anything else (network blip, 5xx) previously got the exact
+      // same "not found, redirected away" treatment with no way to retry
+      // in place.
+      if (e.response?.status === 404) { toast.error("Clip not found"); navigate("/claims"); }
+      else setLoadError(true);
     });
     api.get(`/clips/${clipId}/replies`).then(({ data }) => setReplies(data.replies || [])).catch(() => {});
     api.get(`/clips/${clipId}/tree`).then(({ data }) => { setTreeNodes(data.nodes || []); setTreeRootId(data.root_clip_id); }).catch(() => {});
@@ -55,6 +62,14 @@ export default function ClaimTree() {
     setShowReplyModal(true);
   };
 
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg)] gap-3 px-4 text-center">
+        <p className="text-sm text-[var(--fg-muted)]">Couldn't load this claim.</p>
+        <button onClick={load} className="btn-outline text-sm" data-testid="btn-retry-claim">Try again</button>
+      </div>
+    );
+  }
   if (!clip) {
     return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-sm text-[var(--fg-subtle)]">Loading…</div>;
   }
