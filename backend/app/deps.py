@@ -72,6 +72,8 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     """No real role system exists yet — see config.ADMIN_EMAILS. Good enough
     for the one moderator-only surface (verification review) that exists
     today; revisit if/when more admin endpoints show up."""
+    import logging
+    logging.getLogger("indifferent").info("DIAG require_admin: user.email=%r ADMIN_EMAILS=%r", user.email, ADMIN_EMAILS)
     if user.email.lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Admin only")
     return user
