@@ -36,7 +36,15 @@ const SLOT_BY_VARIANT = {
  * caps what the wrapper can contribute — set close to DebateCard's own
  * typical height. The <ins> then needs an !important height to actually
  * fill that capped wrapper instead of Google's inline px value winning on
- * specificity (inline beats a plain class; !important beats inline). */
+ * specificity (inline beats a plain class; !important beats inline).
+ *
+ * The "banner" variant needs the exact same cap, for the exact same reason
+ * — confirmed live: an unfilled banner slot (in WatchRoom's chat sidebar)
+ * got an inline height: 600px from Google's own push() with no wrapper cap
+ * to stop it, ballooning the whole sidebar's natural height. The sidebar's
+ * own layout row already sizes itself to its content (see WatchRoom.jsx's
+ * items-start grid row), so an uncapped ad here doesn't just look
+ * oversized — it silently dictates the height of everything next to it. */
 function RealAd({ slot, tall }) {
   const pushed = useRef(false);
   useEffect(() => {
@@ -51,7 +59,7 @@ function RealAd({ slot, tall }) {
     }
   }, []);
   return (
-    <div className={`card w-full p-3 overflow-hidden flex flex-col ${tall ? "h-full max-h-[240px]" : ""}`} data-testid="adsense-unit">
+    <div className={`card w-full p-3 overflow-hidden flex flex-col ${tall ? "h-full max-h-[240px]" : "max-h-[140px]"}`} data-testid="adsense-unit">
       <div className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)] mb-1 shrink-0">Sponsored</div>
       <ins
         className="adsbygoogle block w-full flex-1 min-h-0 !h-full"
