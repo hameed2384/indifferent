@@ -16,6 +16,7 @@ class User(BaseModel):
     email: str
     name: str
     picture: Optional[str] = None
+    picture_is_custom: bool = False  # True once the user uploads their own photo — google_callback then stops overwriting it on future logins
     display_name: Optional[str] = None
     handle: Optional[str] = None  # unique, e.g. "hameed" (displayed as "@hameed") — separate from the non-unique display_name
     bio: Optional[str] = None

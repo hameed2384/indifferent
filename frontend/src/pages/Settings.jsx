@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Check, Copy, LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Camera, Check, Copy, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -60,6 +60,8 @@ export default function Settings() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [allowFriendRequests, setAllowFriendRequests] = useState(user?.allow_friend_requests ?? true);
   const [becoming, setBecoming] = useState(false);
+  const [uploadingPicture, setUploadingPicture] = useState(false);
+  const pictureInputRef = useRef(null);
 
   useEffect(() => {
     if (!user) return;
@@ -86,6 +88,45 @@ export default function Settings() {
       toast.error(e.response?.data?.detail || "Couldn't save your profile");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  // Downscales client-side before upload — avoids shipping a multi-MB phone
+  // photo for what renders as a ~48px circle everywhere, with no backend
+  // image-processing dependency needed (none exists — see profiles.py).
+  const resizeImage = (file, maxSize = 512) => new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Couldn't process image"))), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't read image")); };
+    img.src = url;
+  });
+
+  const onPictureSelected = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please choose an image"); return; }
+    setUploadingPicture(true);
+    try {
+      const blob = await resizeImage(file);
+      const fd = new FormData();
+      fd.append("file", blob, "avatar.jpg");
+      const { data } = await api.post("/users/me/picture", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setUser(data);
+      toast.success("Profile picture updated");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Couldn't update your picture");
+    } finally {
+      setUploadingPicture(false);
     }
   };
 
@@ -142,9 +183,29 @@ export default function Settings() {
       <main className={`${CONTAINER_NARROW} mx-auto px-4 sm:px-6 py-8 space-y-6`}>
         <Section title="Profile">
           <div className="flex items-center gap-3 mb-5">
-            {user.picture
-              ? <img src={user.picture} alt="" className="w-12 h-12 rounded-full object-cover" />
-              : <span className="w-12 h-12 rounded-full bg-[var(--bg-muted)] flex items-center justify-center font-medium">{(displayName || "?")[0]?.toUpperCase()}</span>}
+            <button
+              type="button"
+              onClick={() => pictureInputRef.current?.click()}
+              disabled={uploadingPicture}
+              className="relative group w-12 h-12 rounded-full shrink-0"
+              title="Change profile picture"
+              data-testid="btn-change-picture"
+            >
+              {user.picture
+                ? <img src={user.picture} alt="" className="w-12 h-12 rounded-full object-cover" />
+                : <span className="w-12 h-12 rounded-full bg-[var(--bg-muted)] flex items-center justify-center font-medium">{(displayName || "?")[0]?.toUpperCase()}</span>}
+              <span className={`absolute inset-0 rounded-full bg-black/40 flex items-center justify-center transition-opacity ${uploadingPicture ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                <Camera className="w-4 h-4 text-white" />
+              </span>
+            </button>
+            <input
+              ref={pictureInputRef}
+              type="file"
+              accept="image/*"
+              onChange={onPictureSelected}
+              className="hidden"
+              data-testid="input-profile-picture"
+            />
             <div className="min-w-0">
               <div className="text-sm text-[var(--fg-muted)] truncate">{user.email}</div>
               <div className="text-xs text-[var(--fg-subtle)]">{user.id_verified ? "ID verified ✓" : "Not ID verified"}</div>

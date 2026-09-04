@@ -75,10 +75,13 @@ async def google_callback(payload: GoogleAuthCallback, response: Response):
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         user_id = existing["user_id"]
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {"name": data.get("name", ""), "picture": data.get("picture")}},
-        )
+        update_fields = {"name": data.get("name", "")}
+        # Once someone's uploaded their own photo, stop overwriting it with
+        # Google's on every future login — otherwise a custom picture would
+        # silently revert the next time they sign in.
+        if not existing.get("picture_is_custom"):
+            update_fields["picture"] = data.get("picture")
+        await db.users.update_one({"user_id": user_id}, {"$set": update_fields})
         user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"

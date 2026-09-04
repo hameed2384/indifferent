@@ -16,6 +16,17 @@ import StreamSettingsModal from "@/components/StreamSettingsModal";
 import InviteFriendsModal from "@/components/InviteFriendsModal";
 import { useModalA11y } from "@/hooks/useModalA11y";
 
+// object-fit: cover equivalent for drawing a <video> frame into a canvas
+// rect — crops to fill rather than squishing the aspect ratio.
+function drawVideoCover(ctx, video, x, y, w, h) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return;
+  const scale = Math.max(w / vw, h / vh);
+  const sw = w / scale, sh = h / scale;
+  const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+  ctx.drawImage(video, sx, sy, sw, sh, x, y, w, h);
+}
+
 function PostDebateFeedbackModal({ rating, setRating, mindChanged, setMindChanged, notes, setNotes, onCancel, onSubmit }) {
   const modalRef = useModalA11y(onCancel);
   return (
@@ -175,6 +186,49 @@ export default function ChatRoom() {
     recorder.start(15000);
     return () => { if (recorder.state !== "inactive") recorder.stop(); };
   }, [lk.localVideoEl, lk.room, roomId]);
+
+  // Auto-thumbnail for the home feed's debate cards (DebateCard.jsx), which
+  // otherwise show a flat category-color gradient. No server-side
+  // compositing exists (see recording-chunk above) to pull a frame from
+  // after the fact, so this grabs one client-side, once, a bit into the
+  // debate — enough time for both feeds to be showing a real picture
+  // rather than a black connecting frame. Both sides may attempt this; the
+  // backend (POST /rooms/:id/thumbnail) is a first-write-wins no-op if a
+  // thumbnail already exists, so no coordination is needed here.
+  const thumbnailCapturedRef = useRef(false);
+  useEffect(() => {
+    if (thumbnailCapturedRef.current) return;
+    if (lk.status !== "connected" || !lk.localVideoEl || !roomId) return;
+    const timer = setTimeout(() => {
+      if (thumbnailCapturedRef.current) return;
+      const local = lk.localVideoEl;
+      if (!local || local.readyState < 2) return; // no real frame decoded yet — skip this attempt, effect deps will retry on the next status/participant change
+      const remote = lk.remoteParticipants.find((rp) => rp.videoEl && rp.videoEl.readyState >= 2);
+      thumbnailCapturedRef.current = true;
+      try {
+        const w = 640, h = 360;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#161616";
+        ctx.fillRect(0, 0, w, h);
+        if (remote) {
+          drawVideoCover(ctx, local, 0, 0, w / 2, h);
+          drawVideoCover(ctx, remote.videoEl, w / 2, 0, w / 2, h);
+        } else {
+          drawVideoCover(ctx, local, 0, 0, w, h);
+        }
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const form = new FormData();
+          form.append("image", blob, "thumb.jpg");
+          api.post(`/rooms/${roomId}/thumbnail`, form).catch(() => { /* best-effort — a missing thumbnail just falls back to the gradient placeholder */ });
+        }, "image/jpeg", 0.8);
+      } catch { /* best-effort */ }
+    }, 20000);
+    return () => clearTimeout(timer);
+  }, [lk.status, lk.localVideoEl, lk.remoteParticipants, roomId]);
   // block: "nearest" — see WatchRoom.jsx's identical fix: the default
   // ("start") drags every scrollable ancestor, including the page itself,
   // toward aligning this element to the top, not just the chat panel.

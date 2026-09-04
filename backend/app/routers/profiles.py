@@ -3,18 +3,21 @@ one of three deliberately separate relationship systems: follows here,
 friends and subscriptions land with the rest of Phase 3/4).
 """
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from pymongo.errors import DuplicateKeyError
 
+from ..config import APP_NAME
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..models import User
 from ..notifications import create_notification
 from ..room_utils import find_live_room_id
+from ..storage import put_object
 
 router = APIRouter()
 
@@ -367,6 +370,29 @@ async def update_my_profile(payload: ProfileUpdate, user: User = Depends(get_cur
         await db.users.update_one({"user_id": user.user_id}, {"$set": update})
     except DuplicateKeyError:
         raise HTTPException(status_code=409, detail="That handle is already taken")
+    doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    return User(**doc)
+
+
+_PICTURE_EXT_CONTENT_TYPE = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
+
+
+@router.post("/users/me/picture", response_model=User)
+async def upload_profile_picture(file: UploadFile = File(...), user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+    """Same Vercel Blob pattern as verify.py's ID upload, but public — a
+    profile picture is exactly as visible as the Google photo it replaces,
+    so (unlike verify.py's document) the URL is stored and served directly,
+    matching clips.py's public-URL model. Marks picture_is_custom so a
+    future Google login (auth.py) doesn't overwrite it."""
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin"
+    if ext not in _PICTURE_EXT_CONTENT_TYPE:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, or WebP images are allowed")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image too large (5MB max)")
+    content_type = _PICTURE_EXT_CONTENT_TYPE[ext]
+    result = put_object(f"{APP_NAME}/avatars/{user.user_id}-{uuid.uuid4().hex[:12]}.{ext}", data, content_type)
+    await db.users.update_one({"user_id": user.user_id}, {"$set": {"picture": result["url"], "picture_is_custom": True}})
     doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     return User(**doc)
 

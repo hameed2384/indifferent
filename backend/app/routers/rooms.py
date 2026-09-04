@@ -340,6 +340,37 @@ async def upload_recording_chunk(
     return {"ok": True}
 
 
+@router.post("/rooms/{room_id}/thumbnail")
+async def upload_room_thumbnail(
+    room_id: str,
+    image: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    _xhr: None = Depends(require_xhr),
+):
+    """Auto-thumbnail for the home feed's debate cards (DebateCard.jsx),
+    which otherwise show a flat category-color gradient — there's no
+    server-side compositing (see recording-chunk above) to extract a frame
+    from, so ChatRoom.jsx instead grabs a snapshot of the live video tiles
+    onto a canvas client-side, once, a little into the debate, and posts it
+    here as a plain JPEG. First write wins: both sides may attempt this, so
+    a room that already has one is a no-op rather than an error, letting
+    the client fire-and-forget without coordinating who goes first."""
+    room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})
+    _require_participant(room, user.user_id)
+    if room.get("thumbnail_url"):
+        return {"thumbnail_url": room["thumbnail_url"]}
+    data = await image.read()
+    if len(data) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Thumbnail too large")
+    result = put_object(f"{APP_NAME}/thumbnails/{room_id}.jpg", data, image.content_type or "image/jpeg")
+    await db.rooms.update_one(
+        {"room_id": room_id, "thumbnail_url": {"$exists": False}},
+        {"$set": {"thumbnail_url": result["url"]}},
+    )
+    fresh = await db.rooms.find_one({"room_id": room_id}, {"_id": 0, "thumbnail_url": 1})
+    return {"thumbnail_url": fresh.get("thumbnail_url")}
+
+
 @router.post("/rooms/{room_id}/feedback")
 async def submit_feedback(room_id: str, fb: MatchFeedback, user: User = Depends(get_current_user)):
     room = await db.rooms.find_one({"room_id": room_id}, {"_id": 0})

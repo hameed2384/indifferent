@@ -1,11 +1,12 @@
 import { Heart } from "lucide-react";
 import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 
-// A fixed small palette keyed by category, not random — same category
-// always reads as the same color, giving the feed a bit of visual rhythm
-// without needing a real thumbnail image (debates aren't recorded
-// server-side in a way that gives a poster frame for a live one).
-// Deliberately NOT theme-reactive (fixed dark tones even in light mode)
+// Fallback for rooms with no d.thumbnail_url yet (ChatRoom.jsx captures one
+// client-side a little into a live debate — ended-before-capture rooms and
+// solo go-live rooms with the seat still open never get one). A fixed small
+// palette keyed by category, not random — same category always reads as the
+// same color, giving the feed a bit of visual rhythm even without a real
+// thumbnail. Deliberately NOT theme-reactive (fixed dark tones even in light mode)
 // — a thumbnail is content, not chrome, same as a real photo thumbnail
 // wouldn't re-theme either. The end stop must NOT match either theme's
 // page background: it used to fade to #0a0a0a, which is dark mode's
@@ -52,7 +53,12 @@ export default function DebateCard({ d, onClick }) {
           stat badge standing in for YouTube's duration badge). "Who's
           debating" lives below, next to the title, the same place YouTube
           puts the channel identity — not inside the thumbnail itself. */}
-      <div className={`relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br ${paletteFor(d.categories?.[0])} border border-[var(--border-strong)] group-hover:border-[var(--fg-subtle)] transition-colors`}>
+      <div
+        className={`relative aspect-video rounded-xl overflow-hidden border border-[var(--border-strong)] group-hover:border-[var(--fg-subtle)] transition-colors ${d.thumbnail_url ? "bg-black" : `bg-gradient-to-br ${paletteFor(d.categories?.[0])}`}`}
+      >
+        {d.thumbnail_url && (
+          <img src={d.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
         {isLive && (
           <span className="absolute top-2 left-2 inline-flex items-center gap-1 bg-[var(--danger)] text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
             <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
