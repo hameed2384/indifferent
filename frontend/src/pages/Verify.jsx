@@ -26,7 +26,7 @@ export default function Verify() {
       await api.post("/verify/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
       await checkAuth();
       toast.success("Verified. Welcome.");
-      navigate("/match");
+      navigate("/");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Upload failed. Try again.");
     } finally {
