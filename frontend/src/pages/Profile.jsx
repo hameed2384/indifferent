@@ -38,26 +38,52 @@ function StatBlock({ icon: Icon, value, label }) {
   );
 }
 
+// Position (-10..10) is an AI-derived score that was never really precise
+// to one decimal place, and its sign has no universal meaning across
+// topics (there's no fixed "positive" pole for "Birthdays" or "Anime") —
+// so instead of showing it raw, it's bucketed into 5 even strength bands
+// and paired with a plain word. Direction is left to the AI-written
+// summary sentence, which already states it in plain language.
+const STRENGTH_LABELS = ["Barely held", "Slightly held", "Moderately held", "Firmly held", "Very firmly held"];
+function strengthBucket(position) {
+  const abs = Math.min(10, Math.abs(position ?? 0));
+  return Math.min(5, Math.floor(abs / 2) + 1);
+}
+
+function StrengthDots({ bucket }) {
+  return (
+    <span className="inline-flex items-center gap-1" aria-hidden="true">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className={`w-1.5 h-1.5 rounded-full ${i <= bucket ? "bg-[var(--accent)]" : "bg-[var(--bg-muted)] border border-[var(--border-strong)]"}`} />
+      ))}
+    </span>
+  );
+}
+
 function TopicSpectrum({ t }) {
-  const pct = 50 + (t.position / 10) * 50;
+  const bucket = strengthBucket(t.position);
   const hasShift = typeof t.shift === "number" && Math.abs(t.shift) >= 0.1;
+  // shift is (current - first), so the first recorded position is
+  // recoverable without a separate API field — bucketed the same way as
+  // the current value so "did this visibly change" compares apples to
+  // apples instead of re-exposing a raw delta number.
+  const firstBucket = hasShift ? strengthBucket(t.position - t.shift) : bucket;
+  const bucketChanged = hasShift && firstBucket !== bucket;
   return (
     <div className="py-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium">{t.topic}</span>
         <span className="text-xs font-mono-ui text-[var(--fg-subtle)] inline-flex items-center gap-1.5">
-          {hasShift && (
-            <span className={t.shift > 0 ? "text-[var(--accent)]" : "text-[var(--danger)]"} data-testid={`topic-shift-${t.topic}`}>
-              {t.shift > 0 ? "↑" : "↓"} {Math.abs(t.shift).toFixed(1)} since you started
-            </span>
-          )}
-          {t.position?.toFixed?.(1)}
+          {STRENGTH_LABELS[bucket - 1]}
+          <StrengthDots bucket={bucket} />
         </span>
       </div>
-      <div className="relative h-1.5 rounded-full bg-[var(--bg-muted)] border border-[var(--border-strong)]">
-        <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[var(--accent)] ring-2 ring-[var(--accent-soft)]" style={{ left: `calc(${pct}% - 6px)` }} />
-      </div>
-      {t.summary && <p className="mt-2 text-xs text-[var(--fg-muted)]">{t.summary}</p>}
+      {t.summary && <p className="text-xs text-[var(--fg-muted)]">{t.summary}</p>}
+      {bucketChanged && (
+        <p className={`mt-1 text-xs ${bucket > firstBucket ? "text-[var(--accent)]" : "text-[var(--danger)]"}`} data-testid={`topic-shift-${t.topic}`}>
+          {bucket > firstBucket ? "↑ Grown stronger" : "↓ Grown softer"} since you started
+        </p>
+      )}
     </div>
   );
 }
