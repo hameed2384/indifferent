@@ -28,6 +28,9 @@ class User(BaseModel):
     debates: int = 0
     minds_changed: int = 0
     referral_count: int = 0
+    streak_count: int = 0  # consecutive days with a completed debate — see app/streaks.py
+    streak_last_date: Optional[str] = None  # ISO date (UTC) the streak was last bumped
+    streak_freeze_used_at: Optional[str] = None  # ISO date the one-skip-a-month grace was last spent
     is_debater: bool = False
     allow_friend_requests: bool = True
     ad_free: bool = False

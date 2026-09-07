@@ -14,6 +14,7 @@ from ..hubs import maybe_detect_topic_drift, maybe_run_coach
 from ..notifications import create_notification
 from ..ratelimit import rate_limit
 from ..storage import put_object
+from ..streaks import bump_streak
 from ..models import (
     ArchiveVisibility,
     ArchiveVisibilityDecision,
@@ -389,6 +390,7 @@ async def submit_feedback(room_id: str, fb: MatchFeedback, user: User = Depends(
     if fb.mind_changed:
         inc["minds_changed"] = 1
     await db.users.update_one({"user_id": user.user_id}, {"$inc": inc})
+    await bump_streak(user.user_id)
     await db.rooms.update_one({"room_id": room_id}, {"$set": {"status": "ended"}})
     return {"ok": True}
 

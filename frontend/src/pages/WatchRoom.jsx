@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Flag, GitBranch, Heart, Share2, ThumbsDown, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Bookmark, Flag, GitBranch, Heart, Image as ImageIcon, Share2, ThumbsDown, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -19,6 +19,120 @@ import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 import { DEBATER_SUB_PRICE } from "@/lib/pricing";
+
+// object-fit: cover for drawing a loaded <img> into a canvas rect — crops
+// to fill rather than distorting the aspect ratio.
+function drawImageCover(ctx, img, x, y, w, h) {
+  const scale = Math.max(w / img.width, h / img.height);
+  const sw = w / scale, sh = h / scale;
+  const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+// Canvas has no built-in text wrapping — greedy word-wrap, returns the y
+// position after the last line so a caller can place what comes next.
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
+  const words = text.split(" ");
+  let line = "";
+  let lines = 0;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, y);
+      line = word;
+      y += lineHeight;
+      lines += 1;
+      if (lines >= maxLines - 1) {
+        line = words.slice(words.indexOf(word)).join(" ");
+        break;
+      }
+    } else {
+      line = test;
+    }
+  }
+  if (line) {
+    // Truncate with an ellipsis if the final line is still too wide.
+    while (ctx.measureText(`${line}…`).width > maxWidth && line.length > 1) {
+      line = line.slice(0, -1);
+    }
+    ctx.fillText(lines >= maxLines - 1 ? `${line}…` : line, x, y);
+  }
+  return y + lineHeight;
+}
+
+/** Builds a 1200x630 shareable "debate card" PNG from data already on the
+ * page — no backend round-trip, unlike the live-video thumbnail capture
+ * (ChatRoom.jsx), since an ended debate's title/names/stats are all
+ * already loaded here. Falls back to a plain gradient if the room has no
+ * thumbnail yet, or if drawing the thumbnail image fails for any reason
+ * (e.g. a CORS quirk reading pixels from the Blob host, which would
+ * otherwise throw on canvas.toBlob rather than just skip the image). */
+function buildShareCardBlob(debate) {
+  const w = 1200, h = 630;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+
+  const drawGradientBg = () => {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, "#1a2e2a");
+    g.addColorStop(1, "#161616");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  };
+
+  const drawForeground = () => {
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "600 20px system-ui, sans-serif";
+    ctx.fillText("INDIFFERENT — LIVE VIDEO DEBATE", 60, 64);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 46px Georgia, 'Times New Roman', serif";
+    wrapText(ctx, `"${titleFor(debate)}"`, 60, 160, w - 120, 56);
+
+    const aName = debate.side_a?.open ? "Open seat" : (debate.side_a?.display_name || "Debater A");
+    const bName = debate.side_b?.open ? "Open seat" : (debate.side_b?.display_name || "Debater B");
+    ctx.font = "500 30px system-ui, sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(`${aName}  vs  ${bName}`, 60, h - 130);
+
+    ctx.font = "400 21px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillText(`${debate.spectator_count ?? 0} watched · ${debate.likes ?? 0} likes`, 60, h - 90);
+  };
+
+  return new Promise((resolve) => {
+    const finish = () => canvas.toBlob(resolve, "image/png");
+    if (!debate.thumbnail_url) {
+      drawGradientBg();
+      drawForeground();
+      finish();
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        drawImageCover(ctx, img, 0, 0, w, h);
+      } catch {
+        ctx.clearRect(0, 0, w, h);
+        drawGradientBg();
+      }
+      drawForeground();
+      finish();
+    };
+    img.onerror = () => {
+      drawGradientBg();
+      drawForeground();
+      finish();
+    };
+    img.src = debate.thumbnail_url;
+  });
+}
 
 function ViewerOverlay({ side, navigate }) {
   const [following, setFollowing] = useState(null); // null = unknown/self/open, else bool
@@ -579,6 +693,7 @@ function MobileWatch({
   chat, connected, chatEndRef,
   comments, commentEndRef, commentText, setCommentText, sendComment, user, spectatorCount,
   likes, dislikes, myReaction, like, dislike,
+  isBookmarked, toggleBookmark,
   votes, castVote, notInterested, roomId, navigate,
 }) {
   return (
@@ -665,6 +780,15 @@ function MobileWatch({
               >
                 <ThumbsDown className="w-4 h-4" /> {dislikes}
               </button>
+              <button
+                onClick={toggleBookmark}
+                aria-pressed={isBookmarked}
+                className={`inline-flex items-center gap-1.5 ${isBookmarked ? "btn-accent" : "btn-outline"}`}
+                data-testid="btn-bookmark-mobile"
+                title={isBookmarked ? "Saved" : "Save for later"}
+              >
+                <Bookmark className="w-4 h-4" /> {isBookmarked ? "Saved" : "Save"}
+              </button>
             </div>
             <VotePanel
               votes={votes}
@@ -694,6 +818,7 @@ export default function WatchRoom() {
   const [likes, setLikes] = useState(0);
   const [dislikes, setDislikes] = useState(0);
   const [myReaction, setMyReaction] = useState(null); // "like" | "dislike" | null
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const [votes, setVotes] = useState({ votes_a: 0, votes_b: 0, my_vote: null });
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [connected, setConnected] = useState(false);
@@ -755,6 +880,7 @@ export default function WatchRoom() {
         setLikes(data.likes || 0);
         setDislikes(data.dislikes || 0);
         setMyReaction(data.my_reaction || null);
+        setIsBookmarked(!!data.is_bookmarked);
         setVotes({ votes_a: data.votes_a || 0, votes_b: data.votes_b || 0, my_vote: data.my_vote || null });
         setSpectatorCount(data.spectator_count || 0);
         sinceRef.current = data.server_time;
@@ -782,6 +908,7 @@ export default function WatchRoom() {
         setLikes(data.likes || 0);
         setDislikes(data.dislikes || 0);
         setMyReaction(data.my_reaction || null);
+        setIsBookmarked(!!data.is_bookmarked);
         setVotes({ votes_a: data.votes_a || 0, votes_b: data.votes_b || 0, my_vote: data.my_vote || null });
         setSpectatorCount(data.spectator_count || 0);
         sinceRef.current = data.server_time;
@@ -886,6 +1013,15 @@ export default function WatchRoom() {
     api.post(`/public/debates/${roomId}/dislike`).then(({ data }) => applyReaction(data)).catch(() => toast.error("Couldn't record that — try again"));
   };
 
+  const toggleBookmark = () => {
+    if (!user) { toast.info("Sign in to save"); return; }
+    const next = !isBookmarked;
+    setIsBookmarked(next); // optimistic — a plain on/off toggle has no count to reconcile like applyReaction does
+    api.post(`/public/debates/${roomId}/bookmark`)
+      .then(({ data }) => setIsBookmarked(data.bookmarked))
+      .catch(() => { setIsBookmarked(!next); toast.error("Couldn't save that — try again"); });
+  };
+
   const castVote = async (side, reasoning) => {
     if (!user) { toast.info("Sign in to vote"); return; }
     try {
@@ -903,6 +1039,32 @@ export default function WatchRoom() {
       if (navigator.share) await navigator.share({ title: "indifferent — live debate", url });
       else { await navigator.clipboard.writeText(url); toast.success("Link copied"); }
     } catch { /* noop */ }
+  };
+
+  const [buildingCard, setBuildingCard] = useState(false);
+  const shareCard = async () => {
+    if (!debate || buildingCard) return;
+    setBuildingCard(true);
+    try {
+      const blob = await buildShareCardBlob(debate);
+      if (!blob) { toast.error("Couldn't build the image"); return; }
+      const file = new File([blob], "debate.png", { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "indifferent — live debate", url: window.location.href });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "debate.png";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success("Image downloaded");
+    } catch {
+      /* AbortError from a cancelled native share sheet is expected, not an error */
+    } finally {
+      setBuildingCard(false);
+    }
   };
 
   const notInterested = () => {
@@ -1026,6 +1188,7 @@ export default function WatchRoom() {
         chat={chat} connected={connected} chatEndRef={chatEndRef}
         comments={comments} commentEndRef={commentEndRef} commentText={commentText} setCommentText={setCommentText} sendComment={sendComment} user={user} spectatorCount={spectatorCount}
         likes={likes} dislikes={dislikes} myReaction={myReaction} like={like} dislike={dislike}
+        isBookmarked={isBookmarked} toggleBookmark={toggleBookmark}
         votes={votes} castVote={castVote} notInterested={notInterested} roomId={roomId} navigate={navigate}
       />
 
@@ -1146,7 +1309,19 @@ export default function WatchRoom() {
               >
                 <ThumbsDown className="w-4 h-4" /> {dislikes}
               </button>
+              <button
+                onClick={toggleBookmark}
+                aria-pressed={isBookmarked}
+                className={`inline-flex items-center gap-1.5 ${isBookmarked ? "btn-accent" : "btn-outline"}`}
+                data-testid="btn-bookmark"
+                title={isBookmarked ? "Saved" : "Save for later"}
+              >
+                <Bookmark className="w-4 h-4" /> {isBookmarked ? "Saved" : "Save"}
+              </button>
               <button onClick={share} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-share-2"><Share2 className="w-4 h-4" /> Share</button>
+              <button onClick={shareCard} disabled={buildingCard} className="btn-outline inline-flex items-center gap-1.5" data-testid="btn-share-card" title="Share as an image">
+                <ImageIcon className="w-4 h-4" /> {buildingCard ? "…" : "Share image"}
+              </button>
               {!isLive && (
                 <button
                   onClick={() => { if (!user) { toast.info("Sign in to post a claim"); return; } setShowTurnIntoClaim(true); }}

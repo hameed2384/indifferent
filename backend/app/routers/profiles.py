@@ -203,6 +203,7 @@ async def get_public_profile(user_id: str, viewer: Optional[User] = Depends(get_
         "following_count": following_count,
         "debates_count": int(doc.get("debates", 0)),
         "minds_changed": int(doc.get("minds_changed", 0)),
+        "streak_count": int(doc.get("streak_count", 0)),
         "coach_flags": coach_flags,
         "coach_flags_total": coach_flags_total,
         "coach_steelman_count": int(coach_flags.get("steelman", 0)),

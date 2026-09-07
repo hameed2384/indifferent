@@ -97,6 +97,12 @@ async def create_indexes():
     # changeable, feeding topic_stances via the reasoning text.
     await db.debate_votes.create_index([("room_id", 1), ("user_id", 1)], unique=True)
 
+    # "Watch later" bookmarks (routers/public.py) — one save per (viewer,
+    # room); unique index is what makes the toggle race-safe, not just a
+    # lookup optimization.
+    await db.debate_bookmarks.create_index([("user_id", 1), ("room_id", 1)], unique=True)
+    await db.debate_bookmarks.create_index([("user_id", 1), ("created_at", -1)])
+
     # Private friend chat/call (routers/private.py) — isolated from every AI
     # call site by construction, see that module's docstring.
     await db.private_messages.create_index([("pair_key", 1), ("created_at", 1)])

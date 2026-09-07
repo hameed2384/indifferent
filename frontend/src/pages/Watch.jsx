@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, Radio, Search, Shuffle, Swords, Tag } from "lucide-react";
+import { Bookmark, Menu, Radio, Search, Shuffle, Swords, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -45,6 +45,10 @@ function PersonCard({ p, onClick }) {
     </button>
   );
 }
+
+// Sentinel value for activeCategory, not a real category name — routes the
+// feed fetch to GET /users/me/bookmarks instead of GET /public/debates.
+const SAVED_KEY = "__saved__";
 
 export default function Watch() {
   const [debates, setDebates] = useState([]);
@@ -99,10 +103,16 @@ export default function Watch() {
     let failStreak = 0;
     const load = async () => {
       try {
-        const params = {};
-        if (activeCategory) params.category = activeCategory;
-        if (search.trim()) params.q = search.trim();
-        const { data } = await api.get("/public/debates", { params });
+        let data;
+        if (activeCategory === SAVED_KEY) {
+          if (!user) { if (mounted) { setDebates([]); setLoading(false); } return; }
+          ({ data } = await api.get("/users/me/bookmarks"));
+        } else {
+          const params = {};
+          if (activeCategory) params.category = activeCategory;
+          if (search.trim()) params.q = search.trim();
+          ({ data } = await api.get("/public/debates", { params }));
+        }
         if (!mounted) return;
         setDebates(data.debates || []);
         failStreak = 0;
@@ -120,7 +130,7 @@ export default function Watch() {
     load();
     const iv = setInterval(load, 8000);
     return () => { mounted = false; clearInterval(iv); };
-  }, [activeCategory, search]);
+  }, [activeCategory, search, user]);
 
   const visible = useMemo(
     () => debates.filter((d) => !d.categories?.some((c) => excluded.has(c))),
@@ -191,6 +201,15 @@ export default function Watch() {
             >
               All
             </button>
+            {user && (
+              <button
+                onClick={() => setActiveCategory(SAVED_KEY === activeCategory ? null : SAVED_KEY)}
+                className={`inline-flex items-center gap-1 ${activeCategory === SAVED_KEY ? "chip-accent shrink-0" : "chip shrink-0"}`}
+                data-testid="category-saved"
+              >
+                <Bookmark className="w-3 h-3" /> Saved
+              </button>
+            )}
             {categories.map((c) => (
               <button
                 key={c}
@@ -263,8 +282,13 @@ export default function Watch() {
             <div className="mt-4 card p-10 text-center">
               <div className="eyebrow">Nothing to watch yet</div>
               <div className="font-heading text-xl sm:text-2xl mt-2">
-                {search || activeCategory ? "No debates match that." : "Be the first debate on the record."}
+                {activeCategory === SAVED_KEY
+                  ? "Nothing saved yet."
+                  : search || activeCategory ? "No debates match that." : "Be the first debate on the record."}
               </div>
+              {activeCategory === SAVED_KEY && (
+                <p className="mt-3 text-sm text-[var(--fg-muted)]">Hit the bookmark icon on any debate to save it here.</p>
+              )}
               {!search && !activeCategory && (
                 <p className="mt-3 text-sm text-[var(--fg-muted)]">
                   No one's live right now. <button onClick={() => navigate("/claims")} className="text-[var(--accent)] hover:underline font-medium">Check Claim Trees</button> for video arguments you can jump into any time.

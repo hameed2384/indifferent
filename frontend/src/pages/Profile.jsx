@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2, Search, Flag, Lightbulb } from "lucide-react";
+import { Users, UserPlus, Swords, GitBranch, Calendar, Heart, Pencil, Settings as SettingsIcon, MessageCircle, Share2, Trash2, Search, Flag, Lightbulb, Flame } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -422,6 +422,8 @@ export default function Profile() {
           <StatBlock icon={Users} value={profile.followers_count} label="Followers" />
           <StatBlock icon={UserPlus} value={profile.following_count} label="Following" />
           <StatBlock icon={Swords} value={profile.debates_count} label="Debates" />
+          {profile.minds_changed > 0 && <StatBlock icon={Lightbulb} value={profile.minds_changed} label="Minds changed" />}
+          {profile.streak_count > 1 && <StatBlock icon={Flame} value={profile.streak_count} label="Day streak" />}
           <StatBlock icon={GitBranch} value={profile.clips_count} label="Claims" />
           {joinDate && (
             <span className="flex items-center gap-2 text-sm text-[var(--fg-subtle)]">

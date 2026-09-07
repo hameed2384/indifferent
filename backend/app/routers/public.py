@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from pymongo.errors import DuplicateKeyError
 
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
@@ -251,11 +252,13 @@ async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_c
     docs = await _participant_docs(r)
     my_vote = None
     my_reaction = None
+    is_bookmarked = False
     if viewer:
         mv = await db.debate_votes.find_one({"room_id": room_id, "user_id": viewer.user_id}, {"_id": 0})
         my_vote = mv["side"] if mv else None
         mr = await db.room_reactions.find_one({"room_id": room_id, "user_id": viewer.user_id}, {"_id": 0})
         my_reaction = mr["kind"] if mr else None
+        is_bookmarked = await db.debate_bookmarks.find_one({"room_id": room_id, "user_id": viewer.user_id}, {"_id": 1}) is not None
     msgs = await db.chat_messages.find({"room_id": room_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
     for m in msgs:
         side = member_side(r, m["sender_id"]) or "b"
@@ -294,6 +297,7 @@ async def get_public_debate(room_id: str, viewer: Optional[User] = Depends(get_c
         **tally,
         "my_vote": my_vote,
         "my_reaction": my_reaction,
+        "is_bookmarked": is_bookmarked,
         "spectator_count": await _spectator_count(room_id),
         "published_at": r.get("published_at"),
         "archive_visibility": r.get("archive_visibility"),
@@ -433,6 +437,67 @@ async def like_debate(room_id: str, user: User = Depends(get_current_user), _xhr
 @router.post("/public/debates/{room_id}/dislike")
 async def dislike_debate(room_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
     return await _react_to_debate(room_id, user, "dislike")
+
+
+@router.post("/public/debates/{room_id}/bookmark")
+async def toggle_bookmark(room_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+    """Plain on/off save, not a like/dislike-style reaction (see
+    app/reactions.py) — there's no opposite kind to switch to, just
+    bookmarked or not. Race-safe the same way toggle_reaction is: the
+    unique (user_id, room_id) index means only one of two racing inserts
+    can ever land, and a delete on a doc that's already gone is a no-op."""
+    existing = await db.debate_bookmarks.find_one({"room_id": room_id, "user_id": user.user_id}, {"_id": 1})
+    if existing:
+        await db.debate_bookmarks.delete_one({"_id": existing["_id"]})
+        return {"bookmarked": False}
+    try:
+        await db.debate_bookmarks.insert_one({
+            "room_id": room_id, "user_id": user.user_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except DuplicateKeyError:
+        pass  # a concurrent identical request already saved it — same end state
+    return {"bookmarked": True}
+
+
+@router.get("/users/me/bookmarks")
+async def list_bookmarked_debates(user: User = Depends(get_current_user)):
+    """Saved-for-later debates (Watch.jsx's "Saved" filter) — same card
+    shape as list_public_debates below, but scoped to this viewer's own
+    bookmarks and ordered by when they saved it rather than published_at.
+    Deliberately doesn't re-check current visibility: a debate you saved
+    while it was public stays in your list even if the debater later
+    un-publishes it, same as a YouTube "Watch later" entry surviving a
+    video going unlisted — the entry is yours, not a live query result."""
+    marks = await db.debate_bookmarks.find({"user_id": user.user_id}, {"_id": 0, "room_id": 1}).sort("created_at", -1).to_list(200)
+    room_ids = [m["room_id"] for m in marks]
+    if not room_ids:
+        return {"debates": []}
+    rooms = await db.rooms.find({"room_id": {"$in": room_ids}}, {"_id": 0}).to_list(len(room_ids))
+    by_id = {r["room_id"]: r for r in rooms}
+    ordered = [by_id[rid] for rid in room_ids if rid in by_id]
+    docs = await _participant_docs_batch(ordered)
+    spectator_counts = await _spectator_counts_batch(room_ids)
+    out = []
+    for r in ordered:
+        out.append({
+            "room_id": r["room_id"],
+            "status": r.get("status", "active"),
+            "opposition_score": r.get("opposition_score"),
+            "topics": r.get("topics", []),
+            "custom_title": r.get("custom_title"),
+            "categories": r.get("categories", []),
+            "thumbnail_url": r.get("thumbnail_url"),
+            "likes": int(r.get("likes", 0)),
+            "spectator_count": spectator_counts.get(r["room_id"], 0),
+            "published_at": r.get("published_at"),
+            "archive_visibility": r.get("archive_visibility"),
+            "side_a": _side(docs.get(r["user_a"]), r["user_a"], "Debater A"),
+            "side_b": _side(docs.get(r.get("user_b")), r.get("user_b"), "Open seat — request to join"),
+            "side_a_extra": _extra_sides(r, docs, "a"),
+            "side_b_extra": _extra_sides(r, docs, "b"),
+        })
+    return {"debates": out}
 
 
 class VoteIn(BaseModel):
