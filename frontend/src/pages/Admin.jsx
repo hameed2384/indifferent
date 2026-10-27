@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Flag, ShieldCheck, Trash2, Search, FileText } from "lucide-react";
+import { Flag, ShieldCheck, Trash2, Search, FileText, Megaphone } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -259,10 +259,78 @@ function ReportsQueue() {
   );
 }
 
+function MarketingDraft() {
+  const [draft, setDraft] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    api.get("/admin/social/draft-of-the-week")
+      .then(({ data }) => setDraft(data))
+      .catch(() => setDraft({ available: false, reason: "Couldn't load a draft — try again." }))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const copyAll = async () => {
+    if (!draft?.available) return;
+    const text = `${draft.caption}\n\n${(draft.hashtags || []).map((h) => `#${h}`).join(" ")}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success("Caption copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy — select the text manually");
+    }
+  };
+
+  if (loading) return <RowSkeletonList />;
+  if (!draft?.available) {
+    return <p className="text-sm text-[var(--fg-subtle)]">{draft?.reason || "Nothing to draft yet."}</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-[var(--fg-subtle)]">
+        Drafted from real platform activity (most-liked and most-voted public debate, last 7 days) — nothing is posted
+        automatically. Copy this and post it yourself until the Instagram/Meta integration exists.
+        {draft.is_fallback_caption && " AI caption generation is unavailable right now — this is a plain templated fallback."}
+      </p>
+      <div className="grid sm:grid-cols-[200px_1fr] gap-4">
+        {draft.thumbnail_url ? (
+          <img src={draft.thumbnail_url} alt="" className="w-full sm:w-[200px] aspect-square object-cover rounded-lg border border-[var(--border-strong)]" />
+        ) : (
+          <div className="w-full sm:w-[200px] aspect-square rounded-lg bg-[var(--bg-muted)] border border-[var(--border-strong)] flex items-center justify-center text-xs text-[var(--fg-subtle)] text-center p-2">
+            No thumbnail captured for this debate
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="text-sm font-medium mb-1">"{draft.title}"</div>
+          <div className="text-xs text-[var(--fg-subtle)] mb-3">
+            {draft.side_a} vs {draft.side_b} · {draft.likes} likes · {draft.votes_a + draft.votes_b} votes
+          </div>
+          <div className="card !p-3 text-sm whitespace-pre-wrap mb-2" data-testid="social-draft-caption">{draft.caption}</div>
+          <div className="text-xs text-[var(--accent)] mb-3">{(draft.hashtags || []).map((h) => `#${h}`).join(" ")}</div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={copyAll} className="btn-accent text-sm" data-testid="btn-copy-social-draft">
+              {copied ? "Copied" : "Copy caption + hashtags"}
+            </button>
+            <button onClick={load} className="btn-outline text-sm" data-testid="btn-regenerate-social-draft">Regenerate</button>
+            <a href={draft.watch_url} target="_blank" rel="noreferrer" className="btn-outline text-sm">View debate</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TABS = [
   { key: "users", label: "Users" },
   { key: "verify", label: "Verification" },
   { key: "reports", label: "Reports" },
+  { key: "marketing", label: "Marketing" },
 ];
 
 export default function Admin() {
@@ -319,6 +387,12 @@ export default function Admin() {
               <div className="card p-5 sm:p-6">
                 <div className="eyebrow mb-4 inline-flex items-center gap-1.5"><Flag className="w-3.5 h-3.5" /> Open reports</div>
                 <ReportsQueue />
+              </div>
+            )}
+            {tab === "marketing" && (
+              <div className="card p-5 sm:p-6">
+                <div className="eyebrow mb-4 inline-flex items-center gap-1.5"><Megaphone className="w-3.5 h-3.5" /> Debate of the week</div>
+                <MarketingDraft />
               </div>
             )}
           </>

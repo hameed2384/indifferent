@@ -189,3 +189,30 @@ async def analyze_free_text_for_tags(text: str, tags: List[str]) -> dict:
             "tags": [str(t)[:30] for t in (d.get("tags") or [])][:6],
         }
     return out
+
+
+SOCIAL_CAPTION_SYSTEM = (
+    "You write Instagram captions for 'indifferent', an app that matches people with "
+    "opposing views for live video debates. The voice is confident, a little provocative, "
+    "never cringe or corporate — more 'come watch two people actually disagree' than "
+    "'join our amazing community'. Never claim a side won or that anyone was proven wrong — "
+    "describe what was debated and what happened (votes, minds changed), not who was right. "
+    'Return ONLY valid JSON: {"caption": "<2-4 sentences, no hashtags inline>", '
+    '"hashtags": ["<5-8 short tags, no # symbol>"]}. No prose outside JSON, no markdown fences.'
+)
+
+
+async def generate_social_caption(debate: dict) -> Optional[dict]:
+    """Drafts an Instagram caption for one real, already-ended debate — the
+    admin "Marketing" draft tool picks which debate, this just writes the
+    copy. Returns None on any failure; caller falls back to a plain
+    templated caption so the draft tool never comes back empty-handed."""
+    prompt = (
+        f"Topic debated: \"{debate.get('title', 'Untitled debate')}\"\n"
+        f"Category: {debate.get('category') or 'General'}\n"
+        f"Side A: {debate.get('side_a') or 'Debater A'}\n"
+        f"Side B: {debate.get('side_b') or 'Debater B'}\n"
+        f"Spectators: {debate.get('spectator_count', 0)}, Likes: {debate.get('likes', 0)}, "
+        f"Votes: {debate.get('votes_a', 0)} for side A vs {debate.get('votes_b', 0)} for side B."
+    )
+    return await call_llm_json(SOCIAL_CAPTION_SYSTEM, prompt, session_id=f"social-{uuid.uuid4().hex[:8]}")
