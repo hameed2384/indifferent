@@ -135,3 +135,8 @@ async def test_requires_xhr(client, admin_headers, fake):
     r = await client.post(f"/api/admin/instagram/posts/{SINGLE['id']}/prepare", json={"caption": "x"},
                           headers={**admin_headers, "X-Requested-With": ""})
     assert r.status_code == 403
+
+
+def test_token_kind_picks_the_right_api_host():
+    assert ig._graph_host("IGAAexample") == "https://graph.instagram.com"
+    assert ig._graph_host("EAAexample") == "https://graph.facebook.com"

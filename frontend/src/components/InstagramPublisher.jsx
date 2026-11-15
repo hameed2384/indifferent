@@ -78,7 +78,7 @@ export default function InstagramPublisher() {
           const busy = busyId === p.id;
           return (
             <div key={p.id} className="py-4 grid md:grid-cols-[minmax(0,320px)_1fr] gap-4" data-testid={`ig-post-${p.id}`}>
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="flex items-start gap-2 overflow-x-auto self-start">
                 {p.images.map((src) => (
                   <img key={src} src={src} alt="" loading="lazy"
                     className="w-24 aspect-[4/5] object-cover rounded-md border border-[var(--border)] shrink-0" />

@@ -27,8 +27,14 @@ from ..models import User
 router = APIRouter()
 logger = logging.getLogger("indifferent.instagram")
 
-GRAPH = "https://graph.facebook.com"
 MAX_CAPTION = 2200  # Instagram's caption limit
+
+
+def _graph_host(token: str) -> str:
+    """Tokens from "API setup with Instagram login" start with IG and only
+    work on graph.instagram.com; system-user tokens (EAA...) from a business
+    portfolio use graph.facebook.com. Paths are the same on both."""
+    return "https://graph.instagram.com" if token.startswith("IG") else "https://graph.facebook.com"
 
 
 class GraphError(Exception):
@@ -40,7 +46,7 @@ def _configured() -> bool:
 
 
 def _graph_sync(method: str, path: str, params: dict) -> dict:
-    url = f"{GRAPH}/{INSTAGRAM_GRAPH_VERSION}/{path.lstrip('/')}"
+    url = f"{_graph_host(INSTAGRAM_ACCESS_TOKEN)}/{INSTAGRAM_GRAPH_VERSION}/{path.lstrip('/')}"
     resp = requests.request(method, url, params={**params, "access_token": INSTAGRAM_ACCESS_TOKEN}, timeout=20)
     try:
         data = resp.json()

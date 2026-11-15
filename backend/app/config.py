@@ -105,8 +105,10 @@ BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
 # business portfolio with instagram_basic + instagram_content_publish, and the
 # Instagram account's ID. Both set by the owner in Vercel; publishing stays
 # off until they exist.
-INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
-INSTAGRAM_USER_ID = os.environ.get("INSTAGRAM_USER_ID", "").strip()
+# Either token kind works: system-user (EAA...) or Instagram-login (IG...).
+# Stray quotes or spaces from pasting are stripped.
+INSTAGRAM_ACCESS_TOKEN = "".join(os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").split()).strip("\"'")
+INSTAGRAM_USER_ID = os.environ.get("INSTAGRAM_USER_ID", "").strip().strip("\"'")
 INSTAGRAM_GRAPH_VERSION = os.environ.get("INSTAGRAM_GRAPH_VERSION", "v24.0").strip()
 
 # Public site address, for links and images that outside services fetch.
