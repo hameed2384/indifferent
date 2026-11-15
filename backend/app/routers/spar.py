@@ -84,7 +84,8 @@ def _system_prompt(debate: dict) -> str:
         f"The user's view: {debate.get('user_summary') or 'not stated'} "
         f"(position {debate['user_position']} on a -10..10 scale). "
         f"You argue the OPPOSITE side (position {debate['ai_position']}). "
-        "Rules: stay on your side; be civil and specific; attack arguments, never the person; "
+        + (f"{debate['ai_stance']} " if debate.get("ai_stance") else "")
+        + "Rules: stay on your side; be civil and specific; attack arguments, never the person; "
         "use concrete examples and reasoning; point out weak logic plainly; ask at most one "
         "pointed question per reply; concede small points when they're genuinely good, but "
         "don't switch sides. Keep each reply under 110 words, plain text, no lists, no markdown. "
@@ -290,6 +291,13 @@ async def start_guest_spar(
         "topic": motion["motion"],
         "user_position": user_pos,
         "user_summary": motion["motion"] if payload.side == "for" else f"Against: {motion['motion']}",
+        # Spelled out because "against the motion" double negatives confused the model
+        # into taking the user's side in its opening.
+        "ai_stance": (
+            f"Your side, stated plainly: the statement \"{motion['motion']}\" is FALSE. The user says it is true."
+            if payload.side == "for" else
+            f"Your side, stated plainly: the statement \"{motion['motion']}\" is TRUE. The user says it is false."
+        ),
         "ai_position": -user_pos,
         "status": "active",
         "user_turns": 0,

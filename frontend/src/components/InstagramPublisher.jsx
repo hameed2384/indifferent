@@ -177,7 +177,7 @@ export default function InstagramPublisher() {
                   {p.status === "failed" && <span className="chip !py-0 !px-2 text-[11px] !text-[var(--danger)] !border-[var(--danger)]">Failed</span>}
                 </div>
                 <textarea
-                  className="textarea !min-h-[7rem] text-sm"
+                  className="textarea !min-h-[14rem] text-sm"
                   value={captions[p.id] ?? ""}
                   onChange={(e) => setCaptions((c) => ({ ...c, [p.id]: e.target.value }))}
                   disabled={published || busy}

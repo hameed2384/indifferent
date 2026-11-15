@@ -86,3 +86,23 @@ async def test_claim_requires_matching_token(client, make_user):
     _, headers = await make_user()
     r = await client.post(f"/api/spar/{did}/claim", headers={**headers, "X-Guest-Token": "x" * 32})
     assert r.status_code == 404
+
+
+async def test_ai_is_told_its_side_plainly_when_user_disagrees(client, monkeypatch):
+    """Regression: with "I disagree", the model sometimes took the user's side
+    in its opening because of the double negative."""
+    import app.routers.spar as spar
+    prompts = []
+    async def capture(system, user, **kw):
+        prompts.append(system)
+        return {"reply": "ok"}
+    monkeypatch.setattr(spar, "call_llm_json", capture)
+    r = await client.post("/api/spar/guest/start", json={"motion_id": "straw-holes", "side": "against"},
+                          headers={"X-Requested-With": "XMLHttpRequest"})
+    assert r.status_code == 200, r.text
+    assert 'the statement "A straw has one hole" is TRUE' in prompts[0]
+
+    prompts.clear()
+    r = await client.post("/api/spar/guest/start", json={"motion_id": "straw-holes", "side": "for"},
+                          headers={"X-Requested-With": "XMLHttpRequest"})
+    assert 'the statement "A straw has one hole" is FALSE' in prompts[0]
