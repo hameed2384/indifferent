@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Home, GitBranch, Users, UserPlus, Star, Rss, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { PAYMENTS_ENABLED } from "@/lib/features";
 import { useAuth } from "@/contexts/AuthContext";
 
 function Avatar({ picture, name, live }) {
@@ -139,14 +140,14 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
         </button>
 
         {!user ? (
-          !collapsed && <p className="px-3 py-4 text-xs text-[var(--fg-subtle)]">Sign in to see friends, follows, and subscriptions here.</p>
+          !collapsed && <p className="px-3 py-4 text-xs text-[var(--fg-subtle)]">Sign in to see friends and follows here.</p>
         ) : (
           <>
             {requests.length > 0 && (
               <Section title="Requests" icon={UserPlus} badge={requests.length} entries={requests} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="" />
             )}
             <Section title="Friends" icon={Users} entries={friends} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="No friends yet" />
-            <Section title="Subscriptions" icon={Star} entries={subscriptions} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="Subscribe to a debater's channel" />
+            {PAYMENTS_ENABLED && <Section title="Subscriptions" icon={Star} entries={subscriptions} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="Subscribe to a debater's channel" />}
             <Section title="Following" icon={Rss} entries={following} collapsed={collapsed} navigate={(to) => { navigate(to); onClose?.(); }} onHeaderClick={() => { navigate("/friends"); onClose?.(); }} emptyHint="Follow debaters to see them here" />
           </>
         )}

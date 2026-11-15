@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from ..config import ADMIN_EMAILS
 from ..db import db
 from ..deps import require_admin, require_xhr
+from ..accounts import delete_account
 from ..models import User
 from ..storage import delete_object
 
@@ -80,35 +81,16 @@ async def flag_user(user_id: str, payload: FlagRequest, admin: User = Depends(re
 
 @router.delete("/admin/users/{user_id}")
 async def delete_user(user_id: str, admin: User = Depends(require_admin), _xhr: None = Depends(require_xhr)):
-    """Deletes the account and its identity-linked data so the same email
-    can sign up completely fresh (auth.py's new-vs-returning check is keyed
-    on `users.email` existing at all). Deliberately does NOT touch shared
-    content this account was involved in — past debates (rooms), clips,
-    chat messages, votes/reactions, debate recordings — deleting those
-    would corrupt OTHER real users' history for content they still have a
-    legitimate claim to. Every read site that resolves a user_id to a
-    profile already degrades gracefully (falls back to a generic label)
-    when the user doc is gone, same as an already-deleted clip's uploader.
-    """
+    """Deletes the account — see app/accounts.py for exactly what goes
+    (identity data and personal media) and what's kept but detached
+    (shared debate history)."""
     target = await db.users.find_one({"user_id": user_id}, {"_id": 0, "email": 1})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     if target.get("email", "").lower() in ADMIN_EMAILS:
         raise HTTPException(status_code=400, detail="Can't delete an admin account")
 
-    await db.users.delete_one({"user_id": user_id})
-    await db.user_sessions.delete_many({"user_id": user_id})
-    await db.friendships.delete_many({"$or": [{"user_a": user_id}, {"user_b": user_id}]})
-    await db.follows.delete_many({"$or": [{"follower_id": user_id}, {"followee_id": user_id}]})
-    await db.subscriptions_debater.delete_many({"$or": [{"subscriber_id": user_id}, {"debater_id": user_id}]})
-    await db.topic_stances.delete_many({"user_id": user_id})
-    await db.topic_stance_history.delete_many({"user_id": user_id})
-    await db.match_queue.delete_many({"user_id": user_id})
-    await db.party_match_queue.delete_many({"user_ids": user_id})
-    await db.pending_rooms.delete_many({"user_id": user_id})
-    await db.notifications.delete_many({"recipient_id": user_id})
-    await db.reports.delete_many({"reporter_id": user_id})
-    return {"deleted": True}
+    return await delete_account(user_id)
 
 
 @router.delete("/admin/clips/{clip_id}")

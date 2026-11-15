@@ -144,8 +144,8 @@ export default function Match() {
           )}
           <div className="mt-10 grid grid-cols-2 gap-4">
             <div className="card p-4 text-left">
-              <div className="eyebrow">Protocol</div>
-              <div className="text-sm mt-1">Peer-to-peer video</div>
+              <div className="eyebrow">Heads up</div>
+              <div className="text-sm mt-1">Video debates are recorded. You both decide if it goes public.</div>
             </div>
             <div className="card p-4 text-left">
               <div className="eyebrow">Guarantee</div>

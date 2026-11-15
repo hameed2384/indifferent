@@ -26,6 +26,7 @@ export default function Onboarding() {
   const [questionsError, setQuestionsError] = useState(false);
   const [answers, setAnswers] = useState({});
   const [freeText, setFreeText] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -88,7 +89,8 @@ export default function Onboarding() {
     !(otherActive && !customTag.trim()) &&
     questions.length > 0 &&
     Object.keys(answers).length === questions.length &&
-    freeText.trim().length >= 20;
+    freeText.trim().length >= 20 &&
+    acceptedTerms;
 
   const submit = async () => {
     setSubmitting(true);
@@ -100,6 +102,7 @@ export default function Onboarding() {
         free_text: freeText,
         display_name: displayName,
         bio,
+        accepted_terms: acceptedTerms,
       });
       setUser(data);
       toast.success("Your interests have been mapped.");
@@ -244,7 +247,15 @@ export default function Onboarding() {
           <div className="text-xs text-[var(--fg-subtle)] mt-1">{freeText.length} characters · minimum 20</div>
         </section>
 
-        <div className="mt-10 flex items-center justify-between flex-wrap gap-3">
+        <label className="mt-10 flex items-start gap-3 text-sm cursor-pointer" data-testid="onboarding-terms">
+          <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
+          <span>
+            I'm 18 or older and I agree to the <a href="/terms" target="_blank" rel="noreferrer" className="underline">Terms</a> and{" "}
+            <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>, including the use of my answers to match me with people who disagree.
+          </span>
+        </label>
+
+        <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
           <div className="text-xs text-[var(--fg-subtle)]">
             {effectiveTags.length > 0 ? `Our AI will map your stance on ${effectiveTags.join(", ")}.` : "Pick your tags above to get started."}
           </div>

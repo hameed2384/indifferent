@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -177,6 +178,8 @@ async def generate_questions(payload: TagQuestionsRequest, user: User = Depends(
 
 @router.post("/onboarding/submit", response_model=User)
 async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_current_user)):
+    if not payload.accepted_terms:
+        raise HTTPException(status_code=400, detail="Confirm you're 18+ and accept the Terms and Privacy Policy")
     tags = _normalize_tags(payload.tags)
     if not tags:
         raise HTTPException(status_code=400, detail="Pick at least one tag")
@@ -211,6 +214,8 @@ async def submit_onboarding(payload: OnboardingSubmit, user: User = Depends(get_
     update = {
         "interest_tags": tags,
         "onboarded": True,
+        "age_confirmed": True,
+        "terms_accepted_at": datetime.now(timezone.utc).isoformat(),
     }
     if payload.display_name:
         update["display_name"] = payload.display_name[:40]

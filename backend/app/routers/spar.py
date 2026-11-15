@@ -64,6 +64,15 @@ def _side_label(position: float) -> str:
     return f"{strength}{'for' if position > 0 else 'against'}"
 
 
+# onboarding.py's placeholder when the AI couldn't summarize a stance — not
+# something to show back to the user as "their view".
+_PLACEHOLDER_SUMMARY = "Stance derived from quiz answers."
+
+
+def _real_summary(summary: Optional[str]) -> str:
+    return "" if not summary or summary.strip() == _PLACEHOLDER_SUMMARY else summary.strip()
+
+
 def _system_prompt(debate: dict) -> str:
     return (
         "You are a sharp, fair debate sparring partner on a debate-practice app. "
@@ -103,7 +112,7 @@ def _public(debate: dict, messages: Optional[list] = None) -> dict:
     out["ai_side"] = _side_label(debate["ai_position"])
     # The user's own onboarding stance in words — a clearer way to show the
     # two sides than "for/against" when the generated topic is a question.
-    out["user_view"] = debate.get("user_summary") or ""
+    out["user_view"] = _real_summary(debate.get("user_summary"))
     if messages is not None:
         out["messages"] = [{"role": m["role"], "text": m["text"], "created_at": m["created_at"]} for m in messages]
     return out
@@ -168,7 +177,7 @@ async def start_spar(
         "strongest reason, then invite the user to make their case.",
         session_id=debate["debate_id"],
     )
-    view = mine.get("summary")
+    view = _real_summary(mine.get("summary"))
     opening = (data or {}).get("reply") or (
         (f"You say: \"{view}\". I disagree, and I think the case against that is stronger than people assume. "
          if view else f"On \"{topic}\", I'm taking the side you don't. ")

@@ -159,6 +159,9 @@ export default function ChatRoom() {
   // ended, never-filled Go-Live room's replay was just silent placeholder
   // tiles, nothing to play back).
   const chunkSeqRef = useRef(0);
+  // Shown in the header while this browser is recording — people must know
+  // they're being recorded (see Terms/Privacy).
+  const [recording, setRecording] = useState(false);
   useEffect(() => {
     const videoTrack = lk.localVideoEl?.srcObject?.getVideoTracks?.()[0];
     const micPub = lk.room?.localParticipant?.getTrackPublication?.(Track.Source.Microphone);
@@ -184,7 +187,8 @@ export default function ChatRoom() {
       api.post(`/rooms/${roomId}/recording-chunk`, form).catch(() => { /* best-effort — a dropped chunk is a gap in playback later, not a failed debate */ });
     };
     recorder.start(15000);
-    return () => { if (recorder.state !== "inactive") recorder.stop(); };
+    setRecording(true);
+    return () => { if (recorder.state !== "inactive") recorder.stop(); setRecording(false); };
   }, [lk.localVideoEl, lk.room, roomId]);
 
   // Auto-thumbnail for the home feed's debate cards (DebateCard.jsx), which
@@ -465,6 +469,11 @@ export default function ChatRoom() {
           {publishState.is_public
             ? <span className="chip-accent"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Live</span>
             : <span className="chip">Private</span>}
+          {recording && (
+            <span className="chip !border-[var(--danger)] !text-[var(--danger)]" title="Your camera and mic are being recorded for replay. You both decide if the debate goes public." data-testid="recording-indicator">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)] animate-pulse" /> Recording
+            </span>
+          )}
           {lk.status === "connected" && <span className="text-xs text-[var(--fg-subtle)] hidden sm:inline">HD</span>}
         </div>
         <div className="font-mono-ui text-base tabular-nums text-[var(--fg)]" data-testid="room-timer">{mm}:{ss}</div>

@@ -59,6 +59,9 @@ class OnboardingSubmit(BaseModel):
     free_text: Optional[str] = ""
     display_name: Optional[str] = None
     bio: Optional[str] = None
+    # "I'm 18+ and accept the Terms and Privacy Policy" — required (see
+    # onboarding.submit_onboarding). Live video with strangers is adults-only.
+    accepted_terms: bool = False
 
 
 class MatchFeedback(BaseModel):

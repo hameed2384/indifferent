@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
+import ConfirmModal from "@/components/ConfirmModal";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_NARROW } from "@/lib/layout";
 import { DEBATER_SUB_PRICE, MEMBERSHIP_PRICE } from "@/lib/pricing";
@@ -54,6 +55,19 @@ function InviteSection({ user }) {
 
 export default function Settings() {
   const { user, setUser, logout } = useAuth();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await api.delete("/users/me");
+      toast.success("Your account has been deleted");
+      await logout();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't delete your account");
+      setDeleting(false);
+    }
+  };
 
   const [displayName, setDisplayName] = useState(user?.display_name || user?.name || "");
   const [handle, setHandle] = useState(user?.handle || "");
@@ -297,10 +311,29 @@ export default function Settings() {
         <InviteSection user={user} />
 
         <Section title="Account">
-          <button onClick={logout} className="btn-danger text-sm" data-testid="settings-sign-out">
-            <LogOut className="w-4 h-4" /> Sign out
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={logout} className="btn-danger text-sm" data-testid="settings-sign-out">
+              <LogOut className="w-4 h-4" /> Sign out
+            </button>
+            <button onClick={() => setConfirmDelete(true)} className="btn-ghost text-sm text-[var(--danger)]" data-testid="settings-delete-account">
+              Delete my account
+            </button>
+          </div>
+          <p className="text-xs text-[var(--fg-subtle)] mt-3">
+            <a href="/terms" className="underline">Terms</a> · <a href="/privacy" className="underline">Privacy</a>
+          </p>
         </Section>
+        {confirmDelete && (
+          <ConfirmModal
+            title="Delete your account?"
+            body="This permanently removes your profile, views, ID document, your own recordings, sparring history and claim videos. Debates you took part in stay for the other participant, with your name removed. This can't be undone."
+            confirmLabel="Delete forever"
+            busy={deleting}
+            onConfirm={deleteAccount}
+            onClose={() => setConfirmDelete(false)}
+            testIdPrefix="delete-account"
+          />
+        )}
       </main>
     </div>
   );

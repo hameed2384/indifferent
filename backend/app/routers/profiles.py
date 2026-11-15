@@ -7,11 +7,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 from pymongo.errors import DuplicateKeyError
 
-from ..config import APP_NAME
+from ..accounts import delete_account
+from ..config import APP_NAME, COOKIE_SECURE
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..models import User
@@ -338,6 +339,18 @@ async def list_subscriptions(user: User = Depends(get_current_user)):
             "live_room_id": await find_live_room_id(u["user_id"]),
         })
     return {"subscriptions": out}
+
+
+@router.delete("/users/me")
+async def delete_my_account(response: Response, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+    """Self-service account deletion (the right to erasure) — same cleanup
+    as the admin portal's delete, see app/accounts.py. Signs the caller out."""
+    result = await delete_account(user.user_id)
+    response.delete_cookie(
+        "session_token", path="/", httponly=True,
+        secure=COOKIE_SECURE, samesite="none" if COOKIE_SECURE else "lax",
+    )
+    return result
 
 
 @router.post("/users/me/profile", response_model=User)
