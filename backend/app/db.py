@@ -108,6 +108,11 @@ async def create_indexes():
     await db.private_messages.create_index([("pair_key", 1), ("created_at", 1)])
     await db.private_calls.create_index("pair_key", unique=True)
 
+    # AI sparring (routers/spar.py) — text debates against an AI opponent.
+    await db.ai_debates.create_index("debate_id", unique=True)
+    await db.ai_debates.create_index([("user_id", 1), ("created_at", -1)])
+    await db.ai_debate_messages.create_index([("debate_id", 1), ("created_at", 1)])
+
     # Claim Trees (routers/clips.py) — branching async video rebuttals.
     await db.clips.create_index("clip_id", unique=True)
     await db.clips.create_index([("parent_clip_id", 1), ("likes", -1)])

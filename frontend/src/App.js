@@ -8,6 +8,7 @@ import Friends from "@/pages/Friends";
 import Onboarding from "@/pages/Onboarding";
 import Verify from "@/pages/Verify";
 import Match from "@/pages/Match";
+import Spar from "@/pages/Spar";
 import ChatRoom from "@/pages/ChatRoom";
 import Watch from "@/pages/Watch";
 import WatchRoom from "@/pages/WatchRoom";
@@ -52,6 +53,7 @@ function RouterInner() {
       <Route path="/settings" element={<ProtectedRoute requireOnboarded><Settings /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       <Route path="/match" element={<ProtectedRoute requireOnboarded requireVerified><Match /></ProtectedRoute>} />
+      <Route path="/spar/:debateId" element={<ProtectedRoute requireOnboarded><Spar /></ProtectedRoute>} />
       <Route path="/room/:roomId" element={<ProtectedRoute requireOnboarded requireVerified><ChatRoom /></ProtectedRoute>} />
       <Route path="/private/:friendId" element={<ProtectedRoute requireOnboarded><PrivateChat /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />

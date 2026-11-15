@@ -17,6 +17,7 @@ import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_MEDIUM } from "@/lib/layout";
 import { DEBATER_SUB_PRICE } from "@/lib/pricing";
+import { PAYMENTS_ENABLED } from "@/lib/features";
 import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 import NotFound from "@/pages/NotFound";
 
@@ -457,7 +458,7 @@ export default function Profile() {
                 <MessageCircle className="w-4 h-4" /> Message
               </button>
             )}
-            {profile.is_debater && (
+            {PAYMENTS_ENABLED && profile.is_debater && (
               <button onClick={subscribe} disabled={subLoading || profile.is_subscribed} className="btn-outline" data-testid="btn-subscribe">
                 {profile.is_subscribed ? `Subscribed ${DEBATER_SUB_PRICE} ✓` : subLoading ? "…" : `Subscribe ${DEBATER_SUB_PRICE}`}
               </button>

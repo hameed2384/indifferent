@@ -19,6 +19,7 @@ import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 import { DEBATER_SUB_PRICE } from "@/lib/pricing";
+import { PAYMENTS_ENABLED } from "@/lib/features";
 
 // object-fit: cover for drawing a loaded <img> into a canvas rect — crops
 // to fill rather than distorting the aspect ratio.
@@ -264,8 +265,8 @@ function JoinStreamCard({ roomId, debate, navigate }) {
       </>
     );
   }
-  if (isSubscribed === null) return wrap(<div className="text-sm text-white/50">Loading…</div>);
-  if (!isSubscribed) {
+  if (PAYMENTS_ENABLED && isSubscribed === null) return wrap(<div className="text-sm text-white/50">Loading…</div>);
+  if (PAYMENTS_ENABLED && !isSubscribed) {
     return wrap(
       <>
         <div className="font-heading text-lg font-semibold mb-1">Open seat</div>
@@ -373,7 +374,7 @@ function JoinRequestPanel({ roomId, debate, navigate }) {
   return (
     <div className="mt-6 card p-4">
       <div className="eyebrow mb-2">Jump in</div>
-      <p className="text-sm text-[var(--fg-muted)] mb-3">Subscribe to a debater here to request joining as a third voice — both debaters have to agree.</p>
+      <p className="text-sm text-[var(--fg-muted)] mb-3">{PAYMENTS_ENABLED ? "Subscribe to a debater here to request joining as a third voice — both debaters have to agree." : "Request to join as a third voice — both debaters have to agree. ID verification required."}</p>
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg border border-[var(--border-strong)] overflow-hidden">
           <button

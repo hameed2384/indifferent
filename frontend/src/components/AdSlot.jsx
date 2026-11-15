@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { MEMBERSHIP_PRICE } from "@/lib/pricing";
+import { ADS_ENABLED } from "@/lib/features";
 
 // Matches the publisher ID already loaded site-wide in public/index.html
 // (that script alone only proved site ownership to Google; it doesn't
@@ -83,7 +84,7 @@ function RealAd({ slot, tall }) {
 export default function AdSlot({ variant = "card" }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  if (user?.ad_free) return null;
+  if (!ADS_ENABLED || user?.ad_free) return null;
 
   const slot = SLOT_BY_VARIANT[variant];
   if (slot) return <RealAd slot={slot} tall={variant === "card"} />;

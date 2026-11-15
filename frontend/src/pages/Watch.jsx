@@ -12,6 +12,7 @@ import { DebateCardSkeleton, SkeletonGrid } from "@/components/SkeletonCard";
 import AdSlot from "@/components/AdSlot";
 import SideNav from "@/components/SideNav";
 import Logo from "@/components/Logo";
+import { startSpar } from "@/pages/Spar";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
@@ -69,6 +70,18 @@ export default function Watch() {
   const findMatch = () => {
     if (!user.id_verified) return navigate("/verify");
     navigate("/match");
+  };
+
+  // AI sparring needs onboarding (it argues against your stated stance) but
+  // not ID verification — no other person is involved.
+  const [sparring, setSparring] = useState(false);
+  const spar = async () => {
+    if (!user.onboarded) return navigate("/onboarding");
+    setSparring(true);
+    try { await startSpar(navigate); } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't start a sparring round");
+      setSparring(false);
+    }
   };
 
   const goLive = () => {
@@ -249,9 +262,9 @@ export default function Watch() {
             <div className="card p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-testid="explainer-banner">
               <div>
                 <div className="eyebrow mb-1">What is this?</div>
-                <div className="font-heading text-lg sm:text-xl font-semibold">Find someone who disagrees with you. On camera. Live.</div>
+                <div className="font-heading text-lg sm:text-xl font-semibold">Argue with someone who actually disagrees with you.</div>
                 <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">
-                  indifferent matches you with the sharpest opposing viewpoint for a real debate — or browse Claim Trees, video arguments that fork into video rebuttals instead of a comment section.
+                  indifferent matches you with the sharpest opposing viewpoint for a live debate. Nobody online? Spar with an AI that takes the other side, then get a scored report on your arguments. Free.
                 </p>
               </div>
               <button onClick={startGoogleLogin} className="btn-primary text-sm shrink-0" data-testid="explainer-sign-in">Sign in to start</button>
@@ -263,9 +276,12 @@ export default function Watch() {
               <div>
                 <div className="eyebrow mb-1">Ready when you are</div>
                 <div className="font-heading text-lg sm:text-xl font-semibold">Find your sharpest opposing viewpoint.</div>
-                <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">One click and we'll match you with someone who disagrees, for a real debate.</p>
+                <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">Debate a real person who disagrees — or warm up against an AI sparring partner and get scored on your arguments.</p>
               </div>
-              <button onClick={findMatch} className="btn-accent text-sm shrink-0" data-testid="btn-find-match">Find my opposite</button>
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <button onClick={findMatch} className="btn-accent text-sm" data-testid="btn-find-match">Find my opposite</button>
+                <button onClick={spar} disabled={sparring} className="btn-outline text-sm" data-testid="btn-home-spar">{sparring ? "Setting up…" : "Spar with AI"}</button>
+              </div>
             </div>
           )}
 

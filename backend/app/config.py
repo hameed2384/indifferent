@@ -68,6 +68,11 @@ LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
 # default; endpoints 503 until real keys/price ids are set, same convention
 # as LiveKit above.
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+# Business-model switch (mirrors the frontend's REACT_APP_ENABLE_PAYMENTS).
+# Off while building the first users: paid tiers have little to sell before
+# there's an audience. While off, joining a live debate doesn't require a
+# paid debater subscription (ID verification still does — see rooms.py).
+PAYMENTS_ENABLED = os.environ.get("PAYMENTS_ENABLED", "false").strip().lower() == "true"
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_ID_MEMBERSHIP = os.environ.get("STRIPE_PRICE_ID_MEMBERSHIP", "")
 STRIPE_PRICE_ID_DEBATER = os.environ.get("STRIPE_PRICE_ID_DEBATER", "")

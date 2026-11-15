@@ -10,6 +10,7 @@ import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_NARROW } from "@/lib/layout";
 import { DEBATER_SUB_PRICE, MEMBERSHIP_PRICE } from "@/lib/pricing";
+import { PAYMENTS_ENABLED } from "@/lib/features";
 
 function Section({ title, children }) {
   return (
@@ -282,7 +283,7 @@ export default function Settings() {
           )}
         </Section>
 
-        <Section title="Membership">
+        {PAYMENTS_ENABLED && <Section title="Membership">
           {user.ad_free ? (
             <p className="text-sm text-[var(--accent)] font-medium">You're a member — no ads anywhere ✓</p>
           ) : (
@@ -291,7 +292,7 @@ export default function Settings() {
               <button onClick={becomeMember} className="btn-outline text-sm" data-testid="settings-become-member">Become a member — {MEMBERSHIP_PRICE}</button>
             </>
           )}
-        </Section>
+        </Section>}
 
         <InviteSection user={user} />
 

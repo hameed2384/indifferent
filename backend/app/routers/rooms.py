@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from pymongo import ReturnDocument
 
 from ..categories import CATEGORIES
-from ..config import APP_NAME
+from ..config import APP_NAME, PAYMENTS_ENABLED
 from ..db import db
 from ..deps import get_current_user, require_xhr
 from ..hubs import maybe_detect_topic_drift, maybe_run_coach
@@ -499,12 +499,18 @@ async def request_to_join(room_id: str, payload: JoinRequestCreate, user: User =
     if len(side_members(room, payload.side)) >= MAX_PER_SIDE:
         raise HTTPException(status_code=400, detail="That side is already full")
 
+    # Joiners go on camera with strangers, so they must be ID-verified either
+    # way. The paid-subscriber requirement only applies once payments are
+    # switched on (config.PAYMENTS_ENABLED); until then joining is free.
+    if not user.id_verified:
+        raise HTTPException(status_code=403, detail="Verify your ID to join live debates")
     founding = founding_members(room)
-    sub = await db.subscriptions_debater.find_one(
-        {"subscriber_id": user.user_id, "debater_id": {"$in": founding}, "active": True}, {"_id": 0}
-    )
-    if not sub:
-        raise HTTPException(status_code=403, detail="Subscribe to a debater in this debate to request joining")
+    if PAYMENTS_ENABLED:
+        sub = await db.subscriptions_debater.find_one(
+            {"subscriber_id": user.user_id, "debater_id": {"$in": founding}, "active": True}, {"_id": 0}
+        )
+        if not sub:
+            raise HTTPException(status_code=403, detail="Subscribe to a debater in this debate to request joining")
 
     existing = await db.room_join_requests.find_one({"room_id": room_id, "user_id": user.user_id}, {"_id": 0})
     if existing:

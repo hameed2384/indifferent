@@ -5,10 +5,15 @@ import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import NotificationBell from "@/components/NotificationBell";
-import AdSlot from "@/components/AdSlot";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/contexts/AuthContext";
 import { CONTAINER_COMPACT } from "@/lib/layout";
+import { startSpar } from "@/pages/Spar";
+
+// How long a solo search runs before offering an AI sparring partner. Short
+// on purpose: with few people online, most searches won't find anyone, and
+// an empty wait is where new users give up.
+const SPAR_OFFER_AFTER_MS = 12000;
 
 const STATUSES = ["Scanning queue", "Analyzing stances", "Plotting opposition", "Matching adversary", "Preparing topics"];
 
@@ -19,6 +24,8 @@ export default function Match() {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
   const [tick, setTick] = useState(0);
+  const [offerSpar, setOfferSpar] = useState(false);
+  const [sparring, setSparring] = useState(false);
   const pollRef = useRef(null);
   const friendId = location.state?.friendId || null;
   const friendName = location.state?.friendName || "your friend";
@@ -64,6 +71,23 @@ export default function Match() {
     navigate("/");
   };
 
+  const spar = async () => {
+    setSparring(true);
+    if (pollRef.current) clearInterval(pollRef.current);
+    try {
+      await startSpar(navigate); // also takes the user out of the human queue
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't start a sparring round");
+      setSparring(false);
+    }
+  };
+
+  useEffect(() => {
+    if (friendId || status !== "searching") return undefined;
+    const t = setTimeout(() => setOfferSpar(true), SPAR_OFFER_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [status, friendId]);
+
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
   useEffect(() => { if (status === "idle") start(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -106,6 +130,18 @@ export default function Match() {
               <button onClick={start} className="btn-accent mt-4" data-testid="btn-retry-match">Try again</button>
             )
           )}
+          {offerSpar && !error && (
+            <div className="mt-8 card p-5 text-left" data-testid="spar-offer">
+              <div className="eyebrow">Nobody's online on your side of things right now</div>
+              <p className="mt-2 text-sm text-[var(--fg-muted)]">
+                Debate an AI sparring partner that argues the opposite of your view — then get a scored report on your arguments.
+                You'll stay findable for real debates any time you come back here.
+              </p>
+              <button onClick={spar} disabled={sparring} className="btn-accent mt-4" data-testid="btn-start-spar">
+                {sparring ? "Setting up…" : "Spar with AI now"}
+              </button>
+            </div>
+          )}
           <div className="mt-10 grid grid-cols-2 gap-4">
             <div className="card p-4 text-left">
               <div className="eyebrow">Protocol</div>
@@ -115,9 +151,6 @@ export default function Match() {
               <div className="eyebrow">Guarantee</div>
               <div className="text-sm mt-1">Verified human · opposing stance</div>
             </div>
-          </div>
-          <div className="mt-6">
-            <AdSlot variant="banner" />
           </div>
         </div>
       </main>
