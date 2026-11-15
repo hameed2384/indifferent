@@ -44,10 +44,12 @@ POSTS = [
         "caption": _c(
             "\"Basic finger maths\" is apparently a logical fallacy now. 🥤",
             "How many holes does a straw have? One or two? I argued two: one finger in each end, two holes, done. "
-            "The AI argued one, using topology. In maths a straw is like a doughnut, a single hole that goes all "
-            "the way through, and it said I was confusing \"openings\" with \"holes\".",
-            "Then I asked it to tell me where the hole starts. It called that an argument from ignorance and "
-            "explained that a tunnel doesn't need a starting point. My score: 3/10, with evidence at 2.",
+            "The AI argued one: a hole is the empty space running through a solid, so a straw is a single "
+            "continuous tunnel and the two ends are just its boundaries. In topology, a straw is basically a "
+            "doughnut.",
+            "Then I asked it to tell me where the hole starts. It said a hole doesn't need a starting point. "
+            "My score: 3.75/10, with evidence at 2. It named two logical fallacies: equivocation (treating "
+            "\"openings\" and \"holes\" as the same thing) and false analogy for my \"basic finger maths\".",
             "This is indifferent, a free debate app where an AI always takes the other side. It's debate "
             "practice for people who like being right, and need to learn how to actually prove it: six turns, "
             "a score for clarity, evidence, rebuttal and civility, and every fallacy named. Try it free with no "
