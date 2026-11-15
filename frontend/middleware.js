@@ -28,7 +28,7 @@ const BACKEND = "https://backend-kappa-lac-93.vercel.app";
 const SITE = "https://indifferent.hameed.pro";
 const OG_IMAGE = `${SITE}/og-image.png`;
 const DEFAULT_TITLE = "indifferent — live video debate";
-const DEFAULT_DESCRIPTION = "Find someone who disagrees with you. On camera. Live.";
+const DEFAULT_DESCRIPTION = "Argue with someone who actually disagrees with you — live on camera, or against an AI sparring partner that scores your arguments. Free.";
 
 const CRAWLER_UA = /facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|LinkedInBot|WhatsApp|TelegramBot|SkypeUriPreview|Applebot|redditbot|Google-InspectionTool/i;
 
