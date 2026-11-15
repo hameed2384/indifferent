@@ -149,6 +149,7 @@ def _public_state(state: Optional[dict]) -> dict:
         "published_at": state.get("published_at"),
         "permalink": state.get("permalink"),
         "error": state.get("error"),
+        "manual": bool(state.get("manual")),
     }
 
 
@@ -263,4 +264,20 @@ async def publish_post(post_id: str, _admin: User = Depends(require_admin), _xhr
     updates = {"status": "published", "media_id": media["id"], "permalink": permalink, "published_at": _now(), "error": None}
     await db.instagram_posts.update_one({"post_id": post_id}, {"$set": updates})
     logger.info("Published Instagram post %s as media %s", post_id, media["id"])
+    return _public_state(updates)
+
+
+@router.post("/admin/instagram/posts/{post_id}/mark-posted")
+async def mark_posted(post_id: str, _admin: User = Depends(require_admin), _xhr: None = Depends(require_xhr)):
+    """For a post the admin made from the Instagram app instead (a Reel with
+    music, say): record it as published so it isn't posted twice."""
+    if post_id not in POSTS_BY_ID:
+        raise HTTPException(status_code=404, detail="Unknown post")
+    state = await db.instagram_posts.find_one({"post_id": post_id}, {"_id": 0}) or {}
+    if state.get("status") == "published":
+        return _public_state(state)
+    if state.get("status") in ("preparing", "processing"):
+        raise HTTPException(status_code=409, detail="This post is being published right now")
+    updates = {"post_id": post_id, "status": "published", "manual": True, "published_at": _now(), "error": None}
+    await db.instagram_posts.update_one({"post_id": post_id}, {"$set": updates}, upsert=True)
     return _public_state(updates)

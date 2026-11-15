@@ -9,6 +9,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const slidesOf = (post) => (post.video ? [{ type: "video", src: post.video, poster: post.images?.[0] }] : post.images.map((src) => ({ type: "image", src })));
 
 function Slide({ slide, className, controls = false }) {
+  // Small previews show a Reel's cover; the full-size viewer plays the video.
+  if (slide.type === "video" && !controls && slide.poster) return <img src={slide.poster} alt="" className={className} />;
   return slide.type === "video"
     ? <video src={slide.src} poster={slide.poster} className={className} controls={controls} muted={!controls} playsInline preload="metadata" />
     : <img src={slide.src} alt="" className={className} />;
@@ -112,6 +114,27 @@ export default function InstagramPublisher() {
   const setPost = (id, patch) =>
     setData((d) => ({ ...d, posts: d.posts.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
 
+  const copyCaption = async (post) => {
+    try {
+      await navigator.clipboard.writeText(captions[post.id] ?? post.caption);
+      toast.success("Caption copied");
+    } catch {
+      toast.error("Couldn't copy. Select the text in the box instead.");
+    }
+  };
+
+  // For posts made from the Instagram app (e.g. a Reel with music), so the
+  // list shows what's already out and nothing gets posted twice.
+  const markPosted = async (post) => {
+    try {
+      const { data: r } = await api.post(`/admin/instagram/posts/${post.id}/mark-posted`);
+      setPost(post.id, r);
+      toast.success("Marked as posted");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't update. Try again.");
+    }
+  };
+
   const publish = async (post) => {
     setConfirm(null);
     setBusyId(post.id);
@@ -192,16 +215,36 @@ export default function InstagramPublisher() {
                     <button
                       onClick={() => setConfirm(p)}
                       disabled={!data.account || busy || busyId !== null || !(captions[p.id] || "").trim()}
-                      className="btn-accent text-sm"
+                      className={p.video ? "btn-outline text-sm" : "btn-accent text-sm"}
                       data-testid={`btn-ig-publish-${p.id}`}
                     >
-                      {busy ? "Publishing…" : "Publish"}
+                      {busy ? "Publishing…" : p.video ? "Publish (no music)" : "Publish"}
+                    </button>
+                  )}
+                  {p.video && (
+                    <a href={p.video} download className={published ? "btn-ghost text-sm" : "btn-accent text-sm"} data-testid={`btn-ig-download-${p.id}`}>
+                      Download video
+                    </a>
+                  )}
+                  <button onClick={() => copyCaption(p)} className="btn-ghost text-sm" data-testid={`btn-ig-copy-${p.id}`}>
+                    Copy caption
+                  </button>
+                  {!published && (
+                    <button onClick={() => markPosted(p)} disabled={busy || busyId !== null} className="btn-ghost text-sm" data-testid={`btn-ig-mark-${p.id}`}>
+                      Mark as posted
                     </button>
                   )}
                   {published && p.published_at && (
-                    <span className="text-xs text-[var(--fg-subtle)]">Posted {new Date(p.published_at).toLocaleString()}</span>
+                    <span className="text-xs text-[var(--fg-subtle)]">
+                      {p.manual ? "Marked as posted" : "Posted"} {new Date(p.published_at).toLocaleString()}
+                    </span>
                   )}
                 </div>
+                {p.video && !published && (
+                  <p className="text-xs text-[var(--fg-subtle)]">
+                    For trending music: download the video, post it from the Instagram app with a sound, paste the caption, then click Mark as posted.
+                  </p>
+                )}
               </div>
             </div>
           );

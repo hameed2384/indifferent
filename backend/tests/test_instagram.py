@@ -196,3 +196,20 @@ async def test_reel_publishes_video_with_cover(client, admin_headers, fake, monk
     assert create["video_url"].endswith("/social/reel.mp4")
     assert create["cover_url"].endswith("/social/cover.jpg")
     assert create["caption"] == "Watch this"
+
+
+async def test_mark_posted_records_a_manual_post(client, admin_headers, fake):
+    pid = SINGLE["id"]
+    r = await client.post(f"/api/admin/instagram/posts/{pid}/mark-posted", headers=admin_headers)
+    assert r.status_code == 200
+    assert r.json()["status"] == "published" and r.json()["manual"] is True
+    assert fake.calls == []  # nothing sent to Instagram
+    # and it can't then be published again through the API
+    r = await client.post(f"/api/admin/instagram/posts/{pid}/prepare", json={"caption": "x"}, headers=admin_headers)
+    assert r.status_code == 409
+
+
+async def test_mark_posted_requires_admin(client, make_user, fake):
+    _, headers = await make_user()
+    r = await client.post(f"/api/admin/instagram/posts/{SINGLE['id']}/mark-posted", headers=headers)
+    assert r.status_code == 403
