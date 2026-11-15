@@ -91,7 +91,7 @@ Everything below is live on indifferent.hameed.pro (pushed to `main`, each deplo
 2. **Optional:** set `REACT_APP_CONTACT_EMAIL` in the frontend's Vercel project, so the Terms and Privacy pages show a contact address. I didn't publish your email without asking.
 3. **Optional:** apply the new database indexes for sparring. It works without them; they just keep it fast as it grows. Run this once from `backend/`:
    `MONGO_URL="<production>" DB_NAME="<production db>" uv run --frozen python -m scripts.setup_db`
-4. **Try a sparring round yourself on the live site.** Locally it was tested with the fallback replies only (no Groq key on this PC), so the real AI replies and reports haven't been seen yet.
+4. **Try a sparring round yourself on the live site.** I ran one guest round against production at about 5am, so the real AI is confirmed working. It argued sharply, rebutted my evidence with specifics, and the report scored fairly and caught a "hasty generalization" in my argument. It's still worth trying yourself to judge the tone.
 
 ## Not done / worth knowing
 
