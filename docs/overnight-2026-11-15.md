@@ -27,7 +27,7 @@ Everything below is live on indifferent.hameed.pro (pushed to `main`, each deplo
 - **"Sign in to save it"** on the report: after Google sign-in, the round moves into the new account, and onboarded users land straight back on its report.
 - **Safeguards:** guest rounds are reachable only from the browser that started them, using a private token. Each IP address can start at most 5 guest rounds per hour, to protect your Groq free tier.
 
-**Commit:** see below.
+**Commit:** `52c8e52`
 
 ## Shareable results (growth loop)
 
