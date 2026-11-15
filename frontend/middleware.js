@@ -27,7 +27,7 @@ const { next } = require("@vercel/functions");
 const BACKEND = "https://backend-kappa-lac-93.vercel.app";
 const SITE = "https://www.indifferentapp.com";
 const OG_IMAGE = `${SITE}/og-image.png`;
-const DEFAULT_TITLE = "indifferent — live video debate";
+const DEFAULT_TITLE = "indifferent — argue with someone who disagrees";
 const DEFAULT_DESCRIPTION = "Argue with someone who actually disagrees with you — live on camera, or against an AI sparring partner that scores your arguments. Free.";
 
 const CRAWLER_UA = /facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|LinkedInBot|WhatsApp|TelegramBot|SkypeUriPreview|Applebot|redditbot|Google-InspectionTool/i;

@@ -378,7 +378,7 @@ export default function Profile() {
       {liveRoomId && (
         <button
           onClick={() => navigate(`/watch/${liveRoomId}`)}
-          className="w-full bg-[var(--accent)] text-white py-2.5 flex items-center justify-center gap-2 text-sm font-medium hover:brightness-95 transition"
+          className="w-full bg-[var(--accent-fill)] text-white py-2.5 flex items-center justify-center gap-2 text-sm font-medium hover:brightness-95 transition"
           data-testid="btn-profile-live-now"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />

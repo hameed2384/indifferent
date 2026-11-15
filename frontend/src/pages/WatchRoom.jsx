@@ -171,7 +171,7 @@ function ViewerOverlay({ side, navigate }) {
       {userId && user && userId !== user.user_id && following !== null && (
         <button
           onClick={toggleFollow}
-          className={`text-[11px] font-medium px-2 py-1 rounded-full transition ${following ? "bg-white/20 text-white" : "bg-[var(--accent)] text-white"}`}
+          className={`text-[11px] font-medium px-2 py-1 rounded-full transition ${following ? "bg-white/20 text-white" : "bg-[var(--accent-fill)] text-white"}`}
           data-testid={`btn-follow-${userId}`}
         >
           {following ? "Following" : "Follow"}
@@ -445,7 +445,7 @@ function VotePanel({ votes, onVote, signedIn, sideALabel, sideBLabel, sideBOpen,
     <div className="card p-5">
       <div className="eyebrow mb-3">Who do you agree with?</div>
       <div className="flex rounded-lg overflow-hidden border border-[var(--border-strong)] h-8 mb-2" data-testid="vote-bar">
-        <div className="bg-[var(--accent)] flex items-center justify-center text-white text-[11px] font-medium transition-all" style={{ width: `${pctA}%` }}>
+        <div className="bg-[var(--accent-fill)] flex items-center justify-center text-white text-[11px] font-medium transition-all" style={{ width: `${pctA}%` }}>
           {total > 0 && pctA > 12 ? `${pctA}%` : ""}
         </div>
         <div className="bg-[var(--fg)] flex items-center justify-center text-[var(--bg)] text-[11px] font-medium transition-all" style={{ width: `${100 - pctA}%` }}>

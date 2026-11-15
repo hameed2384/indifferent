@@ -29,13 +29,13 @@ function Section({ title, icon: Icon, entries, collapsed, navigate, onHeaderClic
         <span className="relative shrink-0">
           <Icon className="w-4 h-4 text-[var(--fg-subtle)]" />
           {collapsed && badge > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-[3px] rounded-full bg-[var(--accent)] text-[var(--bg)] text-[9px] font-semibold flex items-center justify-center leading-none">{badge}</span>
+            <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-[3px] rounded-full bg-[var(--accent-fill)] text-white text-[9px] font-semibold flex items-center justify-center leading-none">{badge}</span>
           )}
         </span>
         {!collapsed && (
           <span className="text-[11px] uppercase tracking-wider text-[var(--fg-subtle)] font-medium flex items-center gap-1.5">
             {title}
-            {badge > 0 && <span className="min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent)] text-[var(--bg)] text-[10px] font-semibold flex items-center justify-center leading-none normal-case tracking-normal">{badge}</span>}
+            {badge > 0 && <span className="min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-fill)] text-white text-[10px] font-semibold flex items-center justify-center leading-none normal-case tracking-normal">{badge}</span>}
           </span>
         )}
       </button>

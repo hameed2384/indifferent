@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -16,6 +14,11 @@
   --accent: #10b981;      /* emerald 500 — restrained modern accent */
   --accent-fg: #ffffff;
   --accent-soft: #d1fae5;
+  /* Fill behind white text (buttons, badges): emerald 700, ~5.5:1 with white.
+     --accent stays the brand emerald for dots, bars and borders. */
+  --accent-fill: #047857;
+  /* Accent-coloured text on --bg or --accent-soft. */
+  --accent-text: #047857;
   --danger: #ef4444;
   --danger-soft: #fee2e2;
   --success: #10b981;
@@ -33,6 +36,8 @@
   --accent: #10b981;
   --accent-fg: #ffffff;
   --accent-soft: #064e3b;
+  --accent-fill: #047857;
+  --accent-text: #6ee7b7;
   --danger: #f87171;
   --danger-soft: #450a0a;
   --success: #10b981;
@@ -60,10 +65,10 @@ body {
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fg)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap;
   }
   .btn-primary { @apply btn bg-[var(--fg)] text-[var(--bg)] hover:brightness-95; }
-  .btn-accent { @apply btn bg-[var(--accent)] text-white hover:brightness-95; }
+  .btn-accent { @apply btn bg-[var(--accent-fill)] text-white hover:brightness-95; }
   .btn-outline { @apply btn border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[var(--bg-muted)]; }
   .btn-ghost { @apply btn text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg-muted)]; }
   .btn-danger { @apply btn bg-[var(--danger)] text-white hover:brightness-95; }
@@ -80,7 +85,7 @@ body {
   .chip {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] text-xs font-medium text-[var(--fg-muted)];
   }
-  .chip-accent { @apply chip bg-[var(--accent-soft)] border-transparent text-[color:var(--accent)]; }
+  .chip-accent { @apply chip bg-[var(--accent-soft)] border-transparent text-[color:var(--accent-text)]; }
 
   .eyebrow {
     @apply text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--fg-subtle)];

@@ -48,7 +48,7 @@ export function VideoControls({
                 key={s.identity}
                 onClick={() => onSpotlightChange(s.identity)}
                 data-testid={`spotlight-${s.label?.toLowerCase().replace(/\s+/g, "-") || i}`}
-                className={`px-3 py-1.5 text-xs font-medium ${i > 0 ? "border-l border-[var(--border-strong)]" : ""} ${active ? "bg-[var(--accent)] text-white" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
+                className={`px-3 py-1.5 text-xs font-medium ${i > 0 ? "border-l border-[var(--border-strong)]" : ""} ${active ? "bg-[var(--accent-fill)] text-white" : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]"}`}
                 title={`Spotlight ${s.label}`}
               >
                 {s.label}
