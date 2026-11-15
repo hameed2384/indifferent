@@ -1,6 +1,6 @@
 """Publish prepared posts to the brand's Instagram account, one admin click
 at a time (Admin > Marketing). Uses the Instagram Graph API's content
-publishing flow with a system-user token that the owner stores in the
+publishing flow with a token that the owner stores in the
 environment (INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_USER_ID); the token never
 leaves the server and is never logged.
 
@@ -10,8 +10,9 @@ images), then the page calls /publish every few seconds until Instagram has
 finished processing and the post goes live.
 """
 import asyncio
+import hashlib
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
@@ -45,9 +46,7 @@ def _configured() -> bool:
     return bool(INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_USER_ID)
 
 
-def _graph_sync(method: str, path: str, params: dict) -> dict:
-    url = f"{_graph_host(INSTAGRAM_ACCESS_TOKEN)}/{INSTAGRAM_GRAPH_VERSION}/{path.lstrip('/')}"
-    resp = requests.request(method, url, params={**params, "access_token": INSTAGRAM_ACCESS_TOKEN}, timeout=20)
+def _check(resp) -> dict:
     try:
         data = resp.json()
     except ValueError:
@@ -59,8 +58,71 @@ def _graph_sync(method: str, path: str, params: dict) -> dict:
     return data
 
 
+def _graph_sync(token: str, method: str, path: str, params: dict) -> dict:
+    url = f"{_graph_host(token)}/{INSTAGRAM_GRAPH_VERSION}/{path.lstrip('/')}"
+    return _check(requests.request(method, url, params={**params, "access_token": token}, timeout=20))
+
+
 async def graph(method: str, path: str, **params) -> dict:
-    return await asyncio.to_thread(_graph_sync, method, path, params)
+    token, _ = await current_token()
+    return await asyncio.to_thread(_graph_sync, token, method, path, params)
+
+
+# --- Token renewal -----------------------------------------------------------
+# Instagram-login tokens (IG...) expire 60 days after they're issued, but can
+# be swapped for a fresh 60-day token once they're a day old. The renewed
+# token is kept in the database (Vercel's environment can't be written from
+# the app), tagged with a fingerprint of the env token it came from, so
+# pasting a new token into Vercel always takes over again. System-user
+# tokens (EAA...) never expire and are left alone.
+REFRESH_EVERY = timedelta(days=7)
+RETRY_AFTER = timedelta(hours=6)
+
+
+def _fingerprint(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+
+async def current_token():
+    doc = await db.instagram_auth.find_one({"_id": "token"})
+    if doc and doc.get("source") == _fingerprint(INSTAGRAM_ACCESS_TOKEN):
+        if doc.get("token"):
+            return doc["token"], doc
+        return INSTAGRAM_ACCESS_TOKEN, doc
+    return INSTAGRAM_ACCESS_TOKEN, None
+
+
+def _refresh_sync(token: str) -> dict:
+    return _check(requests.get(
+        "https://graph.instagram.com/refresh_access_token",
+        params={"grant_type": "ig_refresh_token", "access_token": token}, timeout=20,
+    ))
+
+
+async def maybe_refresh_token() -> Optional[dict]:
+    """Renews an IG... token at most weekly; failures are logged and retried
+    later rather than blocking the admin page or a publish."""
+    if not _configured() or not INSTAGRAM_ACCESS_TOKEN.startswith("IG"):
+        return None
+    token, doc = await current_token()
+    now = datetime.now(timezone.utc)
+    doc = doc or {}
+    if doc.get("refreshed_at") and now - datetime.fromisoformat(doc["refreshed_at"]) < REFRESH_EVERY:
+        return doc
+    if doc.get("attempted_at") and now - datetime.fromisoformat(doc["attempted_at"]) < RETRY_AFTER:
+        return doc
+    base = {"source": _fingerprint(INSTAGRAM_ACCESS_TOKEN), "attempted_at": now.isoformat()}
+    try:
+        data = await asyncio.to_thread(_refresh_sync, token)
+    except GraphError as e:
+        logger.warning("Instagram token renewal failed (will retry): %s", e)
+        await db.instagram_auth.update_one({"_id": "token"}, {"$set": base}, upsert=True)
+        return {**doc, **base}
+    updates = {**base, "token": data["access_token"], "refreshed_at": now.isoformat(),
+               "expires_at": (now + timedelta(seconds=int(data.get("expires_in") or 0))).isoformat()}
+    await db.instagram_auth.update_one({"_id": "token"}, {"$set": updates}, upsert=True)
+    logger.info("Instagram token renewed")
+    return updates
 
 
 def _now() -> str:
@@ -94,6 +156,7 @@ def _public_state(state: Optional[dict]) -> dict:
 async def instagram_overview(_admin: User = Depends(require_admin)):
     account = None
     account_error = None
+    auth = await maybe_refresh_token()
     if _configured():
         try:
             account = await graph("GET", INSTAGRAM_USER_ID, fields="username")
@@ -105,6 +168,11 @@ async def instagram_overview(_admin: User = Depends(require_admin)):
         "configured": _configured(),
         "account": account,
         "account_error": account_error,
+        "token": {
+            "kind": "instagram" if INSTAGRAM_ACCESS_TOKEN.startswith("IG") else "system_user",
+            "renewed_at": (auth or {}).get("refreshed_at"),
+            "expires_at": (auth or {}).get("expires_at"),
+        },
         "posts": [{
             "id": p["id"], "title": p["title"],
             "images": [_image_url(i) for i in p["images"]],
@@ -132,6 +200,7 @@ async def prepare_post(post_id: str, payload: PrepareRequest, _admin: User = Dep
     """Step 1: hand Instagram the images and caption. Claims the post first so
     a double click can't publish it twice."""
     post = _require_ready(post_id)
+    await maybe_refresh_token()
     claimed = await db.instagram_posts.find_one(
         {"post_id": post_id, "status": {"$in": ["published", "preparing", "processing"]}}, {"_id": 0},
     )

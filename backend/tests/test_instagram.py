@@ -140,3 +140,47 @@ async def test_requires_xhr(client, admin_headers, fake):
 def test_token_kind_picks_the_right_api_host():
     assert ig._graph_host("IGAAexample") == "https://graph.instagram.com"
     assert ig._graph_host("EAAexample") == "https://graph.facebook.com"
+
+
+async def test_ig_token_is_renewed_and_used(monkeypatch):
+    monkeypatch.setattr(ig, "INSTAGRAM_ACCESS_TOKEN", "IGoriginal")
+    monkeypatch.setattr(ig, "INSTAGRAM_USER_ID", "ig_user_1")
+    calls = []
+    def fake_refresh(token):
+        calls.append(token)
+        return {"access_token": "IGrenewed", "expires_in": 5184000}
+    monkeypatch.setattr(ig, "_refresh_sync", fake_refresh)
+
+    doc = await ig.maybe_refresh_token()
+    assert calls == ["IGoriginal"] and doc["expires_at"]
+    assert (await ig.current_token())[0] == "IGrenewed"
+
+    # Not renewed again within a week
+    await ig.maybe_refresh_token()
+    assert calls == ["IGoriginal"]
+
+    # A new token pasted into the environment takes over from the stored one
+    monkeypatch.setattr(ig, "INSTAGRAM_ACCESS_TOKEN", "IGpastedNew")
+    assert (await ig.current_token())[0] == "IGpastedNew"
+
+
+async def test_failed_renewal_keeps_the_env_token_and_waits(monkeypatch):
+    monkeypatch.setattr(ig, "INSTAGRAM_ACCESS_TOKEN", "IGtooNew")
+    monkeypatch.setattr(ig, "INSTAGRAM_USER_ID", "ig_user_1")
+    calls = []
+    def failing(token):
+        calls.append(token)
+        raise ig.GraphError("Token must be at least 24 hours old")
+    monkeypatch.setattr(ig, "_refresh_sync", failing)
+
+    await ig.maybe_refresh_token()
+    await ig.maybe_refresh_token()  # within the retry window: no second call
+    assert calls == ["IGtooNew"]
+    assert (await ig.current_token())[0] == "IGtooNew"
+
+
+async def test_system_user_tokens_are_not_renewed(monkeypatch):
+    monkeypatch.setattr(ig, "INSTAGRAM_ACCESS_TOKEN", "EAAsystem")
+    monkeypatch.setattr(ig, "INSTAGRAM_USER_ID", "ig_user_1")
+    monkeypatch.setattr(ig, "_refresh_sync", lambda t: (_ for _ in ()).throw(AssertionError("should not refresh")))
+    assert await ig.maybe_refresh_token() is None

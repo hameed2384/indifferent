@@ -67,6 +67,13 @@ export default function InstagramPublisher() {
       ) : data.account ? (
         <p className="text-sm text-[var(--fg-muted)]">
           Connected as <strong className="text-[var(--fg)]">@{data.account.username}</strong>. Nothing is posted until you click Publish.
+          {data.token?.kind === "instagram" && (
+            <span className="block text-xs text-[var(--fg-subtle)] mt-1">
+              {data.token.expires_at
+                ? `Access renews automatically each week; current access is valid until ${new Date(data.token.expires_at).toLocaleDateString()}.`
+                : "Access renews automatically each week, starting a day after the token was created."}
+            </span>
+          )}
         </p>
       ) : (
         <p className="text-sm text-[var(--danger)]">Instagram rejected the saved token: {data.account_error}</p>
