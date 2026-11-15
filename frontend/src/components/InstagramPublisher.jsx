@@ -6,6 +6,17 @@ import { RowSkeletonList } from "@/components/SkeletonCard";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Tomorrow's date (UTC) as YYYY-MM-DD, the earliest schedulable day. */
+const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+/** The daily posting slot ("17:00" UTC) shown in the admin's own time zone. */
+const slotLocal = (hhmm = "17:00") => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setUTCHours(h, m, 0, 0);
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+};
+
 const slidesOf = (post) => (post.video ? [{ type: "video", src: post.video, poster: post.images?.[0] }] : post.images.map((src) => ({ type: "image", src })));
 
 function Slide({ slide, className, controls = false }) {
@@ -99,6 +110,7 @@ export default function InstagramPublisher() {
   const [confirm, setConfirm] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [viewer, setViewer] = useState(null);
+  const [dates, setDates] = useState({});
 
   const load = () => {
     setFailed(false);
@@ -125,6 +137,28 @@ export default function InstagramPublisher() {
 
   // For posts made from the Instagram app (e.g. a Reel with music), so the
   // list shows what's already out and nothing gets posted twice.
+  const schedule = async (post) => {
+    try {
+      const { data: r } = await api.post(`/admin/instagram/posts/${post.id}/schedule`, {
+        date: dates[post.id] ?? tomorrow(), caption: captions[post.id],
+      });
+      setPost(post.id, r);
+      toast.success("Scheduled");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't schedule. Try again.");
+    }
+  };
+
+  const unschedule = async (post) => {
+    try {
+      await api.delete(`/admin/instagram/posts/${post.id}/schedule`);
+      setPost(post.id, { status: "draft", scheduled_for: null });
+      toast.success("Unscheduled");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't unschedule. Try again.");
+    }
+  };
+
   const markPosted = async (post) => {
     try {
       const { data: r } = await api.post(`/admin/instagram/posts/${post.id}/mark-posted`);
@@ -240,6 +274,35 @@ export default function InstagramPublisher() {
                     </span>
                   )}
                 </div>
+                {!published && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1" data-testid={`ig-schedule-${p.id}`}>
+                    {p.status === "scheduled" ? (
+                      <>
+                        <span className="chip-accent !py-0.5 !px-2.5 text-xs">
+                          Scheduled: goes out {new Date(p.scheduled_for).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} (within the hour)
+                        </span>
+                        <button onClick={() => unschedule(p)} className="btn-ghost text-sm">Unschedule</button>
+                      </>
+                    ) : (
+                      <>
+                        <label className="text-xs text-[var(--fg-subtle)]" htmlFor={`ig-date-${p.id}`}>Or schedule for</label>
+                        <input
+                          id={`ig-date-${p.id}`}
+                          type="date"
+                          className="field !w-auto !py-1.5 text-sm"
+                          min={tomorrow()}
+                          value={dates[p.id] ?? tomorrow()}
+                          onChange={(e) => setDates((d) => ({ ...d, [p.id]: e.target.value }))}
+                        />
+                        <button onClick={() => schedule(p)} disabled={!data.account || busy || busyId !== null || !(captions[p.id] || "").trim()}
+                          className="btn-outline text-sm" data-testid={`btn-ig-schedule-${p.id}`}>
+                          Schedule
+                        </button>
+                        <span className="text-xs text-[var(--fg-subtle)]">posts at {slotLocal(data.schedule_slot_utc)} your time</span>
+                      </>
+                    )}
+                  </div>
+                )}
                 {p.video && !published && (
                   <p className="text-xs text-[var(--fg-subtle)]">
                     This Reel has background music built in, so Publish posts it as it is. To use a trending sound instead: download the video, post it from the Instagram app with the sound, paste the caption, then click Mark as posted.

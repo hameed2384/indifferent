@@ -213,3 +213,74 @@ async def test_mark_posted_requires_admin(client, make_user, fake):
     _, headers = await make_user()
     r = await client.post(f"/api/admin/instagram/posts/{SINGLE['id']}/mark-posted", headers=headers)
     assert r.status_code == 403
+
+
+# --- Scheduling ---------------------------------------------------------------
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+
+def _day(offset):
+    return (_dt.now(_tz.utc) + _td(days=offset)).strftime("%Y-%m-%d")
+
+
+async def test_schedule_and_unschedule(client, admin_headers, fake):
+    pid = SINGLE["id"]
+    r = await client.post(f"/api/admin/instagram/posts/{pid}/schedule", json={"date": _day(1), "caption": "Tomorrow"}, headers=admin_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "scheduled" and r.json()["scheduled_for"].startswith(_day(1) + "T17:00")
+    overview = (await client.get("/api/admin/instagram", headers=admin_headers)).json()
+    assert next(p for p in overview["posts"] if p["id"] == pid)["status"] == "scheduled"
+    r = await client.delete(f"/api/admin/instagram/posts/{pid}/schedule", headers=admin_headers)
+    assert r.status_code == 200
+    assert (await db.instagram_posts.find_one({"post_id": pid}))["status"] == "draft"
+    assert fake.calls[-1][1] == "ig_user_1"  # only the account lookup; nothing posted
+
+
+async def test_schedule_rejects_past_days(client, admin_headers, fake):
+    r = await client.post(f"/api/admin/instagram/posts/{SINGLE['id']}/schedule", json={"date": _day(-1), "caption": "x"}, headers=admin_headers)
+    assert r.status_code == 400
+
+
+async def test_cron_requires_the_secret(client, fake, monkeypatch):
+    monkeypatch.setattr(ig, "CRON_SECRET", "s3cret")
+    assert (await client.get("/api/cron/instagram")).status_code == 401
+    assert (await client.get("/api/cron/instagram", headers={"Authorization": "Bearer wrong"})).status_code == 401
+    monkeypatch.setattr(ig, "CRON_SECRET", "")
+    assert (await client.get("/api/cron/instagram", headers={"Authorization": "Bearer "})).status_code == 401
+
+
+async def test_cron_publishes_due_posts_only(client, fake, monkeypatch):
+    monkeypatch.setattr(ig, "CRON_SECRET", "s3cret")
+    async def no_sleep(_):
+        return None
+    monkeypatch.setattr(ig.asyncio, "sleep", no_sleep)
+    past = (_dt.now(_tz.utc) - _td(hours=1)).isoformat()
+    future = (_dt.now(_tz.utc) + _td(days=1)).isoformat()
+    await db.instagram_posts.insert_many([
+        {"post_id": SINGLE["id"], "status": "scheduled", "scheduled_for": past, "caption": "Due now"},
+        {"post_id": CAROUSEL["id"], "status": "scheduled", "scheduled_for": future, "caption": "Later"},
+    ])
+    r = await client.get("/api/cron/instagram", headers={"Authorization": "Bearer s3cret"})
+    assert r.status_code == 200, r.text
+    assert r.json()["published"] == [SINGLE["id"]]
+    assert (await db.instagram_posts.find_one({"post_id": SINGLE["id"]}))["status"] == "published"
+    assert (await db.instagram_posts.find_one({"post_id": CAROUSEL["id"]}))["status"] == "scheduled"
+    captions = [c[2].get("caption") for c in fake.calls if c[0] == "POST"]
+    assert "Due now" in captions and "Later" not in captions
+
+
+async def test_cron_leaves_slow_posts_pending(client, fake, monkeypatch):
+    monkeypatch.setattr(ig, "CRON_SECRET", "s3cret")
+    async def no_sleep(_):
+        return None
+    monkeypatch.setattr(ig.asyncio, "sleep", no_sleep)
+    fake.status = "IN_PROGRESS"
+    past = (_dt.now(_tz.utc) - _td(hours=1)).isoformat()
+    await db.instagram_posts.insert_one({"post_id": SINGLE["id"], "status": "scheduled", "scheduled_for": past, "caption": "x"})
+    r = await client.get("/api/cron/instagram", headers={"Authorization": "Bearer s3cret"})
+    assert r.json()["pending"] == [SINGLE["id"]]
+    assert (await db.instagram_posts.find_one({"post_id": SINGLE["id"]}))["status"] == "processing"
+    # the next run finishes it
+    fake.status = "FINISHED"
+    r = await client.get("/api/cron/instagram", headers={"Authorization": "Bearer s3cret"})
+    assert r.json()["published"] == [SINGLE["id"]]

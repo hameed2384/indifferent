@@ -113,3 +113,7 @@ INSTAGRAM_GRAPH_VERSION = os.environ.get("INSTAGRAM_GRAPH_VERSION", "v24.0").str
 
 # Public site address, for links and images that outside services fetch.
 SITE_URL = os.environ.get("SITE_URL", "https://www.indifferentapp.com").rstrip("/")
+
+# Shared secret for scheduled jobs (Vercel Cron sends it as a Bearer token
+# once it's set on the backend project). Jobs refuse to run without it.
+CRON_SECRET = os.environ.get("CRON_SECRET", "").strip()
