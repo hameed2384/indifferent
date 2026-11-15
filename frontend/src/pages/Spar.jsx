@@ -476,6 +476,11 @@ export function TryPage() {
                 <div className="mt-2 font-medium">{m.motion}</div>
               </button>
             ))}
+            {motions?.length > 0 && (
+              <a href="/motions" className="text-sm text-[var(--fg-muted)] hover:text-[var(--fg)] sm:col-span-2 mt-1">
+                Read the arguments for and against each topic →
+              </a>
+            )}
           </div>
         ) : (
           <div className="mt-8 card p-6">

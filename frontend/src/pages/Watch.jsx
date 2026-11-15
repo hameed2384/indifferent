@@ -351,6 +351,7 @@ export default function Watch() {
 
           <footer className="mt-16 pt-6 border-t border-[var(--border)] text-xs text-[var(--fg-subtle)] flex flex-wrap gap-x-4 gap-y-2" data-testid="site-footer">
             <span>© {new Date().getFullYear()} indifferent</span>
+            <a href="/motions" className="hover:underline">Debate topics</a>
             <a href="/terms" className="hover:underline">Terms</a>
             <a href="/privacy" className="hover:underline">Privacy</a>
             <span>18+ only</span>

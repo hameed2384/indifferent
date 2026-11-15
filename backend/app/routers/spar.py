@@ -241,24 +241,27 @@ async def list_spars(user: User = Depends(get_current_user)):
 # Curated motions for visitors who haven't signed up or onboarded (so have no
 # stances to argue against). Statements, not questions, so "for/against" is
 # unambiguous. Registered before /spar/{debate_id} on purpose.
-MOTIONS = [
-    {"id": "remote-work", "tag": "Technology", "motion": "Remote work is better than working in an office"},
-    {"id": "ai-jobs", "tag": "Technology", "motion": "AI will create more jobs than it destroys"},
-    {"id": "social-media-teens", "tag": "Technology", "motion": "Under-16s should be banned from social media"},
-    {"id": "athlete-pay", "tag": "Sports", "motion": "Top athletes are overpaid"},
-    {"id": "four-day-week", "tag": "Politics", "motion": "Every country should move to a four-day work week"},
-    {"id": "voting-age", "tag": "Politics", "motion": "The voting age should be lowered to 16"},
-    {"id": "meat-tax", "tag": "Science", "motion": "Meat should be taxed like cigarettes"},
-    {"id": "space", "tag": "Science", "motion": "Spending on space exploration is worth it"},
-    {"id": "remakes", "tag": "Movies & TV", "motion": "Hollywood remakes are ruining cinema"},
-    {"id": "homework", "tag": "Education", "motion": "Schools should abolish homework"},
-]
-_MOTIONS_BY_ID = {m["id"]: m for m in MOTIONS}
+from ..motions import MOTIONS, MOTIONS_BY_ID as _MOTIONS_BY_ID, MOTIONS_BY_SLUG
+
+_MOTION_LIST_FIELDS = ("id", "slug", "tag", "motion")
+
+
+@router.get("/public/motions")
+async def public_motions():
+    return {"motions": [{k: m[k] for k in (*_MOTION_LIST_FIELDS, "summary")} for m in MOTIONS]}
+
+
+@router.get("/public/motions/{slug}")
+async def public_motion(slug: str):
+    m = MOTIONS_BY_SLUG.get(slug) or _MOTIONS_BY_ID.get(slug)
+    if not m:
+        raise HTTPException(status_code=404, detail="Motion not found")
+    return m
 
 
 @router.get("/spar/guest/motions")
 async def guest_motions():
-    return {"motions": MOTIONS, "max_turns": MAX_GUEST_TURNS}
+    return {"motions": [{k: m[k] for k in _MOTION_LIST_FIELDS} for m in MOTIONS], "max_turns": MAX_GUEST_TURNS}
 
 
 class GuestStart(BaseModel):
@@ -282,6 +285,7 @@ async def start_guest_spar(
     debate = {
         "debate_id": f"spar_{uuid.uuid4().hex[:12]}",
         "user_id": GUEST_PREFIX + token,
+        "via_guest": True,  # stays set after a claim, for the signup funnel
         "tag": motion["tag"],
         "topic": motion["motion"],
         "user_position": user_pos,
@@ -468,7 +472,7 @@ async def claim_guest_spar(
     if not x_guest_token or not _GUEST_TOKEN_RE.match(x_guest_token):
         raise HTTPException(status_code=400, detail="Missing guest token")
     debate = await _owned_debate(debate_id, GUEST_PREFIX + x_guest_token)
-    await db.ai_debates.update_one({"debate_id": debate_id}, {"$set": {"user_id": user.user_id}})
+    await db.ai_debates.update_one({"debate_id": debate_id}, {"$set": {"user_id": user.user_id, "claimed_at": _now()}})
     if debate.get("feedback") and debate["status"] == "ended":
         await bump_streak(user.user_id)
     return {"debate_id": debate_id, "claimed": True}

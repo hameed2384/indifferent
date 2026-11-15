@@ -326,7 +326,75 @@ function MarketingDraft() {
   );
 }
 
+function GrowthPanel() {
+  const [days, setDays] = useState(7);
+  const [g, setG] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setG(null); setFailed(false);
+    api.get("/admin/growth", { params: { days } }).then(({ data }) => setG(data)).catch(() => setFailed(true));
+  }, [days]);
+
+  const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : "–");
+  const steps = g && [
+    { label: "Guest rounds started", value: g.guest_rounds_started, note: "Visitors who picked a motion and a side" },
+    { label: "Finished with a report", value: g.guest_rounds_finished, note: `${pct(g.guest_rounds_finished, g.guest_rounds_started)} of started` },
+    { label: "Signed up to keep it", value: g.guest_rounds_claimed, note: `${pct(g.guest_rounds_claimed, g.guest_rounds_finished)} of finished` },
+  ];
+  const others = g && [
+    { label: "New accounts", value: g.signups },
+    { label: "Finished onboarding", value: g.onboarded },
+    { label: "Signed-in AI rounds", value: g.spar_rounds },
+    { label: "Reports shared", value: g.reports_shared },
+    { label: "Live rooms opened", value: g.live_rooms },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[var(--fg-muted)]">Counted from the app's own data. Page views are in Vercel Analytics.</p>
+        <div className="flex gap-1">
+          {[1, 7, 30, 90].map((d) => (
+            <button key={d} onClick={() => setDays(d)} className={days === d ? "chip-accent" : "chip"}>{d === 1 ? "24h" : `${d} days`}</button>
+          ))}
+        </div>
+      </div>
+      {failed && <p className="text-sm text-[var(--danger)]">Couldn't load the numbers. Try again.</p>}
+      {!g && !failed && <RowSkeletonList />}
+      {g && (
+        <>
+          <div>
+            <div className="eyebrow mb-3">No-sign-up funnel</div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              {steps.map((s) => (
+                <div key={s.label} className="card-muted p-4">
+                  <div className="text-xs text-[var(--fg-subtle)]">{s.label}</div>
+                  <div className="font-heading text-3xl font-semibold mt-1 tabular-nums">{s.value}</div>
+                  <div className="text-xs text-[var(--fg-muted)] mt-1">{s.note}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="eyebrow mb-3">Accounts and activity</div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {others.map((s) => (
+                <div key={s.label} className="card-muted p-4">
+                  <div className="text-xs text-[var(--fg-subtle)]">{s.label}</div>
+                  <div className="font-heading text-2xl font-semibold mt-1 tabular-nums">{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const TABS = [
+  { key: "growth", label: "Growth" },
   { key: "users", label: "Users" },
   { key: "verify", label: "Verification" },
   { key: "reports", label: "Reports" },
@@ -336,7 +404,7 @@ const TABS = [
 export default function Admin() {
   const { user } = useAuth();
   const [accessDenied, setAccessDenied] = useState(false);
-  const [tab, setTab] = useState("users");
+  const [tab, setTab] = useState("growth");
 
   useEffect(() => {
     api.get("/admin/users", { params: { limit: 1 } }).catch((e) => { if (e.response?.status === 403) setAccessDenied(true); });
@@ -376,6 +444,12 @@ export default function Admin() {
           </div>
         ) : (
           <>
+            {tab === "growth" && (
+              <div className="card p-5 sm:p-6">
+                <div className="eyebrow mb-4">Growth</div>
+                <GrowthPanel />
+              </div>
+            )}
             {tab === "users" && <UsersManagement />}
             {tab === "verify" && (
               <div className="card p-5 sm:p-6">

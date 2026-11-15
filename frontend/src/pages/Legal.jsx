@@ -97,6 +97,7 @@ export function Privacy() {
         <li><strong>Claims:</strong> the video clips and captions you post.</li>
         <li><strong>AI sparring:</strong> your sparring transcripts and feedback reports, visible only to you.</li>
         <li><strong>Technical data:</strong> a session token (cookie and browser storage) to keep you signed in, and IP-based rate limiting to prevent abuse.</li>
+        <li><strong>Usage statistics:</strong> anonymous page-view counts through Vercel Web Analytics, which sets no cookies and doesn't identify you.</li>
       </ul>
       <p>Private messages between friends are not processed by AI features.</p>
 

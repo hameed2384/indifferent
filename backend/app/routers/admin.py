@@ -124,3 +124,34 @@ async def remove_clip(clip_id: str, _admin: User = Depends(require_admin), _xhr:
 
     delete_object([c["video_url"] for c in to_remove if c.get("video_url")])
     return {"removed": len(ids), "clip_ids": ids}
+
+
+@router.get("/admin/growth")
+async def growth(days: int = 7, _admin: User = Depends(require_admin)):
+    """The signup funnel for the last `days` days, counted from the app's own
+    data (no third-party analytics needed): guest rounds started and
+    finished, guests who signed up to keep their round, new accounts, and
+    what signed-in people did."""
+    from datetime import timedelta
+    days = max(1, min(days, 365))
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    recent = {"created_at": {"$gte": since}}
+    guest = {"$or": [{"via_guest": True}, {"user_id": {"$regex": "^guest:"}}]}
+    signed_in = {"via_guest": {"$ne": True}, "user_id": {"$not": {"$regex": "^guest:"}}}
+
+    async def count(coll, *filters):
+        q = {"$and": [recent, *filters]} if filters else recent
+        return await db[coll].count_documents(q)
+
+    return {
+        "days": days,
+        "guest_rounds_started": await count("ai_debates", guest),
+        "guest_rounds_finished": await count("ai_debates", guest, {"status": "ended"}),
+        "guest_rounds_claimed": await count("ai_debates", {"claimed_at": {"$exists": True}}),
+        "signups": await count("users"),
+        "onboarded": await count("users", {"onboarded": True}),
+        "spar_rounds": await count("ai_debates", signed_in),
+        "spar_rounds_finished": await count("ai_debates", signed_in, {"status": "ended"}),
+        "reports_shared": await count("ai_debates", {"share_id": {"$exists": True}}),
+        "live_rooms": await count("rooms"),
+    }

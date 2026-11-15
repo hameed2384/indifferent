@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 import { useTheme } from "@/hooks/use-theme";
 import "@/App.css";
 import AuthCallback from "@/pages/AuthCallback";
@@ -9,6 +10,7 @@ import Onboarding from "@/pages/Onboarding";
 import Verify from "@/pages/Verify";
 import Match from "@/pages/Match";
 import Spar, { SparHistory, SparShare, TryPage } from "@/pages/Spar";
+import { MotionsIndex, MotionPage } from "@/pages/Motions";
 import { Privacy, Terms } from "@/pages/Legal";
 import ChatRoom from "@/pages/ChatRoom";
 import Watch from "@/pages/Watch";
@@ -60,6 +62,8 @@ function RouterInner() {
       <Route path="/private/:friendId" element={<ProtectedRoute requireOnboarded><PrivateChat /></ProtectedRoute>} />
       <Route path="/s/:shareId" element={<SparShare />} />
       <Route path="/try" element={<TryPage />} />
+      <Route path="/motions" element={<MotionsIndex />} />
+      <Route path="/motions/:slug" element={<MotionPage />} />
       <Route path="/try/:debateId" element={<Spar />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
@@ -80,6 +84,9 @@ export default function App() {
           the real live theme here, not left hardcoded (previous bug: toasts
           always rendered dark, even in light mode). */}
       <Toaster theme={theme} position="top-center" />
+      {/* Cookieless page-view counts (Vercel Web Analytics). Does nothing
+          until Analytics is enabled for the project in the Vercel dashboard. */}
+      <Analytics />
     </div>
   );
 }

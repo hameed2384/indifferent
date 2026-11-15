@@ -81,7 +81,7 @@ async function buildSitemap() {
   // independently (one backend hiccup shouldn't drop the other, and a
   // sitemap missing some entries is a much smaller problem than a sitemap
   // that 500s and gets Search Console to stop trusting it).
-  const staticUrls = [urlEntry(`${SITE}/`), urlEntry(`${SITE}/watch`), urlEntry(`${SITE}/claims`), urlEntry(`${SITE}/try`)];
+  const staticUrls = [urlEntry(`${SITE}/`), urlEntry(`${SITE}/watch`), urlEntry(`${SITE}/claims`), urlEntry(`${SITE}/try`), urlEntry(`${SITE}/motions`)];
 
   const debates = await fetchJson(`${BACKEND}/api/public/debates`).catch(() => null);
   const debateUrls = (debates?.debates || []).map((d) => urlEntry(`${SITE}/watch/${d.room_id}`, d.published_at));
@@ -89,7 +89,10 @@ async function buildSitemap() {
   const claims = await fetchJson(`${BACKEND}/api/clips/roots`).catch(() => null);
   const claimUrls = (claims?.claims || []).map((c) => urlEntry(`${SITE}/claims/${c.clip_id}`, c.created_at));
 
-  const body = [...staticUrls, ...debateUrls, ...claimUrls].join("");
+  const motions = await fetchJson(`${BACKEND}/api/public/motions`).catch(() => null);
+  const motionUrls = (motions?.motions || []).map((m) => urlEntry(`${SITE}/motions/${m.slug}`));
+
+  const body = [...staticUrls, ...motionUrls, ...debateUrls, ...claimUrls].join("");
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</urlset>`;
 }
 
@@ -124,6 +127,12 @@ async function middleware(request) {
       if (c) {
         title = c.average != null ? `${c.display_name} scored ${c.average}/10 — indifferent` : `${c.display_name} on indifferent`;
         description = `Arguing their side on "${c.topic}". Think you can do better? Spar with an AI that takes the other side — free.`;
+      }
+    } else if (section === "motions") {
+      const m = await fetchJson(`${BACKEND}/api/public/motions/${encodeURIComponent(id)}`);
+      if (m) {
+        title = `${m.motion}: arguments for and against — indifferent`;
+        description = `${m.summary} Read both sides, then debate an AI that scores you. Free.`;
       }
     } else if (section === "u") {
       const p = await fetchJson(`${BACKEND}/api/users/${encodeURIComponent(id)}`);
