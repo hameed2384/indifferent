@@ -11,6 +11,13 @@ from ..topic_stances import get_tag_positions, shared_tag_opposition
 
 router = APIRouter()
 
+# Minimum disagreement (absolute position gap on a shared tag, -10..10
+# scale) for two people to be matched. Without it, two people who AGREE got
+# paired whenever they shared a topic, which breaks the app's whole promise.
+# Users who find no one opposed enough are offered AI sparring instead (see
+# Match.jsx), so a stricter bar no longer means a dead-end wait.
+MIN_OPPOSITION = 3.0
+
 
 def _avg_tag_positions(members: list) -> dict:
     """Average position per tag across a party's tag_positions dicts, keeping
@@ -90,7 +97,7 @@ async def enqueue(user: User = Depends(get_current_user), _xhr: None = Depends(r
     # them (the other caller's room silently orphaned, no one ever told).
     candidates = await db.match_queue.find({"user_id": {"$ne": user.user_id}}, {"_id": 0}).to_list(50)
     scored = [(c, shared_tag_opposition(my_positions, c["tag_positions"])) for c in candidates]
-    ranked = sorted((s for s in scored if s[1] is not None), key=lambda s: s[1][1], reverse=True)
+    ranked = sorted((s for s in scored if s[1] is not None and s[1][1] >= MIN_OPPOSITION), key=lambda s: s[1][1], reverse=True)
     claimed, claimed_tag, claimed_score = None, None, None
     for c, _ in ranked:
         doc = await db.match_queue.find_one_and_delete({"user_id": c["user_id"]})
@@ -115,7 +122,7 @@ async def enqueue(user: User = Depends(get_current_user), _xhr: None = Depends(r
     # reasoning as above.
     parties = await db.party_match_queue.find({}, {"_id": 0}).to_list(50)
     scored_parties = [(p, shared_tag_opposition(my_positions, p["tag_positions_avg"])) for p in parties]
-    ranked_parties = sorted((s for s in scored_parties if s[1] is not None), key=lambda s: s[1][1], reverse=True)
+    ranked_parties = sorted((s for s in scored_parties if s[1] is not None and s[1][1] >= MIN_OPPOSITION), key=lambda s: s[1][1], reverse=True)
     claimed_party, claimed_party_tag, claimed_party_score = None, None, None
     for p, _ in ranked_parties:
         doc = await db.party_match_queue.find_one_and_delete({"party_id": p["party_id"]})
@@ -183,7 +190,7 @@ async def enqueue_party(payload: PartyEnqueueRequest, user: User = Depends(get_c
     parties = await db.party_match_queue.find({}, {"_id": 0}).to_list(50)
     eligible_parties = [p for p in parties if not (set(p["user_ids"]) & set(my_party))]
     scored_parties = [(p, shared_tag_opposition(my_avg, p["tag_positions_avg"])) for p in eligible_parties]
-    ranked_parties = sorted((s for s in scored_parties if s[1] is not None), key=lambda s: s[1][1], reverse=True)
+    ranked_parties = sorted((s for s in scored_parties if s[1] is not None and s[1][1] >= MIN_OPPOSITION), key=lambda s: s[1][1], reverse=True)
     claimed_party, claimed_party_tag, claimed_party_score = None, None, None
     for p, _ in ranked_parties:
         doc = await db.party_match_queue.find_one_and_delete({"party_id": p["party_id"]})
@@ -205,7 +212,7 @@ async def enqueue_party(payload: PartyEnqueueRequest, user: User = Depends(get_c
     # 2) a single opponent already waiting in the solo queue? Same atomic claim.
     solos = await db.match_queue.find({"user_id": {"$nin": my_party}}, {"_id": 0}).to_list(50)
     scored_solos = [(c, shared_tag_opposition(my_avg, c["tag_positions"])) for c in solos]
-    ranked_solos = sorted((s for s in scored_solos if s[1] is not None), key=lambda s: s[1][1], reverse=True)
+    ranked_solos = sorted((s for s in scored_solos if s[1] is not None and s[1][1] >= MIN_OPPOSITION), key=lambda s: s[1][1], reverse=True)
     claimed_solo, claimed_solo_tag, claimed_solo_score = None, None, None
     for c, _ in ranked_solos:
         doc = await db.match_queue.find_one_and_delete({"user_id": c["user_id"]})

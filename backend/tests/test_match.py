@@ -1,6 +1,6 @@
 """Matchmaking: the core loop of the app (two people who disagree get paired)."""
 from app.db import db
-from app.routers.match import _avg_tag_positions
+from app.routers.match import MIN_OPPOSITION, _avg_tag_positions
 from app.topic_stances import shared_tag_opposition
 
 
@@ -95,8 +95,8 @@ async def test_no_match_without_shared_tag(client, ready_user):
 
 
 async def _put_in_queue(user, positions):
-    # Inserted directly: queueing the second via /match/enqueue would just
-    # match it against the first (any shared tag matches — see below).
+    # Inserted directly: queueing the second via /match/enqueue could match
+    # it against the first.
     await db.match_queue.insert_one({
         "user_id": user["user_id"],
         "tag_positions": {t: {"position": p, "summary": ""} for t, p in positions.items()},
@@ -118,16 +118,21 @@ async def test_most_opposed_candidate_wins(client, ready_user):
     assert await db.match_queue.find_one({"user_id": mild["user_id"]})
 
 
-async def test_users_who_agree_still_get_matched(client, ready_user):
-    """Documents current behaviour: there is no minimum opposition score, so
-    two people with the SAME stance on a shared tag are paired (score 0).
-    Change this test if a threshold is introduced."""
+async def test_users_who_agree_are_not_matched(client, ready_user):
     _, a_h = await ready_user({"cats": 5})
-    _, b_h = await ready_user({"cats": 5})
+    _, b_h = await ready_user({"cats": 6})
     await client.post("/api/match/enqueue", headers=a_h)
     body = (await client.post("/api/match/enqueue", headers=b_h)).json()
-    assert body["matched"] is True
-    assert body["opposition_score"] == 0
+    assert body == {"matched": False}
+    assert await db.match_queue.count_documents({}) == 2
+
+
+async def test_minimum_opposition_threshold(client, ready_user):
+    _, a_h = await ready_user({"cats": 1})
+    _, b_h = await ready_user({"cats": 1 - MIN_OPPOSITION})  # exactly at the bar
+    await client.post("/api/match/enqueue", headers=a_h)
+    body = (await client.post("/api/match/enqueue", headers=b_h)).json()
+    assert body["matched"] is True and body["opposition_score"] == MIN_OPPOSITION
 
 
 async def test_cancel_leaves_queue(client, ready_user):

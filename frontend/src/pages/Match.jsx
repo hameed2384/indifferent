@@ -132,7 +132,7 @@ export default function Match() {
           )}
           {offerSpar && !error && (
             <div className="mt-8 card p-5 text-left" data-testid="spar-offer">
-              <div className="eyebrow">Nobody's online on your side of things right now</div>
+              <div className="eyebrow">No one who really disagrees with you is online right now</div>
               <p className="mt-2 text-sm text-[var(--fg-muted)]">
                 Debate an AI sparring partner that argues the opposite of your view — then get a scored report on your arguments.
                 You'll stay findable for real debates any time you come back here.
