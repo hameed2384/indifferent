@@ -25,7 +25,7 @@ const { next } = require("@vercel/functions");
 // acceptable failure mode, breaking the actual site is not.
 
 const BACKEND = "https://backend-kappa-lac-93.vercel.app";
-const SITE = "https://indifferent.hameed.pro";
+const SITE = "https://www.indifferentapp.com";
 const OG_IMAGE = `${SITE}/og-image.png`;
 const DEFAULT_TITLE = "indifferent — live video debate";
 const DEFAULT_DESCRIPTION = "Argue with someone who actually disagrees with you — live on camera, or against an AI sparring partner that scores your arguments. Free.";

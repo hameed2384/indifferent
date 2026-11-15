@@ -9,4 +9,4 @@ Disallow: /room/
 Disallow: /private/
 Disallow: /auth/
 
-Sitemap: https://indifferent.hameed.pro/sitemap.xml
+Sitemap: https://www.indifferentapp.com/sitemap.xml

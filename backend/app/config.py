@@ -36,6 +36,11 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").strip().lower() == "true
 # cross-origin requests from — see server.py for why an unset var must fail
 # loud (default: localhost only) rather than silently wildcarding.
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+# The production site's own domains are always allowed on a deployed backend,
+# so moving domains doesn't depend on remembering to edit the env var.
+PRODUCTION_ORIGINS = ["https://www.indifferentapp.com", "https://indifferentapp.com"]
+if os.environ.get("VERCEL"):
+    CORS_ORIGINS = list(dict.fromkeys([o.strip() for o in CORS_ORIGINS if o.strip()] + PRODUCTION_ORIGINS))
 
 # Google OAuth (direct — replaces the old Emergent-managed auth proxy).
 # Create a client at https://console.cloud.google.com/apis/credentials
