@@ -27,7 +27,7 @@ Everything below is live on indifferent.hameed.pro (pushed to `main`, each deplo
 - The **public card** shows the score, the breakdown, the summary and the person's best line, never the transcript, plus a **"Try it free"** button.
 - **Link previews** on WhatsApp, X and Discord read something like "Ayo scored 7.8/10 — indifferent".
 
-**Commit:** see the latest commit on `main`.
+**Commit:** `66a7a4b`
 
 ## Business model
 
