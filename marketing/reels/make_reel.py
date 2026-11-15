@@ -21,6 +21,21 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(ROOT, "frontend", "public", "social")
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 MAX_AI_CHARS = 200
+MUSIC_DIR = os.path.join(HERE, "music")
+MUSIC_VOLUME = 0.85  # music is the only audio, so a normal listening level (about -18 dB mean)
+
+
+def pick_music(name, choice=None):
+    """A track from marketing/reels/music (see LICENSES.md there). REEL_MUSIC=<file> picks one,
+    REEL_MUSIC=none makes the Reel silent; otherwise the same Reel always gets the same track."""
+    if choice == "none":
+        return None
+    tracks = sorted(f for f in os.listdir(MUSIC_DIR) if f.endswith(".mp3")) if os.path.isdir(MUSIC_DIR) else []
+    if not tracks:
+        return None
+    if choice:
+        return os.path.join(MUSIC_DIR, choice)
+    return os.path.join(MUSIC_DIR, tracks[sum(map(ord, name)) % len(tracks)])
 
 
 def trim(text, limit):
@@ -90,15 +105,25 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     mp4 = os.path.join(OUT, f"{name}.mp4")
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list_file,
-                    "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-                    "-vf", "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                    "-c:a", "aac", "-b:a", "128k", "-shortest", "-movflags", "+faststart", mp4], check=True)
+    total = sum(s for _, s in states)
+    track = pick_music(name, os.environ.get("REEL_MUSIC"))
+    if track:
+        # Background bed: quiet, faded in and out, looped if the track is shorter than the Reel.
+        audio_in = ["-stream_loop", "-1", "-i", track]
+        audio_filter = ["-filter_complex",
+                        f"[1:a]volume={MUSIC_VOLUME},afade=t=in:d=0.6,afade=t=out:st={total - 1.6:.2f}:d=1.6[a]",
+                        "-map", "0:v", "-map", "[a]"]
+    else:
+        audio_in = ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+        audio_filter = []
+    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list_file, *audio_in,
+                    *audio_filter, "-vf", "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+                    "-c:a", "aac", "-b:a", "160k", "-t", f"{total:.2f}", "-movflags", "+faststart", mp4], check=True)
     # Cover: the hook frame, cropped to the 4:5 grid view by Instagram.
     subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", os.path.join(frames, "000.png"), "-q:v", "3",
                     os.path.join(OUT, f"{name}-cover.jpg")], check=True)
-    total = sum(s for _, s in states)
-    print(f"{mp4}  ({len(states)} frames, {total:.1f}s)")
+    music = f", music: {os.path.basename(track)}" if track else ", silent"
+    print(f"{mp4}  ({len(states)} frames, {total:.1f}s{music})")
 
 
 if __name__ == "__main__":

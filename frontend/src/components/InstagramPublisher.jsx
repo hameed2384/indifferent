@@ -215,14 +215,14 @@ export default function InstagramPublisher() {
                     <button
                       onClick={() => setConfirm(p)}
                       disabled={!data.account || busy || busyId !== null || !(captions[p.id] || "").trim()}
-                      className={p.video ? "btn-outline text-sm" : "btn-accent text-sm"}
+                      className="btn-accent text-sm"
                       data-testid={`btn-ig-publish-${p.id}`}
                     >
-                      {busy ? "Publishing…" : p.video ? "Publish (no music)" : "Publish"}
+                      {busy ? "Publishing…" : "Publish"}
                     </button>
                   )}
                   {p.video && (
-                    <a href={p.video} download className={published ? "btn-ghost text-sm" : "btn-accent text-sm"} data-testid={`btn-ig-download-${p.id}`}>
+                    <a href={p.video} download className="btn-ghost text-sm" data-testid={`btn-ig-download-${p.id}`}>
                       Download video
                     </a>
                   )}
@@ -242,7 +242,7 @@ export default function InstagramPublisher() {
                 </div>
                 {p.video && !published && (
                   <p className="text-xs text-[var(--fg-subtle)]">
-                    For trending music: download the video, post it from the Instagram app with a sound, paste the caption, then click Mark as posted.
+                    This Reel has background music built in, so Publish posts it as it is. To use a trending sound instead: download the video, post it from the Instagram app with the sound, paste the caption, then click Mark as posted.
                   </p>
                 )}
               </div>

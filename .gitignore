@@ -86,3 +86,6 @@ memory/test_credentials.md
 android-sdk/
 .vercel
 .env*
+
+# Licensed music: used inside Reels only, not redistributed (see marketing/reels/music/LICENSES.md)
+marketing/reels/music/*.mp3
