@@ -18,7 +18,7 @@ feature never dead-ends (same convention as llm.py).
 """
 import random
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -37,6 +37,7 @@ router = APIRouter()
 MAX_USER_TURNS = 12
 MAX_MESSAGE = 800
 MIN_TURNS_FOR_FEEDBACK = 1
+REUSE_UNTOUCHED_HOURS = 6
 
 FALLBACK_REPLIES = [
     "That's a claim, not yet an argument. What's the strongest evidence that it's actually true?",
@@ -151,6 +152,17 @@ async def start_spar(
 
     # Leaving the human queue: a spar and a pending human match would collide.
     await db.match_queue.delete_one({"user_id": user.user_id})
+
+    # Reuse a recent round on this topic the user hasn't argued in yet,
+    # instead of piling up empty "in progress" rounds (and LLM calls) every
+    # time they click start and wander off.
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=REUSE_UNTOUCHED_HOURS)).isoformat()
+    untouched = await db.ai_debates.find_one(
+        {"user_id": user.user_id, "tag": tag, "status": "active", "user_turns": 0, "created_at": {"$gt": cutoff}},
+        {"_id": 0}, sort=[("created_at", -1)],
+    )
+    if untouched:
+        return _public(untouched, await _messages(untouched["debate_id"]))
 
     mine = positions[tag]
     ai_pos = _ai_position(mine["position"])

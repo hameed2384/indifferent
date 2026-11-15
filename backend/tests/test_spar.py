@@ -121,8 +121,21 @@ async def test_real_llm_path_reply_and_normalized_feedback(client, make_user, mo
 
 
 async def test_history_lists_own_debates(client, make_user):
-    _, headers = await make_user(onboarded=True, interest_tags=["cats"], stances={"cats": 5})
-    await _start(client, headers)
-    await _start(client, headers)
+    _, headers = await make_user(onboarded=True, interest_tags=["cats", "tax"], stances={"cats": 5, "tax": -3})
+    await _start(client, headers, tag="cats")
+    await _start(client, headers, tag="tax")
     body = (await client.get("/api/spar", headers=headers)).json()
     assert len(body["debates"]) == 2
+
+
+async def test_restart_reuses_untouched_round(client, make_user):
+    _, headers = await make_user(onboarded=True, interest_tags=["cats"], stances={"cats": 5})
+    first = (await _start(client, headers)).json()
+    again = (await _start(client, headers)).json()
+    assert again["debate_id"] == first["debate_id"]
+    assert len(again["messages"]) == 1
+
+    # Once the user has argued, a new start is a fresh round.
+    await client.post(f"/api/spar/{first['debate_id']}/message", json={"text": "hi"}, headers=headers)
+    fresh = (await _start(client, headers)).json()
+    assert fresh["debate_id"] != first["debate_id"]

@@ -52,6 +52,15 @@ export default function AccountMenu({ user, logout }) {
           >
             Friends
           </button>
+          {user?.onboarded && (
+            <button
+              onClick={() => { setOpen(false); navigate("/spar"); }}
+              className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--bg-muted)]"
+              data-testid="account-menu-spar"
+            >
+              AI sparring
+            </button>
+          )}
           <button
             onClick={() => { setOpen(false); navigate("/settings"); }}
             className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--bg-muted)]"

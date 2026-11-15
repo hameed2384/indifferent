@@ -8,6 +8,7 @@ import BackButton from "@/components/BackButton";
 import StepDots from "@/components/StepDots";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_NARROW } from "@/lib/layout";
+import { startSpar } from "@/pages/Spar";
 
 export default function Verify() {
   const { user, checkAuth } = useAuth();
@@ -15,6 +16,15 @@ export default function Verify() {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [sparring, setSparring] = useState(false);
+
+  const spar = async () => {
+    setSparring(true);
+    try { await startSpar(navigate); } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't start a sparring round");
+      setSparring(false);
+    }
+  };
 
   const upload = async () => {
     if (!file) return;
@@ -83,6 +93,16 @@ export default function Verify() {
           <div className="text-xs text-[var(--fg-subtle)] max-w-sm">
             Approval is instant for now — we're adding manual review soon.
           </div>
+        </div>
+
+        <div className="mt-10 card p-5" data-testid="verify-spar-alternative">
+          <div className="eyebrow">Not ready to upload an ID?</div>
+          <p className="mt-2 text-sm text-[var(--fg-muted)]">
+            ID is only needed for live video with real people. You can start right now with an AI sparring partner that argues the opposite of your views, and get a scored report on your arguments.
+          </p>
+          <button onClick={spar} disabled={sparring} className="btn-outline mt-4 text-sm" data-testid="btn-verify-spar">
+            {sparring ? "Setting up…" : "Start with AI sparring"}
+          </button>
         </div>
 
         <div className="mt-12 pt-6 border-t border-[var(--border)] text-xs text-[var(--fg-subtle)]">

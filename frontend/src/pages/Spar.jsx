@@ -180,6 +180,7 @@ export default function Spar() {
             <div className="mt-6 flex flex-wrap gap-3">
               <button onClick={again} disabled={starting} className="btn-accent" data-testid="btn-spar-again">{starting ? "Starting…" : "Spar again"}</button>
               <button onClick={() => navigate(user?.id_verified ? "/match" : "/verify")} className="btn-outline">Debate a real person</button>
+              <button onClick={() => navigate("/spar")} className="btn-ghost">Your progress</button>
             </div>
           </div>
         )}
@@ -221,6 +222,88 @@ export default function Spar() {
               </div>
             </div>
           )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function avgScore(feedback) {
+  const s = feedback?.scores;
+  return s ? Math.round((Object.values(s).reduce((a, b) => a + b, 0) / 4) * 10) / 10 : null;
+}
+
+/** /spar — past sparring rounds with their scores, newest first, plus a
+ * start button. The running average is the user's progress signal. */
+export function SparHistory() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const [debates, setDebates] = useState(null);
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    api.get("/spar").then(({ data }) => setDebates(data.debates)).catch(() => setDebates([]));
+  }, []);
+
+  const start = async () => {
+    setStarting(true);
+    try { await startSpar(navigate); } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start a round"); setStarting(false); }
+  };
+
+  const scored = (debates || []).map((d) => avgScore(d.feedback)).filter((x) => x !== null);
+  const recent = scored.slice(0, 3);
+  const earlier = scored.slice(3, 6);
+  const mean = (xs) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
+  const trend = recent.length && earlier.length ? Math.round((mean(recent) - mean(earlier)) * 10) / 10 : null;
+
+  return (
+    <div className="min-h-screen bg-[var(--bg)]">
+      <header className="border-b border-[var(--border)]">
+        <div className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`}>
+          <Logo size="sm" />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <AccountMenu user={user} logout={logout} />
+          </div>
+        </div>
+      </header>
+      <main className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 py-8`}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="eyebrow">AI sparring</div>
+            <h1 className="font-heading text-3xl font-semibold mt-1">Sharpen your arguments.</h1>
+            <p className="text-sm text-[var(--fg-muted)] mt-2 max-w-lg">An AI takes the opposite side of one of your views. Argue for up to 12 turns, then get scored on clarity, evidence, rebuttal and civility.</p>
+          </div>
+          <button onClick={start} disabled={starting} className="btn-accent" data-testid="btn-history-spar">{starting ? "Setting up…" : "New round"}</button>
+        </div>
+
+        {scored.length > 0 && (
+          <div className="mt-8 grid grid-cols-3 gap-3">
+            <div className="card p-4"><div className="eyebrow">Rounds</div><div className="font-heading text-2xl font-semibold mt-1">{debates.length}</div></div>
+            <div className="card p-4"><div className="eyebrow">Avg score</div><div className="font-heading text-2xl font-semibold mt-1">{mean(scored)}</div></div>
+            <div className="card p-4">
+              <div className="eyebrow">Trend</div>
+              <div className="font-heading text-2xl font-semibold mt-1">{trend === null ? "—" : `${trend > 0 ? "+" : ""}${trend}`}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8 space-y-3" data-testid="spar-history">
+          {debates === null && <div className="text-sm text-[var(--fg-subtle)]">Loading…</div>}
+          {debates?.length === 0 && <div className="card p-6 text-sm text-[var(--fg-muted)]">No rounds yet. Your first one takes about five minutes.</div>}
+          {debates?.map((d) => (
+            <button key={d.debate_id} onClick={() => navigate(`/spar/${d.debate_id}`)} className="w-full card p-4 text-left hover:border-[var(--fg)] transition-colors flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-xs text-[var(--fg-subtle)]">
+                  <span className="chip !py-0 !px-1.5 text-[10px]">{d.tag}</span>
+                  <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                  {d.status === "active" && <span className="chip-accent !py-0 !px-1.5 text-[10px]">In progress</span>}
+                </div>
+                <div className="text-sm font-medium mt-1 truncate">{d.topic}</div>
+              </div>
+              <div className="font-heading text-xl font-semibold shrink-0">{avgScore(d.feedback) ?? "—"}</div>
+            </button>
+          ))}
         </div>
       </main>
     </div>
