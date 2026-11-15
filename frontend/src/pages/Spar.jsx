@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
 import Logo from "@/components/Logo";
 import { CONTAINER_COMPACT } from "@/lib/layout";
+import { startGoogleLogin } from "@/lib/auth";
 
 const SCORE_LABELS = { clarity: "Clarity", evidence: "Evidence", rebuttal: "Rebuttal", civility: "Civility" };
 
@@ -124,6 +125,23 @@ export default function Spar() {
     }
   };
 
+  const share = async () => {
+    try {
+      const { data } = await api.post(`/spar/${debateId}/share`);
+      const url = `${window.location.origin}/s/${data.share_id}`;
+      const avg = debate.feedback?.scores ? Math.round((Object.values(debate.feedback.scores).reduce((a, b) => a + b, 0) / 4) * 10) / 10 : null;
+      const text = avg ? `I scored ${avg}/10 arguing my side on "${debate.topic}". Think you can do better?` : `I just argued my side on "${debate.topic}".`;
+      if (navigator.share) {
+        await navigator.share({ title: "My debate score on indifferent", text, url }).catch(() => {});
+      } else {
+        await navigator.clipboard.writeText(`${text} ${url}`);
+        toast.success("Link copied — paste it anywhere");
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't create a share link");
+    }
+  };
+
   const again = async () => {
     setStarting(true);
     try { await startSpar(navigate, debate?.tag); } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start a new round"); }
@@ -180,6 +198,9 @@ export default function Spar() {
             <div className="mt-6 flex flex-wrap gap-3">
               <button onClick={again} disabled={starting} className="btn-accent" data-testid="btn-spar-again">{starting ? "Starting…" : "Spar again"}</button>
               <button onClick={() => navigate(user?.id_verified ? "/match" : "/verify")} className="btn-outline">Debate a real person</button>
+              {debate.feedback?.scores && (
+                <button onClick={share} className="btn-outline" data-testid="btn-spar-share">Share my result</button>
+              )}
               <button onClick={() => navigate("/spar")} className="btn-ghost">Your progress</button>
             </div>
           </div>
@@ -305,6 +326,76 @@ export function SparHistory() {
             </button>
           ))}
         </div>
+      </main>
+    </div>
+  );
+}
+
+/** /s/:shareId — public result card for a shared sparring round. Shows the
+ * score, summary and best line (never the transcript) and invites the
+ * visitor to try it themselves. */
+export function SparShare() {
+  const { shareId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [card, setCard] = useState(null);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    api.get(`/public/spar/${shareId}`).then(({ data }) => setCard(data)).catch(() => setMissing(true));
+  }, [shareId]);
+
+  const tryIt = () => {
+    if (!user) { startGoogleLogin(); return; }
+    navigate(user.onboarded ? "/spar" : "/onboarding");
+  };
+
+  return (
+    <div className="min-h-screen bg-[var(--bg)] flex flex-col">
+      <header className="border-b border-[var(--border)]">
+        <div className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`}>
+          <button onClick={() => navigate("/")}><Logo size="sm" /></button>
+          <ThemeToggle />
+        </div>
+      </header>
+      <main className={`${CONTAINER_COMPACT} w-full mx-auto px-4 sm:px-6 py-10 flex-1`}>
+        {missing && <p className="text-sm text-[var(--fg-muted)]">This result isn't available.</p>}
+        {!card && !missing && <p className="text-sm text-[var(--fg-subtle)]">Loading…</p>}
+        {card && (
+          <>
+            <div className="card p-6 sm:p-8" data-testid="spar-share-card">
+              <div className="flex items-center gap-2"><span className="chip-accent">AI sparring</span><span className="chip">{card.tag}</span></div>
+              <p className="mt-4 text-sm text-[var(--fg-muted)]">{card.display_name} argued their side on</p>
+              <h1 className="font-heading text-2xl sm:text-3xl font-semibold mt-1 leading-tight">{card.topic}</h1>
+              {card.average !== null && (
+                <div className="mt-6 flex items-baseline gap-2">
+                  <span className="font-heading text-5xl font-semibold">{card.average}</span>
+                  <span className="text-[var(--fg-subtle)]">/ 10</span>
+                </div>
+              )}
+              {card.scores && (
+                <div className="mt-4 space-y-2">
+                  {Object.entries(SCORE_LABELS).map(([key, label]) => (
+                    <div key={key} className="flex items-center gap-3 text-sm">
+                      <span className="w-20 shrink-0 text-[var(--fg-muted)]">{label}</span>
+                      <div className="flex-1 h-2 rounded-full bg-[var(--bg-muted)] overflow-hidden"><div className="h-full bg-[var(--accent)]" style={{ width: `${card.scores[key] * 10}%` }} /></div>
+                      <span className="w-6 text-right tabular-nums">{card.scores[key]}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {card.best_line && (
+                <blockquote className="mt-6 border-l-2 border-[var(--accent)] pl-3 text-sm italic">"{card.best_line}"</blockquote>
+              )}
+              {card.summary && <p className="mt-4 text-sm">{card.summary}</p>}
+            </div>
+            <div className="mt-6 card p-6 text-center">
+              <h2 className="font-heading text-xl font-semibold">Think you'd argue it better?</h2>
+              <p className="mt-2 text-sm text-[var(--fg-muted)]">An AI takes the opposite side of your view and scores your arguments. Or debate a real person who disagrees. Free.</p>
+              <button onClick={tryIt} className="btn-accent mt-4" data-testid="btn-share-try">Try it free</button>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

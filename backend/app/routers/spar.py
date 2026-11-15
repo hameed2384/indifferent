@@ -106,7 +106,7 @@ async def _add_message(debate_id: str, role: str, text: str) -> dict:
 def _public(debate: dict, messages: Optional[list] = None) -> dict:
     out = {k: debate.get(k) for k in (
         "debate_id", "tag", "topic", "user_position", "ai_position", "status",
-        "user_turns", "created_at", "ended_at", "feedback",
+        "user_turns", "created_at", "ended_at", "feedback", "share_id",
     )}
     out["max_user_turns"] = MAX_USER_TURNS
     out["user_side"] = _side_label(debate["user_position"])
@@ -310,3 +310,44 @@ async def end_spar(debate_id: str, user: User = Depends(get_current_user), _xhr:
     updates = {"status": "ended", "ended_at": _now(), "feedback": feedback}
     await db.ai_debates.update_one({"debate_id": debate_id}, {"$set": updates})
     return _public({**debate, **updates})
+
+
+# --- Sharing a result (growth loop) -----------------------------------------
+# A finished round can be shared as a public result card: topic, scores,
+# summary and the user's best line — never the transcript, which stays
+# private. Opt-in per round, by the owner only.
+
+def _avg(scores: Optional[dict]) -> Optional[float]:
+    if not scores:
+        return None
+    return round(sum(scores.values()) / len(scores), 1)
+
+
+@router.post("/spar/{debate_id}/share")
+async def share_spar(debate_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
+    debate = await _owned_debate(debate_id, user)
+    if debate["status"] != "ended" or not (debate.get("feedback") or {}).get("scores"):
+        raise HTTPException(status_code=400, detail="Finish a scored round to share it")
+    share_id = debate.get("share_id") or f"s{uuid.uuid4().hex[:10]}"
+    await db.ai_debates.update_one({"debate_id": debate_id}, {"$set": {"share_id": share_id}})
+    return {"share_id": share_id}
+
+
+@router.get("/public/spar/{share_id}")
+async def public_spar_result(share_id: str):
+    debate = await db.ai_debates.find_one({"share_id": share_id}, {"_id": 0})
+    if not debate:
+        raise HTTPException(status_code=404, detail="Result not found")
+    owner = await db.users.find_one({"user_id": debate["user_id"]}, {"_id": 0, "display_name": 1, "name": 1}) or {}
+    feedback = debate.get("feedback") or {}
+    return {
+        "share_id": share_id,
+        "display_name": owner.get("display_name") or (owner.get("name") or "Someone").split(" ")[0],
+        "tag": debate["tag"],
+        "topic": debate["topic"],
+        "scores": feedback.get("scores"),
+        "average": _avg(feedback.get("scores")),
+        "summary": feedback.get("summary", ""),
+        "best_line": feedback.get("best_line", ""),
+        "created_at": debate.get("created_at"),
+    }

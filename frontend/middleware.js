@@ -119,6 +119,12 @@ async function middleware(request) {
         title = d.topics?.[0] ? `"${d.topics[0]}" — indifferent` : DEFAULT_TITLE;
         description = `${a} vs ${b} — watch the debate${d.status === "active" ? " live" : ""} on indifferent.`;
       }
+    } else if (section === "s") {
+      const c = await fetchJson(`${BACKEND}/api/public/spar/${encodeURIComponent(id)}`);
+      if (c) {
+        title = c.average != null ? `${c.display_name} scored ${c.average}/10 — indifferent` : `${c.display_name} on indifferent`;
+        description = `Arguing their side on "${c.topic}". Think you can do better? Spar with an AI that takes the other side — free.`;
+      }
     } else if (section === "u") {
       const p = await fetchJson(`${BACKEND}/api/users/${encodeURIComponent(id)}`);
       if (p) {

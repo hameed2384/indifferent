@@ -21,6 +21,14 @@ Everything below is live on indifferent.hameed.pro (pushed to `main`, each deplo
 
 **Commits:** `49cd478`, `eb60d8b`
 
+## Shareable results (growth loop)
+
+- After a scored round, **"Share my result"** creates a public link like `/s/abc123`. It uses the phone's share sheet, or copies the link on desktop.
+- The **public card** shows the score, the breakdown, the summary and the person's best line, never the transcript, plus a **"Try it free"** button.
+- **Link previews** on WhatsApp, X and Discord read something like "Ayo scored 7.8/10 — indifferent".
+
+**Commit:** see the latest commit on `main`.
+
 ## Business model
 
 - **Ads off** and **paid tiers hidden** (the £9 membership and £2 debater subscriptions). The code is intact behind switches:

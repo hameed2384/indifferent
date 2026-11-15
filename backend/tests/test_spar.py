@@ -139,3 +139,43 @@ async def test_restart_reuses_untouched_round(client, make_user):
     await client.post(f"/api/spar/{first['debate_id']}/message", json={"text": "hi"}, headers=headers)
     fresh = (await _start(client, headers)).json()
     assert fresh["debate_id"] != first["debate_id"]
+
+
+async def _scored_round(client, headers, monkeypatch):
+    async def fake_llm(system, prompt, session_id=None):
+        if "debate coach" in system:
+            return {"scores": {"clarity": 8, "evidence": 7, "rebuttal": 6, "civility": 9},
+                    "summary": "Good.", "strengths": [], "improvements": [], "fallacies": [], "best_line": "Nice line."}
+        return {"reply": "Counterpoint."}
+    monkeypatch.setattr(spar, "call_llm_json", fake_llm)
+    did = (await _start(client, headers)).json()["debate_id"]
+    await client.post(f"/api/spar/{did}/message", json={"text": "My secret argument"}, headers=headers)
+    await client.post(f"/api/spar/{did}/end", headers=headers)
+    return did
+
+
+async def test_share_requires_finished_scored_round(client, make_user):
+    _, headers = await make_user(onboarded=True, interest_tags=["cats"], stances={"cats": 5})
+    did = (await _start(client, headers)).json()["debate_id"]
+    assert (await client.post(f"/api/spar/{did}/share", headers=headers)).status_code == 400
+
+
+async def test_share_creates_public_card_without_transcript(client, make_user, monkeypatch):
+    _, headers = await make_user(onboarded=True, interest_tags=["cats"], stances={"cats": 5}, display_name="Ayo")
+    did = await _scored_round(client, headers, monkeypatch)
+    share_id = (await client.post(f"/api/spar/{did}/share", headers=headers)).json()["share_id"]
+    again = (await client.post(f"/api/spar/{did}/share", headers=headers)).json()["share_id"]
+    assert again == share_id  # stable link
+
+    client.headers.pop("Authorization", None)
+    card = (await client.get(f"/api/public/spar/{share_id}")).json()
+    assert card["display_name"] == "Ayo" and card["average"] == 7.5 and card["best_line"] == "Nice line."
+    assert "My secret argument" not in str(card)
+    assert (await client.get("/api/public/spar/nope")).status_code == 404
+
+
+async def test_only_owner_can_share(client, make_user, monkeypatch):
+    _, owner = await make_user(onboarded=True, interest_tags=["cats"], stances={"cats": 5})
+    _, other = await make_user(onboarded=True, interest_tags=["cats"], stances={"cats": -5})
+    did = await _scored_round(client, owner, monkeypatch)
+    assert (await client.post(f"/api/spar/{did}/share", headers=other)).status_code == 404

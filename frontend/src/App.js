@@ -8,7 +8,7 @@ import Friends from "@/pages/Friends";
 import Onboarding from "@/pages/Onboarding";
 import Verify from "@/pages/Verify";
 import Match from "@/pages/Match";
-import Spar, { SparHistory } from "@/pages/Spar";
+import Spar, { SparHistory, SparShare } from "@/pages/Spar";
 import { Privacy, Terms } from "@/pages/Legal";
 import ChatRoom from "@/pages/ChatRoom";
 import Watch from "@/pages/Watch";
@@ -58,6 +58,7 @@ function RouterInner() {
       <Route path="/spar/:debateId" element={<ProtectedRoute requireOnboarded><Spar /></ProtectedRoute>} />
       <Route path="/room/:roomId" element={<ProtectedRoute requireOnboarded requireVerified><ChatRoom /></ProtectedRoute>} />
       <Route path="/private/:friendId" element={<ProtectedRoute requireOnboarded><PrivateChat /></ProtectedRoute>} />
+      <Route path="/s/:shareId" element={<SparShare />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="*" element={<NotFound />} />

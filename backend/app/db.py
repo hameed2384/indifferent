@@ -111,6 +111,7 @@ async def create_indexes():
     # AI sparring (routers/spar.py) — text debates against an AI opponent.
     await db.ai_debates.create_index("debate_id", unique=True)
     await db.ai_debates.create_index([("user_id", 1), ("created_at", -1)])
+    await db.ai_debates.create_index("share_id", unique=True, partialFilterExpression={"share_id": {"$type": "string"}})
     await db.ai_debate_messages.create_index([("debate_id", 1), ("created_at", 1)])
 
     # Claim Trees (routers/clips.py) — branching async video rebuttals.
