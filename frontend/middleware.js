@@ -81,7 +81,7 @@ async function buildSitemap() {
   // independently (one backend hiccup shouldn't drop the other, and a
   // sitemap missing some entries is a much smaller problem than a sitemap
   // that 500s and gets Search Console to stop trusting it).
-  const staticUrls = [urlEntry(`${SITE}/`), urlEntry(`${SITE}/watch`), urlEntry(`${SITE}/claims`)];
+  const staticUrls = [urlEntry(`${SITE}/`), urlEntry(`${SITE}/watch`), urlEntry(`${SITE}/claims`), urlEntry(`${SITE}/try`)];
 
   const debates = await fetchJson(`${BACKEND}/api/public/debates`).catch(() => null);
   const debateUrls = (debates?.debates || []).map((d) => urlEntry(`${SITE}/watch/${d.room_id}`, d.published_at));

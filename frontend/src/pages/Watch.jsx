@@ -13,6 +13,7 @@ import AdSlot from "@/components/AdSlot";
 import SideNav from "@/components/SideNav";
 import Logo from "@/components/Logo";
 import { startSpar } from "@/pages/Spar";
+import DailyMotion from "@/components/DailyMotion";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
@@ -290,6 +291,8 @@ export default function Watch() {
               </div>
             </div>
           )}
+
+          <DailyMotion />
 
           {feedTrouble && (
             <div className="mt-4 text-sm text-[var(--fg-subtle)] flex items-center gap-2" data-testid="feed-trouble-banner">

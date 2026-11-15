@@ -29,6 +29,11 @@ Everything below is live on indifferent.hameed.pro (pushed to `main`, each deplo
 
 **Commit:** `52c8e52`
 
+## Today's motion
+
+- The home page shows **one motion per day** (the same for everyone, rotating through the curated list), with **I agree / I disagree** buttons straight into a round. It gives people a reason to come back daily.
+- `/try` is now in the sitemap.
+
 ## Shareable results (growth loop)
 
 - After a scored round, **"Share my result"** creates a public link like `/s/abc123`. It uses the phone's share sheet, or copies the link on desktop.
