@@ -128,8 +128,11 @@ webpackConfig.devServer = (devServerConfig) => {
   return devServerConfig;
 };
 
-// Wrap with visual edits (automatically adds babel plugin, dev server, and overlay in dev mode)
-if (isDevServer) {
+// Wrap with visual edits (automatically adds babel plugin, dev server, and overlay in dev mode).
+// Opt-in only: it's the Emergent editor's tooling, and its babel plugin overflows
+// the stack on the recursive ClaimTreeView, breaking `yarn start`. Set
+// ENABLE_VISUAL_EDITS=true to turn it back on. Production builds never use it.
+if (isDevServer && process.env.ENABLE_VISUAL_EDITS === "true") {
   try {
     const { withVisualEdits } = require("@emergentbase/visual-edits/craco");
     webpackConfig = withVisualEdits(webpackConfig);

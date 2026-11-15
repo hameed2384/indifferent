@@ -3,7 +3,6 @@ from datetime import timedelta
 from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException
-from livekit import api as lk_api
 
 from ..config import LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL
 from ..db import db
@@ -15,6 +14,10 @@ router = APIRouter()
 
 
 def _mint_livekit_token(identity: str, name: str, room_id: str, *, can_publish: bool) -> str:
+    # Imported lazily: livekit.api adds ~0.35s to every serverless cold start,
+    # and only video-token requests need it.
+    from livekit import api as lk_api
+
     grants = lk_api.VideoGrants(
         room_join=True,
         room=room_id,

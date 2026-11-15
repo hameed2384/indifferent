@@ -23,7 +23,7 @@ import logging
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from app.config import CORS_ORIGINS
+from app.config import CORS_ORIGINS, DB_SETUP_ON_STARTUP
 from app.db import client, create_indexes
 from app.routers import admin, auth, categories, clips, friends, health, livekit, match, notifications, onboarding, payments, private, profiles, public, reports, rooms, social, verify
 from app.storage import init_storage
@@ -61,6 +61,13 @@ async def startup():
         # hiccup (e.g. an unwritable path) shouldn't take down every endpoint,
         # including ones that never touch storage at all.
         logger.error(f"init_storage failed at startup, continuing without it: {e}")
+    if not DB_SETUP_ON_STARTUP:
+        # On Vercel this handler runs on EVERY cold start, and create_indexes
+        # is ~55 sequential round trips to Atlas plus a dedupe aggregation —
+        # most of a ~8s first-request delay. Indexes persist in the database,
+        # so production runs them once per schema change instead:
+        #   uv run --frozen python -m scripts.setup_db   (see that script)
+        return
     try:
         await create_indexes()
     except Exception as e:

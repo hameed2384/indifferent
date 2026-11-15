@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
 from pydantic import BaseModel
 
 from ..config import ADMIN_EMAILS, COOKIE_SECURE, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
@@ -134,8 +134,23 @@ async def auth_me_ep(user: User = Depends(get_current_user)):
 
 
 @router.post("/auth/logout")
-async def auth_logout(response: Response, session_token: Optional[str] = Cookie(None)):
-    if session_token:
-        await db.user_sessions.delete_one({"session_token": session_token})
-    response.delete_cookie("session_token", path="/")
+async def auth_logout(
+    response: Response,
+    session_token: Optional[str] = Cookie(None),
+    authorization: Optional[str] = Header(None),
+):
+    # Revoke every token the caller presented — the cookie AND the Bearer
+    # fallback (Safari/iOS ITP, see lib/api.js). Previously only the cookie was
+    # read, so a Bearer-only session stayed valid server-side after logout.
+    tokens = {session_token} if session_token else set()
+    if authorization and authorization.startswith("Bearer "):
+        tokens.add(authorization.replace("Bearer ", "", 1))
+    if tokens:
+        await db.user_sessions.delete_many({"session_token": {"$in": list(tokens)}})
+    # Must mirror _set_session_cookie's attributes: in production the cookie is
+    # Secure + SameSite=None, and browsers ignore a cross-site clear that doesn't match.
+    response.delete_cookie(
+        "session_token", path="/", httponly=True,
+        secure=COOKIE_SECURE, samesite="none" if COOKIE_SECURE else "lax",
+    )
     return {"ok": True}

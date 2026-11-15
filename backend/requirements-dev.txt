@@ -1,11 +1,14 @@
-# Local development only — not installed by Vercel. Install with:
-#   pip install -r requirements.txt -r requirements-dev.txt
--r requirements.txt
+# Local development and test tools only — not installed by Vercel.
+# Runtime dependencies come from pyproject.toml + uv.lock (what Vercel deploys),
+# so this file deliberately does NOT include requirements.txt. Set up with:
+#   uv sync --frozen
+#   uv pip install -r requirements-dev.txt
+# Tests need a local MongoDB on mongodb://localhost:27017 (see tests/conftest.py).
 
 pytest>=8.0.0
 pytest-xdist>=3.6.0
+pytest-asyncio>=0.26.0
 black>=24.1.1
 isort>=5.13.2
 flake8>=7.0.0
 mypy>=1.8.0
-websockets>=12.0

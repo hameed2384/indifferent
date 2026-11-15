@@ -9,22 +9,26 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import List, Optional
-
-from groq import AsyncGroq
+from typing import TYPE_CHECKING, List, Optional
 
 from .config import GROQ_API_KEY, GROQ_MODEL
 
+if TYPE_CHECKING:
+    from groq import AsyncGroq
+
 logger = logging.getLogger("indifferent")
 
-_client: Optional[AsyncGroq] = None
+_client: Optional["AsyncGroq"] = None
 
 
-def _get_client() -> Optional[AsyncGroq]:
+def _get_client() -> Optional["AsyncGroq"]:
     global _client
     if not GROQ_API_KEY:
         return None
     if _client is None:
+        # Imported lazily: the groq SDK adds ~0.2s to every serverless cold
+        # start, and most requests never call the LLM.
+        from groq import AsyncGroq
         _client = AsyncGroq(api_key=GROQ_API_KEY)
     return _client
 

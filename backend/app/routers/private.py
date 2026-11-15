@@ -16,7 +16,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from livekit import api as lk_api
 from pydantic import BaseModel
 
 from ..config import LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL
@@ -76,6 +75,8 @@ async def send_message(friend_id: str, payload: PrivateMessageIn, user: User = D
 
 
 def _mint_private_call_token(identity: str, name: str, call_room: str) -> str:
+    from livekit import api as lk_api  # lazy: keeps ~0.35s off every cold start
+
     grants = lk_api.VideoGrants(room_join=True, room=call_room, can_publish=True, can_subscribe=True, can_publish_data=True)
     at = (
         lk_api.AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET)

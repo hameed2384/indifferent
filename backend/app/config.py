@@ -13,6 +13,15 @@ load_dotenv(ROOT_DIR / ".env")
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
 
+# Whether server startup creates/updates MongoDB indexes (app/db.py
+# create_indexes). Default: yes locally, no on Vercel (which sets VERCEL=1),
+# where startup runs on every serverless cold start and the ~55 sequential
+# Atlas round trips made first requests take seconds. Production runs
+# `python -m scripts.setup_db` once after any index change instead.
+# Set DB_SETUP_ON_STARTUP=true/false to override either way.
+_db_setup_env = os.environ.get("DB_SETUP_ON_STARTUP", "").strip().lower()
+DB_SETUP_ON_STARTUP = _db_setup_env == "true" if _db_setup_env else not os.environ.get("VERCEL")
+
 APP_NAME = os.environ.get("APP_NAME", "indifferent")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
