@@ -14,6 +14,7 @@ from ..config import ADMIN_EMAILS
 from ..db import db
 from ..deps import require_admin, require_xhr
 from ..models import User
+from ..storage import delete_object
 
 router = APIRouter()
 
@@ -108,3 +109,36 @@ async def delete_user(user_id: str, admin: User = Depends(require_admin), _xhr: 
     await db.notifications.delete_many({"recipient_id": user_id})
     await db.reports.delete_many({"reporter_id": user_id})
     return {"deleted": True}
+
+
+@router.delete("/admin/clips/{clip_id}")
+async def remove_clip(clip_id: str, _admin: User = Depends(require_admin), _xhr: None = Depends(require_xhr)):
+    """Moderator removal of a claim AND its whole reply subtree — unlike the
+    uploader's own delete (clips.py delete_clip), which tombstones anything
+    with replies to keep other users' rebuttals reachable. For abusive or
+    junk content the thread under it goes too: replies to something removed
+    for moderation have no context left. Works on already-tombstoned clips,
+    so a "[deleted]" placeholder can be cleared out as well. Hard delete:
+    clip docs, their reactions and their video blobs; the parent's
+    reply_count is corrected if the removed clip was itself a reply."""
+    root = await db.clips.find_one({"clip_id": clip_id}, {"_id": 0})
+    if not root:
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    # Walk the reply tree breadth-first by parent_clip_id (works for a reply
+    # mid-tree too, not just a root claim, unlike filtering on root_clip_id).
+    to_remove = [root]
+    frontier = [clip_id]
+    while frontier:
+        children = await db.clips.find({"parent_clip_id": {"$in": frontier}}, {"_id": 0}).to_list(None)
+        to_remove.extend(children)
+        frontier = [c["clip_id"] for c in children]
+
+    ids = [c["clip_id"] for c in to_remove]
+    await db.clips.delete_many({"clip_id": {"$in": ids}})
+    await db.clip_reactions.delete_many({"clip_id": {"$in": ids}})
+    if root.get("parent_clip_id"):
+        await db.clips.update_one({"clip_id": root["parent_clip_id"]}, {"$inc": {"reply_count": -1}})
+
+    delete_object([c["video_url"] for c in to_remove if c.get("video_url")])
+    return {"removed": len(ids), "clip_ids": ids}

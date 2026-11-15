@@ -87,6 +87,19 @@ export default function ClaimTree() {
     setClip((c) => ({ ...c, deleted: true, caption: "[deleted]" }));
     setShowDeleteModal(false);
   };
+  // Moderator removal: the claim AND every reply under it, permanently —
+  // unlike the owner's Delete, which tombstones a claim that has replies.
+  const adminRemove = async () => {
+    const replies = clip.reply_count ? ` and all replies under it` : "";
+    if (!window.confirm(`Permanently remove this claim${replies}? This can't be undone.`)) return;
+    try {
+      const { data } = await api.delete(`/admin/clips/${clipId}`);
+      toast.success(`Removed ${data.removed} claim${data.removed === 1 ? "" : "s"}`);
+      navigate("/claims");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't remove this claim");
+    }
+  };
   const toggleVisibility = async () => {
     const next = !clip.unlisted;
     setClip((c) => ({ ...c, unlisted: next }));
@@ -176,6 +189,15 @@ export default function ClaimTree() {
             )}
           </div>
         </div>
+
+        {user?.is_admin && (
+          <div className="mt-3 flex items-center justify-end gap-2 text-xs text-[var(--fg-subtle)]">
+            <span>Admin</span>
+            <button onClick={adminRemove} className="btn-danger inline-flex items-center gap-1.5 text-sm" data-testid="btn-admin-remove-clip">
+              <Trash2 className="w-4 h-4" /> Remove{clip.reply_count ? " with replies" : ""}
+            </button>
+          </div>
+        )}
 
         {treeNodes.length > 1 && (
           <div className="mt-6 card p-4">
