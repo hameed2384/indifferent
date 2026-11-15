@@ -1,0 +1,51 @@
+{
+ "motion": "Cereal is a soup",
+ "tag": "Unhinged",
+ "side": "for",
+ "messages": [
+  {
+   "role": "ai",
+   "text": "I maintain that cereal is not a soup because a soup is defined as a primarily liquid dish whose solid components are cooked or simmered together, while cereal consists of raw grains poured with cold milk and never undergoes cooking. Please present your arguments for why cereal should be considered a soup."
+  },
+  {
+   "role": "user",
+   "text": "Soup is food in liquid, eaten with a spoon, from a bowl. Cereal is food in liquid, eaten with a spoon, from a bowl. I rest my case."
+  },
+  {
+   "role": "ai",
+   "text": "I concede that both are eaten with a spoon from a bowl, but that similarity is superficial. Soup, by culinary standards, involves a liquid base that results from cooking ingredients together—often savory, heated, and seasoned—to create a cohesive flavor profile, as in chicken noodle or minestrone. Cereal is raw, sweetened grains simply soaked in cold milk with no cooking or flavor integration. The temperature and preparation method fundamentally differentiate them. If we label cereal a soup, would a cold gazpacho or a fruit salad with dressing also count as soup?"
+  },
+  {
+   "role": "user",
+   "text": "Gazpacho is cold and it's still soup. So cold milk doesn't save you."
+  },
+  {
+   "role": "ai",
+   "text": "Gazpacho may be served cold, but it’s still made by blending cooked vegetables into a seasoned broth—its liquid is the result of culinary preparation, not a passive carrier. Milk in cereal is merely a vehicle for sweetened grains; it isn’t infused with the ingredients, nor does the combination create a unified flavor profile. Soups are traditionally savory meals, often integral to lunch or dinner, while cereal is a sweet breakfast staple. If we call any food in liquid a soup, the term loses meaning. Would a bowl of fruit punch with sliced fruit then be a soup?"
+  }
+ ],
+ "feedback": {
+  "scores": {
+   "clarity": 5,
+   "evidence": 2,
+   "rebuttal": 4,
+   "civility": 9
+  },
+  "summary": "The user presented a brief, clear claim but offered little supporting evidence and a minimal rebuttal. Civility was maintained throughout.",
+  "strengths": [
+   "Clear, concise statement of position",
+   "Directly addresses opponent’s temperature claim",
+   "Maintains polite tone"
+  ],
+  "improvements": [
+   "Cite definitions or authoritative sources for ‘soup’",
+   "Explain why preparation differences matter, not just temperature",
+   "Develop a more robust rebuttal rather than a single counter‑example"
+  ],
+  "fallacies": [
+   "False equivalence – \"Soup is food in liquid, eaten with a spoon, from a bowl. Cereal is food in liquid, eaten with a spoon, from a bowl.\""
+  ],
+  "best_line": "Gazpacho is cold and it's still soup. So cold milk doesn't save you.",
+  "fallback": false
+ }
+}

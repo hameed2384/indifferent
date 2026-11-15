@@ -9,6 +9,29 @@ Add new posts to the end of the list; never reuse an id.
 HASHTAGS = "#debate #debating #criticalthinking #hottake #agreeordisagree #publicspeaking"
 
 POSTS = [
+    # --- Reels: real AI rounds on absurd topics (made with marketing/reels/make_reel.py) ---
+    {
+        "id": "reel-01-cereal-soup", "title": "Reel: cereal is soup",
+        "video": "reel-cereal-soup.mp4", "images": ["reel-cereal-soup-cover.jpg"],
+        "caption": "I came in with a dictionary definition. It came back with \"culinary standards\".\n\n"
+                   "Is cereal soup? Wrong answers only 👇\n\nThink you can beat 5/10? Link in bio.",
+        "hashtags": "#cerealissoup #unhinged #hottake #debate #ai",
+    },
+    {
+        "id": "reel-02-straw-holes", "title": "Reel: a straw has two holes",
+        "video": "reel-straw-holes.mp4", "images": ["reel-straw-holes-cover.jpg"],
+        "caption": "\"Basic finger maths\" is apparently a fallacy now.\n\n"
+                   "One hole or two? Comment your argument and I'll make the AI score it.",
+        "hashtags": "#strawhole #unhinged #debate #ai #hottake",
+    },
+    {
+        "id": "reel-03-replying-k", "title": "Reel: replying k is war",
+        "video": "reel-replying-k.mp4", "images": ["reel-replying-k-cover.jpg"],
+        "caption": "I said nobody has ever received \"k\" and felt loved. It called that a hasty generalisation.\n\n"
+                   "What's the most hostile text you've ever received? 👇",
+        "hashtags": "#texting #unhinged #debate #ai #relatable",
+    },
+    # --- Launch posts (static) ---
     {
         "id": "launch-01-intro", "title": "Intro",
         "images": ["01-intro.jpg"],

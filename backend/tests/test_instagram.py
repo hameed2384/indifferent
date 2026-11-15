@@ -6,8 +6,8 @@ from app.db import db
 from app.instagram_posts import POSTS
 from conftest import ADMIN_EMAIL
 
-SINGLE = next(p for p in POSTS if len(p["images"]) == 1)
-CAROUSEL = next(p for p in POSTS if len(p["images"]) > 1)
+SINGLE = next(p for p in POSTS if len(p["images"]) == 1 and not p.get("video"))
+CAROUSEL = next(p for p in POSTS if len(p["images"]) > 1 and not p.get("video"))
 
 
 class FakeGraph:

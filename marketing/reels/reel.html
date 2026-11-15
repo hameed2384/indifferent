@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>indifferent reel frame</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500&display=swap">
+<style>
+  /* One 1080x1920 frame of a debate-replay Reel. make_reel.py loads this
+     with #<data-file>|<state-index> and screenshots it. */
+  :root { --ink: #0a0a0a; --surface: #171717; --line: #262626; --line-strong: #3f3f46; --paper: #fafafa;
+    --muted: #a1a1aa; --subtle: #71717a; --emerald: #10b981; --emerald-deep: #047857; --mint: #6ee7b7; --red: #f87171; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); color: var(--paper);
+    font-family: "Geist", system-ui, sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "ss01" on, "cv11" on; }
+  .frame { width: 1080px; height: 1920px; display: flex; flex-direction: column; padding: 150px 80px 170px; }
+  .eyebrow { font-size: 30px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); }
+  .eyebrow b { color: var(--emerald); font-weight: 500; }
+  .grow { flex: 1; min-height: 0; }
+  .center { display: flex; flex-direction: column; justify-content: center; }
+  .hook { font-size: 104px; line-height: 1.04; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance; }
+  .hook .q { color: var(--emerald); }
+  .sub { font-size: 44px; line-height: 1.35; color: var(--muted); margin-top: 48px; letter-spacing: -0.01em; }
+  .side { display: inline-block; margin-left: 18px; padding: 6px 18px; border-radius: 999px; font-size: 26px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; background: var(--emerald-deep); color: #fff; vertical-align: middle; }
+  .motion-pill { align-self: flex-start; border: 2px solid var(--line-strong); border-radius: 999px; padding: 18px 32px;
+    font-size: 34px; font-weight: 500; color: var(--paper); margin-top: 28px; max-width: 100%; }
+  .chat { display: flex; flex-direction: column; justify-content: flex-end; gap: 30px; overflow: hidden; padding-top: 40px; }
+  .msg { max-width: 86%; border-radius: 40px; padding: 34px 40px; font-size: 44px; line-height: 1.32; letter-spacing: -0.01em; }
+  .who { font-size: 26px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 12px; }
+  .ai { align-self: flex-start; background: var(--surface); border: 2px solid var(--line); border-bottom-left-radius: 12px; }
+  .ai .who { color: var(--mint); }
+  .me { align-self: flex-end; background: var(--emerald-deep); color: #fff; border-bottom-right-radius: 12px; }
+  .me .who { color: rgba(255,255,255,.75); }
+  .typing { display: flex; gap: 16px; padding: 44px 46px; }
+  .typing i { width: 22px; height: 22px; border-radius: 50%; background: var(--muted); display: block; opacity: .35; }
+  .typing i.on { opacity: 1; }
+  .card { background: var(--surface); border: 2px solid var(--line); border-radius: 44px; padding: 64px; display: grid; gap: 40px; }
+  .overall { display: flex; justify-content: space-between; align-items: baseline; }
+  .overall span:first-child { font-size: 34px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .big-score { font-size: 150px; font-weight: 600; letter-spacing: -0.04em; line-height: 1; }
+  .big-score small { font-size: 54px; color: var(--subtle); }
+  .row { display: grid; grid-template-columns: 250px 1fr 64px; gap: 28px; align-items: center; font-size: 42px; }
+  .bar { height: 26px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--emerald); border-radius: 999px; }
+  .num { font-family: "Geist Mono", monospace; text-align: right; }
+  .fallacy { border-top: 2px solid var(--line); padding-top: 40px; font-size: 40px; line-height: 1.35; }
+  .chip { display: inline-block; border: 3px solid var(--red); color: var(--red); border-radius: 999px; padding: 8px 24px; font-size: 30px; font-weight: 600; margin-bottom: 18px; }
+  .foot { display: flex; align-items: center; justify-content: space-between; font-size: 34px; color: var(--muted); }
+  .lockup { display: flex; align-items: center; gap: 18px; font-size: 46px; font-weight: 600; letter-spacing: -0.03em; color: var(--paper); }
+  .lockup svg { width: 62px; height: 62px; }
+  .url { font-family: "Geist Mono", monospace; font-size: 40px; color: var(--paper); }
+  .end-title { font-size: 150px; font-weight: 600; letter-spacing: -0.04em; line-height: 1; }
+  .end-title span { color: var(--emerald); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const MARK = `<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#262626"/><circle cx="45" cy="19" r="6" fill="#10b981"/><rect x="27.5" y="27" width="9" height="22" rx="2" fill="#fafafa"/><circle cx="32" cy="18.5" r="4.75" fill="#fafafa"/></svg>`;
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pill = (r) => `<div class="motion-pill">${esc(r.motion)}<span class="side">I'm ${r.side === "for" ? "for" : "against"}</span></div>`;
+const foot = (right) => `<div class="foot"><div class="lockup">${MARK}indifferent</div><span>${right}</span></div>`;
+
+function render(reel, st) {
+  const r = reel.round;
+  if (st.kind === "hook") {
+    return `<div class="eyebrow">AI debate · <b>${esc(r.tag)}</b></div>
+      <div class="grow center"><div class="hook">${esc(reel.hook)}</div><p class="sub">${esc(reel.hookSub)}</p></div>
+      ${foot("Watch it lose patience")}`;
+  }
+  if (st.kind === "chat") {
+    const msgs = r.messages.slice(0, st.upto).map((m) => `
+      <div class="msg ${m.role === "user" ? "me" : "ai"}"><div class="who">${m.role === "user" ? "Me" : "AI · arguing against me"}</div>${esc(m.text)}</div>`).join("");
+    const typing = st.typing ? `<div class="msg ai typing">${[0, 1, 2].map((n) => `<i class="${n === st.typing - 1 ? "on" : ""}"></i>`).join("")}</div>` : "";
+    return `<div class="eyebrow">The motion</div>${pill(r)}
+      <div class="grow chat">${msgs}${typing}</div>`;
+  }
+  if (st.kind === "score") {
+    const s = r.feedback.scores;
+    const keys = [["clarity", "Clarity"], ["evidence", "Evidence"], ["rebuttal", "Rebuttal"], ["civility", "Civility"]];
+    const avg = (keys.reduce((a, [k]) => a + (s[k] || 0), 0) / keys.length);
+    const fallacy = (r.feedback.fallacies || [])[0];
+    return `<div class="eyebrow">My score</div>${pill(r)}
+      <div class="grow center"><div class="card">
+        <div class="overall"><span>Overall</span><span class="big-score">${(avg * st.bars).toFixed(st.bars < 1 ? 1 : (Number.isInteger(avg) ? 0 : 2))}<small> /10</small></span></div>
+        ${keys.map(([k, label]) => `<div class="row"><span>${label}</span><div class="bar"><span style="width:${(s[k] || 0) * 10 * st.bars}%"></span></div><span class="num">${st.bars >= 1 ? s[k] : ""}</span></div>`).join("")}
+        ${fallacy && st.bars >= 1 ? `<div class="fallacy"><div class="chip">Fallacy caught</div><div>${esc(fallacy)}</div></div>` : ""}
+      </div></div>`;
+  }
+  return `<div class="eyebrow">indifferent</div>
+    <div class="grow center"><div class="end-title">Your<br><span>turn.</span></div>
+      <p class="sub">Pick a side on any topic. An AI argues the other one, then scores you. Free, no sign-up.</p></div>
+    <div class="foot"><div class="lockup">${MARK}indifferent</div><span class="url">indifferentapp.com</span></div>`;
+}
+
+const [file, idx] = decodeURIComponent(location.hash.slice(1)).split("|");
+const s = document.createElement("script");
+s.src = `data/${file}.js`;
+s.onload = () => { document.getElementById("root").innerHTML = `<div class="frame">${render(window.REEL, window.REEL.states[Number(idx)])}</div>`; };
+document.head.appendChild(s);
+</script>
+</body>
+</html>

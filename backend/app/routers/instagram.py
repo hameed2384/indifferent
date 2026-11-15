@@ -134,7 +134,7 @@ def _image_url(name: str) -> str:
 
 
 def _default_caption(post: dict) -> str:
-    return f"{post['caption']}\n\n{HASHTAGS}"
+    return f"{post['caption']}\n\n{post.get('hashtags') or HASHTAGS}"
 
 
 async def _states() -> dict:
