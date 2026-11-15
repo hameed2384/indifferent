@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>indifferent Instagram profile assets</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&display=swap">
+<style>
+  /* #avatar = 1080x1080 profile picture (Instagram crops it to a circle, so
+     the mark sits well inside the circle). #hl-* = 1080x1920 highlight
+     covers (Instagram shows the centre as a small circle). */
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0a0a0a; font-family: "Geist", system-ui, sans-serif; color: #fafafa; overflow: hidden; }
+  .avatar { width: 1080px; height: 1080px; display: grid; place-items: center; background: #0a0a0a; }
+  .avatar svg { width: 560px; height: 560px; }
+  .hl { width: 1080px; height: 1920px; display: grid; place-items: center; background: #0a0a0a; }
+  .hl .circle { width: 640px; height: 640px; border-radius: 50%; background: #171717; border: 6px solid #262626;
+    display: grid; place-items: center; }
+  .hl svg { width: 300px; height: 300px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const I = `<rect x="27.5" y="27" width="9" height="22" rx="2" fill="#fafafa"/><circle cx="32" cy="18.5" r="4.75" fill="#fafafa"/><circle cx="45" cy="19" r="6" fill="#10b981"/>`;
+const stroke = 'fill="none" stroke="#fafafa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"';
+const ICONS = {
+  // How it works: three steps
+  "hl-how": `<svg viewBox="0 0 64 64"><circle cx="14" cy="32" r="6" fill="#10b981"/><circle cx="32" cy="32" r="6" fill="#fafafa"/><circle cx="50" cy="32" r="6" fill="#fafafa"/><path d="M20 32h6M38 32h6" ${stroke}/></svg>`,
+  // Today's motion: calendar
+  "hl-motion": `<svg viewBox="0 0 64 64"><rect x="10" y="14" width="44" height="40" rx="7" ${stroke}/><path d="M10 26h44M22 8v10M42 8v10" ${stroke}/><circle cx="32" cy="40" r="5" fill="#10b981"/></svg>`,
+  // Best lines: quote marks
+  "hl-lines": `<svg viewBox="0 0 64 64"><path d="M14 40c0-10 4-16 12-20M34 40c0-10 4-16 12-20" ${stroke}/><circle cx="18" cy="42" r="6" fill="#fafafa"/><circle cx="38" cy="42" r="6" fill="#10b981"/></svg>`,
+  // Scores: bars
+  "hl-scores": `<svg viewBox="0 0 64 64"><path d="M14 50V34M28 50V22M42 50V28M56 50V14" fill="none" stroke="#fafafa" stroke-width="7" stroke-linecap="round"/><path d="M56 50V14" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round"/></svg>`,
+};
+const id = location.hash.slice(1) || "avatar";
+document.getElementById("root").innerHTML = id === "avatar"
+  ? `<div class="avatar"><svg viewBox="15.25 7.4 48 48">${I}</svg></div>`
+  : `<div class="hl"><div class="circle">${ICONS[id] || ""}</div></div>`;
+</script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>indifferent Instagram posts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  /* Each slide is 1080 x 1350 (Instagram portrait). Render one slide per
+     page load with posts.html#<slide-id>; render.ps1 screenshots each. */
+  :root {
+    --ink: #0a0a0a; --surface: #171717; --line: #262626; --line-strong: #3f3f46;
+    --paper: #fafafa; --muted: #a1a1aa; --subtle: #71717a;
+    --emerald: #10b981; --emerald-deep: #047857; --mint: #6ee7b7; --red: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1080px; height: 1350px; overflow: hidden; background: var(--ink); }
+  body { font-family: "Geist", system-ui, sans-serif; color: var(--paper); -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01" on, "cv11" on; }
+  .slide { width: 1080px; height: 1350px; padding: 96px 96px 80px; display: flex; flex-direction: column; position: relative; }
+  .eyebrow { font-size: 26px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); }
+  .eyebrow b { color: var(--emerald); font-weight: 500; }
+  .big { font-size: 104px; line-height: 1.02; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance; }
+  .mid { font-size: 76px; line-height: 1.06; font-weight: 600; letter-spacing: -0.03em; text-wrap: balance; }
+  .body { font-size: 38px; line-height: 1.4; color: var(--muted); letter-spacing: -0.01em; }
+  .grow { flex: 1; }
+  .center { display: flex; flex-direction: column; justify-content: center; }
+  .foot { display: flex; align-items: center; justify-content: space-between; font-size: 28px; color: var(--muted); }
+  .lockup { display: flex; align-items: center; gap: 16px; font-size: 40px; font-weight: 600; letter-spacing: -0.03em; color: var(--paper); }
+  .lockup svg { width: 52px; height: 52px; }
+  .dot { color: var(--emerald); }
+  .vote { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 72px; }
+  .vote div { border-radius: 28px; padding: 40px 0; text-align: center; font-size: 44px; font-weight: 600; letter-spacing: .04em; }
+  .agree { background: var(--emerald-deep); color: #fff; }
+  .disagree { border: 3px solid var(--line-strong); color: var(--paper); }
+  .chip { display: inline-flex; align-items: center; gap: 14px; border: 2px solid var(--line-strong); border-radius: 999px; padding: 12px 26px; font-size: 26px; font-weight: 500; color: var(--muted); align-self: flex-start; }
+  .chip i { width: 14px; height: 14px; border-radius: 50%; background: var(--emerald); display: inline-block; }
+  .step-num { font-family: "Geist Mono", monospace; font-size: 34px; color: var(--emerald); font-weight: 500; }
+  .card { background: var(--surface); border: 2px solid var(--line); border-radius: 36px; padding: 56px; }
+  .args { display: grid; gap: 30px; margin-top: 56px; counter-reset: a; }
+  .args li { list-style: none; display: grid; grid-template-columns: 64px 1fr; gap: 20px; font-size: 40px; line-height: 1.32; letter-spacing: -0.01em; }
+  .args li::before { counter-increment: a; content: counter(a); font-family: "Geist Mono", monospace; font-size: 34px; color: var(--emerald); padding-top: 4px; }
+  .side-tag { font-size: 30px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  .for { color: var(--mint); }
+  .against { color: var(--red); }
+  .score-row { display: grid; grid-template-columns: 260px 1fr 70px; align-items: center; gap: 28px; font-size: 36px; }
+  .bar { height: 22px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--emerald); border-radius: 999px; }
+  .num { font-family: "Geist Mono", monospace; text-align: right; }
+  .quote { font-size: 92px; line-height: 1.06; font-weight: 600; letter-spacing: -0.035em; }
+  .quote .hl { color: var(--emerald); }
+  .page { position: absolute; top: 96px; right: 96px; font-family: "Geist Mono", monospace; font-size: 26px; color: var(--subtle); }
+  .url { font-family: "Geist Mono", monospace; font-size: 30px; color: var(--paper); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const MARK = `<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#262626"/><circle cx="45" cy="19" r="6" fill="#10b981"/><rect x="27.5" y="27" width="9" height="22" rx="2" fill="#fafafa"/><circle cx="32" cy="18.5" r="4.75" fill="#fafafa"/></svg>`;
+const foot = (right = "indifferentapp.com") => `<div class="foot"><div class="lockup">${MARK}indifferent</div><span>${right}</span></div>`;
+const page = (n, of) => `<div class="page">${n} / ${of}</div>`;
+const vote = `<div class="vote"><div class="agree">AGREE</div><div class="disagree">DISAGREE</div></div>`;
+const argSlide = (motion, tag, side, points, n, of) => `
+  ${page(n, of)}
+  <div class="eyebrow">${tag}</div>
+  <div class="mid" style="margin-top:28px;font-size:60px">${motion}</div>
+  <div class="grow center">
+    <div class="side-tag ${side === "for" ? "for" : "against"}">Arguments ${side}</div>
+    <ol class="args">${points.map((p) => `<li>${p}</li>`).join("")}</ol>
+  </div>
+  ${foot(n < of ? "Swipe →" : "indifferentapp.com")}`;
+
+const SLIDES = {
+  "01-intro": `
+    <div class="eyebrow">Free debate app</div>
+    <div class="grow center"><div class="big">Argue with someone who <span class="dot">actually</span> disagrees with you.</div>
+      <p class="body" style="margin-top:48px;max-width:780px">Pick a side. An AI takes the other one. Then it scores you.</p></div>
+    ${foot("No sign-up")}`,
+
+  "02-how-1": `${page(1, 4)}
+    <div class="eyebrow">How it works</div>
+    <div class="grow center"><div class="step-num">01</div><div class="big" style="margin-top:24px">Pick a topic.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:56px">
+        <span class="chip">Remote work</span><span class="chip">AI and jobs</span><span class="chip">Homework</span><span class="chip">Athlete pay</span><span class="chip">Voting at 16</span>
+      </div></div>
+    ${foot("Swipe →")}`,
+  "02-how-2": `${page(2, 4)}
+    <div class="eyebrow">How it works</div>
+    <div class="grow center"><div class="step-num">02</div><div class="big" style="margin-top:24px">Pick a side.</div>${vote}</div>
+    ${foot("Swipe →")}`,
+  "02-how-3": `${page(3, 4)}
+    <div class="eyebrow">How it works</div>
+    <div class="grow center"><div class="step-num">03</div><div class="big" style="margin-top:24px">The AI argues back.</div>
+      <p class="body" style="margin-top:40px">Six turns. It always takes the other side, stays civil, and never lets a weak point slide.</p></div>
+    ${foot("Swipe →")}`,
+  "02-how-4": `${page(4, 4)}
+    <div class="eyebrow">How it works</div>
+    <div class="grow center"><div class="step-num">04</div><div class="big" style="margin-top:24px">Get scored.</div>
+      <div class="card" style="margin-top:56px;display:grid;gap:30px">
+        ${[["Clarity", 8], ["Evidence", 6], ["Rebuttal", 4], ["Civility", 9]].map(([k, v]) => `<div class="score-row"><span>${k}</span><div class="bar"><span style="width:${v * 10}%"></span></div><span class="num">${v}</span></div>`).join("")}
+      </div></div>
+    ${foot("Link in bio")}`,
+
+  "03-homework": `
+    <div class="eyebrow">Today's motion · <b>Education</b></div>
+    <div class="grow center"><div class="big">Schools should abolish homework.</div>${vote}</div>
+    ${foot("Comment your side")}`,
+
+  "04-report": `
+    <div class="eyebrow">A real score report</div>
+    <div class="mid" style="margin-top:28px;font-size:58px">"Every country should move to a four-day work week"</div>
+    <div class="grow center">
+      <div class="card" style="display:grid;gap:30px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="side-tag" style="color:var(--muted)">Overall</span><span style="font-size:96px;font-weight:600;letter-spacing:-.03em">6.75<span style="font-size:40px;color:var(--subtle)"> /10</span></span></div>
+        ${[["Clarity", 8], ["Evidence", 6], ["Rebuttal", 4], ["Civility", 9]].map(([k, v]) => `<div class="score-row"><span>${k}</span><div class="bar"><span style="width:${v * 10}%"></span></div><span class="num">${v}</span></div>`).join("")}
+        <div style="border-top:2px solid var(--line);padding-top:30px;display:flex;gap:18px;align-items:center;font-size:34px"><span class="chip" style="border-color:var(--red);color:var(--red)">Fallacy caught</span>Hasty generalisation</div>
+      </div>
+    </div>
+    ${foot("Could you beat 6.75?")}`,
+
+  "05-athletes-1": argSlide("Top athletes are overpaid", "Sports", "for", [
+    "Pay this high for playing a game shows society values entertainment over essential work.",
+    "The money comes from tickets, TV subscriptions and merchandise paid for by ordinary fans.",
+    "Huge pay at the top hides that most professional athletes have modest, short careers.",
+  ], 1, 3),
+  "05-athletes-2": argSlide("Top athletes are overpaid", "Sports", "against", [
+    "Athletes are paid from the revenue they generate; if they earned less, owners would keep more.",
+    "Careers are short and injuries common, so peak earnings must cover a lifetime.",
+    "Reaching the top takes rare talent and years of sacrifice that few ever manage.",
+  ], 2, 3),
+  "05-athletes-3": `${page(3, 3)}
+    <div class="eyebrow">Sports</div>
+    <div class="grow center"><div class="big">Which side wins?</div>
+      <p class="body" style="margin-top:40px">Pick one and defend it against an AI that takes the other. Free, no sign-up.</p>${vote}</div>
+    ${foot("Link in bio")}`,
+
+  "06-social-media": `
+    <div class="eyebrow">Today's motion · <b>Technology</b></div>
+    <div class="grow center"><div class="big">Under-16s should be banned from social media.</div>${vote}</div>
+    ${foot("Best argument gets pinned")}`,
+
+  "07-quote": `
+    <div class="eyebrow">What the AI told me</div>
+    <div class="grow center"><div class="quote">"It called my argument a <span class="hl">hasty generalisation.</span><br>It was right."</div>
+      <p class="body" style="margin-top:48px">Polite. Not nice.</p></div>
+    ${foot("Link in bio")}`,
+
+  "08-remote-1": argSlide("Remote work is better than working in an office", "Technology", "for", [
+    "No commute gives people back hours every week and cuts travel costs.",
+    "Employers can hire from anywhere, opening jobs to people outside expensive cities.",
+    "Many people do focused work better at home, away from open-plan noise.",
+  ], 1, 3),
+  "08-remote-2": argSlide("Remote work is better than working in an office", "Technology", "against", [
+    "Junior staff learn faster by watching and overhearing colleagues.",
+    "Spontaneous conversations spark ideas and build trust in a way calls rarely do.",
+    "Working where you live blurs work and home and can leave people isolated.",
+  ], 2, 3),
+  "08-remote-3": `${page(3, 3)}
+    <div class="eyebrow">Technology</div>
+    <div class="grow center"><div class="big">Your turn.</div>
+      <p class="body" style="margin-top:40px">Office or home? Defend your side against an AI that argues the other, then see your score.</p>${vote}</div>
+    ${foot("Link in bio")}`,
+
+  "09-pick-a-fight": `
+    <div class="eyebrow">indifferent</div>
+    <div class="grow center"><div class="big">Pick a fight.<br><span class="dot">Politely.</span></div>
+      <p class="body" style="margin-top:48px">Free. No sign-up. Six turns against an AI that always takes the other side.</p></div>
+    <div class="foot"><div class="lockup">${MARK}indifferent</div><span class="url">www.indifferentapp.com</span></div>`,
+};
+
+const id = decodeURIComponent(location.hash.slice(1)) || Object.keys(SLIDES)[0];
+document.getElementById("root").innerHTML = `<div class="slide">${SLIDES[id] || "Unknown slide"}</div>`;
+window.SLIDE_IDS = Object.keys(SLIDES);
+</script>
+</body>
+</html>

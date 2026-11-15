@@ -100,3 +100,14 @@ ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "rehma
 # store is connected to the project; set manually for local dev against a
 # real store.
 BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
+
+# Instagram publishing (Admin > Marketing). A system-user token from the
+# business portfolio with instagram_basic + instagram_content_publish, and the
+# Instagram account's ID. Both set by the owner in Vercel; publishing stays
+# off until they exist.
+INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
+INSTAGRAM_USER_ID = os.environ.get("INSTAGRAM_USER_ID", "").strip()
+INSTAGRAM_GRAPH_VERSION = os.environ.get("INSTAGRAM_GRAPH_VERSION", "v24.0").strip()
+
+# Public site address, for links and images that outside services fetch.
+SITE_URL = os.environ.get("SITE_URL", "https://www.indifferentapp.com").rstrip("/")

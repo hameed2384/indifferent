@@ -10,6 +10,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { CONTAINER_WIDE } from "@/lib/layout";
 import { RowSkeletonList } from "@/components/SkeletonCard";
+import InstagramPublisher from "@/components/InstagramPublisher";
 
 function timeAgo(iso) {
   if (!iso) return "—";
@@ -461,6 +462,12 @@ export default function Admin() {
               <div className="card p-5 sm:p-6">
                 <div className="eyebrow mb-4 inline-flex items-center gap-1.5"><Flag className="w-3.5 h-3.5" /> Open reports</div>
                 <ReportsQueue />
+              </div>
+            )}
+            {tab === "marketing" && (
+              <div className="card p-5 sm:p-6 mb-6">
+                <div className="eyebrow mb-4">Instagram posts</div>
+                <InstagramPublisher />
               </div>
             )}
             {tab === "marketing" && (
