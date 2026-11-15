@@ -19,6 +19,7 @@ import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV } from "@/lib/navChrome";
 import { isTitleConfirmed, titleFor } from "@/lib/debateTitle";
 import { DEBATER_SUB_PRICE } from "@/lib/pricing";
+import { setVisibleInterval } from "@/lib/poll";
 import { PAYMENTS_ENABLED } from "@/lib/features";
 
 // object-fit: cover for drawing a loaded <img> into a canvas rect — crops
@@ -970,8 +971,7 @@ export default function WatchRoom() {
   useEffect(() => {
     if (!debate || collapsed) return;
     pollOnce();
-    const iv = setInterval(pollOnce, 3000);
-    return () => clearInterval(iv);
+    return setVisibleInterval(pollOnce, 3000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debate, roomId, collapsed]);
 

@@ -10,6 +10,7 @@ import AccountMenu from "@/components/AccountMenu";
 import NotificationBell from "@/components/NotificationBell";
 import BackButton from "@/components/BackButton";
 import { STICKY_NAV } from "@/lib/navChrome";
+import { setVisibleInterval } from "@/lib/poll";
 import { CONTAINER_COMPACT } from "@/lib/layout";
 
 /** Client brief #14 — private friend chat/call. Its own page, its own
@@ -60,8 +61,7 @@ export default function PrivateChat() {
   useEffect(() => {
     if (notFriends) return;
     pollOnce();
-    const iv = setInterval(pollOnce, 2500);
-    return () => clearInterval(iv);
+    return setVisibleInterval(pollOnce, 2500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friendId, notFriends]);
 

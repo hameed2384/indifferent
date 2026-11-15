@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, GitBranch, Users, UserPlus, Star, Rss, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { PAYMENTS_ENABLED } from "@/lib/features";
+import { setVisibleInterval } from "@/lib/poll";
 import { useAuth } from "@/contexts/AuthContext";
 
 function Avatar({ picture, name, live }) {
@@ -97,8 +98,8 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
     // A pending request is time-sensitive enough (someone's waiting on you)
     // that it shouldn't need a manual page reload to show up here — poll
     // gently rather than only fetching once on mount.
-    const iv = setInterval(load, 30000);
-    return () => { mounted = false; clearInterval(iv); };
+    const stop = setVisibleInterval(load, 30000);
+    return () => { mounted = false; stop(); };
   }, [user]);
 
   const isHome = location.pathname === "/" || location.pathname === "/watch";

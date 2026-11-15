@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { api } from "@/lib/api";
+import { setVisibleInterval } from "@/lib/poll";
 import { useAuth } from "@/contexts/AuthContext";
 
 function timeAgo(iso) {
@@ -68,8 +69,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 30000);
-    return () => clearInterval(iv);
+    return setVisibleInterval(load, 30000);
   }, []);
 
   useEffect(() => {

@@ -18,6 +18,7 @@ import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
 import { STICKY_NAV, useNavHeightVar } from "@/lib/navChrome";
 import { useModalA11y } from "@/hooks/useModalA11y";
+import { setVisibleInterval } from "@/lib/poll";
 import { CONTAINER_WIDE, FEED_GRID } from "@/lib/layout";
 
 /** Interleaves one ad card into a feed row at a fixed position, YouTube-style
@@ -141,8 +142,10 @@ export default function Watch() {
       }
     };
     load();
-    const iv = setInterval(load, 8000);
-    return () => { mounted = false; clearInterval(iv); };
+    // 20s, not faster: a feed of debates doesn't need second-level freshness,
+    // and every poll from every idle visitor is a billed request.
+    const stop = setVisibleInterval(load, 20000);
+    return () => { mounted = false; stop(); };
   }, [activeCategory, search, user]);
 
   const visible = useMemo(
