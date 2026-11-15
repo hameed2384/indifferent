@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { api, setStoredToken } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { claimGuestRounds } from "@/lib/guest";
 import { REFERRAL_KEY } from "@/lib/referral";
 
 export default function AuthCallback() {
@@ -40,7 +41,13 @@ export default function AuthCallback() {
         // return you to the feed after signing in rather than a separate
         // account page — profile/friends/settings are still one click away
         // via the avatar menu.
-        const target = data.user.onboarded ? "/" : "/onboarding";
+        // Rounds played as a guest before signing in move into the account;
+        // an onboarded user goes straight back to the latest one's report.
+        const claimed = await claimGuestRounds();
+        const target = data.user.onboarded
+          ? (claimed.length ? `/spar/${claimed[claimed.length - 1]}` : "/")
+          : "/onboarding";
+        if (claimed.length) toast.success("Your debate is saved to your account");
         navigate(target, { replace: true, state: { user: data.user } });
       } catch (e) {
         console.error("Auth callback failed", e);

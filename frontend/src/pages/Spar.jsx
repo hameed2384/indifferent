@@ -8,6 +8,7 @@ import AccountMenu from "@/components/AccountMenu";
 import Logo from "@/components/Logo";
 import { CONTAINER_COMPACT } from "@/lib/layout";
 import { startGoogleLogin } from "@/lib/auth";
+import { claimGuestRounds, getGuestToken, guestHeaders, saveGuestToken } from "@/lib/guest";
 
 const SCORE_LABELS = { clarity: "Clarity", evidence: "Evidence", rebuttal: "Rebuttal", civility: "Civility" };
 
@@ -79,14 +80,23 @@ export default function Spar() {
   const [loadError, setLoadError] = useState(false);
   const endRef = useRef(null);
 
+  // Guests (no account) reach their round with the token this browser saved
+  // when it started; signed-in users use their session as usual.
+  const guest = !user;
+  const opts = () => (guest ? { headers: guestHeaders(debateId) } : undefined);
+
   useEffect(() => {
     let alive = true;
     setLoadError(false);
-    api.get(`/spar/${debateId}`)
-      .then(({ data }) => { if (alive) { setDebate(data); setMessages(data.messages || []); } })
-      .catch(() => alive && setLoadError(true));
+    (async () => {
+      // Signed in now but this round was started as a guest: move it into
+      // the account first, or the session wouldn't be allowed to see it.
+      if (user && getGuestToken(debateId)) await claimGuestRounds();
+      const { data } = await api.get(`/spar/${debateId}`, user ? undefined : { headers: guestHeaders(debateId) });
+      if (alive) { setDebate(data); setMessages(data.messages || []); }
+    })().catch(() => alive && setLoadError(true));
     return () => { alive = false; };
-  }, [debateId]);
+  }, [debateId, user]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, thinking]);
 
@@ -101,7 +111,7 @@ export default function Spar() {
     setThinking(true);
     setMessages((m) => [...m, { role: "user", text: body, created_at: new Date().toISOString(), pending: true }]);
     try {
-      const { data } = await api.post(`/spar/${debateId}/message`, { text: body });
+      const { data } = await api.post(`/spar/${debateId}/message`, { text: body }, opts());
       setMessages((m) => [...m.filter((x) => !x.pending), ...data.messages]);
     } catch (e) {
       setMessages((m) => m.filter((x) => !x.pending));
@@ -115,7 +125,7 @@ export default function Spar() {
   const end = async () => {
     setEnding(true);
     try {
-      const { data } = await api.post(`/spar/${debateId}/end`);
+      const { data } = await api.post(`/spar/${debateId}/end`, null, opts());
       setDebate((d) => ({ ...d, ...data }));
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
@@ -144,7 +154,9 @@ export default function Spar() {
 
   const again = async () => {
     setStarting(true);
-    try { await startSpar(navigate, debate?.tag); } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start a new round"); }
+    // A round claimed from guest mode may be on a motion outside the user's own topics.
+    const tag = user?.interest_tags?.includes(debate?.tag) ? debate.tag : undefined;
+    try { await startSpar(navigate, tag); } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start a new round"); }
     finally { setStarting(false); }
   };
 
@@ -167,7 +179,9 @@ export default function Spar() {
           <Logo size="sm" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <AccountMenu user={user} logout={logout} />
+            {user
+              ? <AccountMenu user={user} logout={logout} />
+              : <button onClick={startGoogleLogin} className="btn-primary text-sm">Sign in</button>}
           </div>
         </div>
       </header>
@@ -195,6 +209,17 @@ export default function Spar() {
           <div className="card p-5">
             <h2 className="font-heading text-xl font-semibold mb-4">Debate report</h2>
             <Feedback feedback={debate.feedback} />
+            {guest ? (
+              <div className="mt-6">
+                <p className="text-sm text-[var(--fg-muted)]">
+                  Sign in to save this report, track your progress, spar on your own views, and debate real people who disagree with you.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button onClick={startGoogleLogin} className="btn-accent" data-testid="btn-guest-signin">Sign in to save it</button>
+                  <button onClick={() => navigate("/try")} className="btn-outline">Try another motion</button>
+                </div>
+              </div>
+            ) : (
             <div className="mt-6 flex flex-wrap gap-3">
               <button onClick={again} disabled={starting} className="btn-accent" data-testid="btn-spar-again">{starting ? "Starting…" : "Spar again"}</button>
               <button onClick={() => navigate(user?.id_verified ? "/match" : "/verify")} className="btn-outline">Debate a real person</button>
@@ -203,6 +228,7 @@ export default function Spar() {
               )}
               <button onClick={() => navigate("/spar")} className="btn-ghost">Your progress</button>
             </div>
+            )}
           </div>
         )}
 
@@ -395,6 +421,73 @@ export function SparShare() {
               <button onClick={tryIt} className="btn-accent mt-4" data-testid="btn-share-try">Try it free</button>
             </div>
           </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+/** /try — no sign-up needed: pick a motion and a side, then debate the AI. */
+export function TryPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [motions, setMotions] = useState(null);
+  const [picked, setPicked] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get("/spar/guest/motions").then(({ data }) => setMotions(data.motions)).catch(() => setMotions([]));
+  }, []);
+
+  const go = async (side) => {
+    setBusy(true);
+    try {
+      const { data } = await api.post("/spar/guest/start", { motion_id: picked.id, side });
+      saveGuestToken(data.debate_id, data.guest_token);
+      navigate(`/try/${data.debate_id}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't start. Try again in a bit.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[var(--bg)]">
+      <header className="border-b border-[var(--border)]">
+        <div className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`}>
+          <button onClick={() => navigate("/")}><Logo size="sm" /></button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {!user && <button onClick={startGoogleLogin} className="btn-primary text-sm">Sign in</button>}
+          </div>
+        </div>
+      </header>
+      <main className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 py-10`}>
+        <div className="eyebrow">No sign-up needed</div>
+        <h1 className="font-heading text-3xl sm:text-4xl font-semibold mt-2 leading-tight">Pick a fight. Politely.</h1>
+        <p className="mt-3 text-[var(--fg-muted)] max-w-lg">Choose a motion and your side. An AI argues the other side, then scores your arguments.</p>
+
+        {!picked ? (
+          <div className="mt-8 grid sm:grid-cols-2 gap-3" data-testid="try-motions">
+            {motions === null && <div className="text-sm text-[var(--fg-subtle)]">Loading…</div>}
+            {motions?.map((m) => (
+              <button key={m.id} onClick={() => setPicked(m)} className="card p-4 text-left hover:border-[var(--fg)] transition-colors">
+                <span className="chip !py-0 !px-1.5 text-[10px]">{m.tag}</span>
+                <div className="mt-2 font-medium">{m.motion}</div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-8 card p-6">
+            <div className="eyebrow">The motion</div>
+            <div className="font-heading text-2xl font-semibold mt-1">{picked.motion}</div>
+            <p className="mt-4 text-sm text-[var(--fg-muted)]">Which side are you on?</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button onClick={() => go("for")} disabled={busy} className="btn-accent" data-testid="btn-try-for">I agree</button>
+              <button onClick={() => go("against")} disabled={busy} className="btn-outline" data-testid="btn-try-against">I disagree</button>
+              <button onClick={() => setPicked(null)} disabled={busy} className="btn-ghost">Pick another</button>
+            </div>
+          </div>
         )}
       </main>
     </div>

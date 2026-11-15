@@ -21,6 +21,14 @@ Everything below is live on indifferent.hameed.pro (pushed to `main`, each deplo
 
 **Commits:** `49cd478`, `eb60d8b`
 
+## Debate without signing up
+
+- **New home button: "Try it now, no sign-up"** opens `/try`. A visitor picks one of 10 motions (for example "Remote work is better than working in an office"), picks a side, and debates the AI for up to 6 turns, then gets a report.
+- **"Sign in to save it"** on the report: after Google sign-in, the round moves into the new account, and onboarded users land straight back on its report.
+- **Safeguards:** guest rounds are reachable only from the browser that started them, using a private token. Each IP address can start at most 5 guest rounds per hour, to protect your Groq free tier.
+
+**Commit:** see below.
+
 ## Shareable results (growth loop)
 
 - After a scored round, **"Share my result"** creates a public link like `/s/abc123`. It uses the phone's share sheet, or copies the link on desktop.

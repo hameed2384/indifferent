@@ -17,15 +17,17 @@ Every LLM call degrades to canned text when Groq is unavailable, so the
 feature never dead-ends (same convention as llm.py).
 """
 import random
+import re
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from ..db import db
-from ..deps import get_current_user, require_xhr
+from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..llm import call_llm_json, generate_topics
 from ..models import User
 from ..ratelimit import rate_limit
@@ -37,6 +39,7 @@ router = APIRouter()
 MAX_USER_TURNS = 12
 MAX_MESSAGE = 800
 MIN_TURNS_FOR_FEEDBACK = 1
+MAX_GUEST_TURNS = 6
 REUSE_UNTOUCHED_HOURS = 6
 
 FALLBACK_REPLIES = [
@@ -108,7 +111,8 @@ def _public(debate: dict, messages: Optional[list] = None) -> dict:
         "debate_id", "tag", "topic", "user_position", "ai_position", "status",
         "user_turns", "created_at", "ended_at", "feedback", "share_id",
     )}
-    out["max_user_turns"] = MAX_USER_TURNS
+    out["max_user_turns"] = _turn_cap(debate)
+    out["guest"] = _is_guest(debate)
     out["user_side"] = _side_label(debate["user_position"])
     out["ai_side"] = _side_label(debate["ai_position"])
     # The user's own onboarding stance in words — a clearer way to show the
@@ -119,9 +123,37 @@ def _public(debate: dict, messages: Optional[list] = None) -> dict:
     return out
 
 
-async def _owned_debate(debate_id: str, user: User) -> dict:
+# --- Ownership: signed-in users OR guests -----------------------------------
+# A debate's user_id is either a real user_id or "guest:<token>", where the
+# token is a random secret only the guest's browser holds (sent back as the
+# X-Guest-Token header). Guests let a first-time visitor try a full round
+# before signing up; they can claim it into an account afterwards.
+GUEST_PREFIX = "guest:"
+_GUEST_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
+
+
+async def _owner_key(
+    user: Optional[User] = Depends(get_current_user_optional),
+    x_guest_token: Optional[str] = Header(None),
+) -> str:
+    if user:
+        return user.user_id
+    if x_guest_token and _GUEST_TOKEN_RE.match(x_guest_token):
+        return GUEST_PREFIX + x_guest_token
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def _is_guest(debate: dict) -> bool:
+    return debate["user_id"].startswith(GUEST_PREFIX)
+
+
+def _turn_cap(debate: dict) -> int:
+    return MAX_GUEST_TURNS if _is_guest(debate) else MAX_USER_TURNS
+
+
+async def _owned_debate(debate_id: str, owner: str) -> dict:
     debate = await db.ai_debates.find_one({"debate_id": debate_id}, {"_id": 0})
-    if not debate or debate["user_id"] != user.user_id:
+    if not debate or debate["user_id"] != owner:
         raise HTTPException(status_code=404, detail="Debate not found")
     return debate
 
@@ -205,9 +237,79 @@ async def list_spars(user: User = Depends(get_current_user)):
     return {"debates": [_public(d) for d in docs]}
 
 
+# --- Guest rounds -------------------------------------------------------------
+# Curated motions for visitors who haven't signed up or onboarded (so have no
+# stances to argue against). Statements, not questions, so "for/against" is
+# unambiguous. Registered before /spar/{debate_id} on purpose.
+MOTIONS = [
+    {"id": "remote-work", "tag": "Technology", "motion": "Remote work is better than working in an office"},
+    {"id": "ai-jobs", "tag": "Technology", "motion": "AI will create more jobs than it destroys"},
+    {"id": "social-media-teens", "tag": "Technology", "motion": "Under-16s should be banned from social media"},
+    {"id": "athlete-pay", "tag": "Sports", "motion": "Top athletes are overpaid"},
+    {"id": "four-day-week", "tag": "Politics", "motion": "Every country should move to a four-day work week"},
+    {"id": "voting-age", "tag": "Politics", "motion": "The voting age should be lowered to 16"},
+    {"id": "meat-tax", "tag": "Science", "motion": "Meat should be taxed like cigarettes"},
+    {"id": "space", "tag": "Science", "motion": "Spending on space exploration is worth it"},
+    {"id": "remakes", "tag": "Movies & TV", "motion": "Hollywood remakes are ruining cinema"},
+    {"id": "homework", "tag": "Education", "motion": "Schools should abolish homework"},
+]
+_MOTIONS_BY_ID = {m["id"]: m for m in MOTIONS}
+
+
+@router.get("/spar/guest/motions")
+async def guest_motions():
+    return {"motions": MOTIONS, "max_turns": MAX_GUEST_TURNS}
+
+
+class GuestStart(BaseModel):
+    motion_id: str
+    side: str  # "for" | "against"
+
+
+@router.post("/spar/guest/start")
+async def start_guest_spar(
+    payload: GuestStart,
+    _rl: None = Depends(rate_limit("spar_guest_start", limit=5, window_seconds=3600)),
+):
+    motion = _MOTIONS_BY_ID.get(payload.motion_id)
+    if not motion:
+        raise HTTPException(status_code=400, detail="Unknown motion")
+    if payload.side not in ("for", "against"):
+        raise HTTPException(status_code=400, detail="side must be 'for' or 'against'")
+
+    token = secrets.token_urlsafe(24)
+    user_pos = 7.0 if payload.side == "for" else -7.0
+    debate = {
+        "debate_id": f"spar_{uuid.uuid4().hex[:12]}",
+        "user_id": GUEST_PREFIX + token,
+        "tag": motion["tag"],
+        "topic": motion["motion"],
+        "user_position": user_pos,
+        "user_summary": motion["motion"] if payload.side == "for" else f"Against: {motion['motion']}",
+        "ai_position": -user_pos,
+        "status": "active",
+        "user_turns": 0,
+        "created_at": _now(),
+    }
+    await db.ai_debates.insert_one(dict(debate))
+    data = await call_llm_json(
+        _system_prompt(debate),
+        "Open the debate: state your position on the motion in 2-3 sentences with your single "
+        "strongest reason, then invite the user to make their case.",
+        session_id=debate["debate_id"],
+    )
+    stance = "against" if payload.side == "for" else "for"
+    opening = (data or {}).get("reply") or (
+        f"I'm arguing {stance} the motion: \"{motion['motion']}\". The case for my side is stronger than it looks. "
+        "Make your best argument and I'll test it."
+    )
+    msg = await _add_message(debate["debate_id"], "ai", opening.strip()[:1200])
+    return {**_public(debate, [msg]), "guest_token": token}
+
+
 @router.get("/spar/{debate_id}")
-async def get_spar(debate_id: str, user: User = Depends(get_current_user)):
-    debate = await _owned_debate(debate_id, user)
+async def get_spar(debate_id: str, owner: str = Depends(_owner_key)):
+    debate = await _owned_debate(debate_id, owner)
     return _public(debate, await _messages(debate_id))
 
 
@@ -219,13 +321,13 @@ class SparMessage(BaseModel):
 async def send_spar_message(
     debate_id: str,
     payload: SparMessage,
-    user: User = Depends(get_current_user),
+    owner: str = Depends(_owner_key),
     _rl: None = Depends(rate_limit("spar_message", limit=20, window_seconds=60)),
 ):
-    debate = await _owned_debate(debate_id, user)
+    debate = await _owned_debate(debate_id, owner)
     if debate["status"] != "active":
         raise HTTPException(status_code=400, detail="This debate has ended")
-    if debate.get("user_turns", 0) >= MAX_USER_TURNS:
+    if debate.get("user_turns", 0) >= _turn_cap(debate):
         raise HTTPException(status_code=400, detail="Turn limit reached — end the debate to get your feedback")
     text = payload.text.strip()[:MAX_MESSAGE]
     if not text:
@@ -248,7 +350,7 @@ async def send_spar_message(
             {"role": m["role"], "text": m["text"], "created_at": m["created_at"]} for m in (user_msg, ai_msg)
         ],
         "user_turns": turns,
-        "turns_left": max(0, MAX_USER_TURNS - turns),
+        "turns_left": max(0, _turn_cap(debate) - turns),
     }
 
 
@@ -291,8 +393,8 @@ def _normalize_feedback(data: Optional[dict]) -> dict:
 
 
 @router.post("/spar/{debate_id}/end")
-async def end_spar(debate_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
-    debate = await _owned_debate(debate_id, user)
+async def end_spar(debate_id: str, owner: str = Depends(_owner_key), _xhr: None = Depends(require_xhr)):
+    debate = await _owned_debate(debate_id, owner)
     if debate["status"] == "ended":
         return _public(debate)
 
@@ -305,7 +407,8 @@ async def end_spar(debate_id: str, user: User = Depends(get_current_user), _xhr:
             session_id=f"{debate_id}-feedback",
         )
         feedback = _normalize_feedback(data)
-        await bump_streak(user.user_id)
+        if not _is_guest(debate):
+            await bump_streak(owner)
 
     updates = {"status": "ended", "ended_at": _now(), "feedback": feedback}
     await db.ai_debates.update_one({"debate_id": debate_id}, {"$set": updates})
@@ -325,7 +428,7 @@ def _avg(scores: Optional[dict]) -> Optional[float]:
 
 @router.post("/spar/{debate_id}/share")
 async def share_spar(debate_id: str, user: User = Depends(get_current_user), _xhr: None = Depends(require_xhr)):
-    debate = await _owned_debate(debate_id, user)
+    debate = await _owned_debate(debate_id, user.user_id)
     if debate["status"] != "ended" or not (debate.get("feedback") or {}).get("scores"):
         raise HTTPException(status_code=400, detail="Finish a scored round to share it")
     share_id = debate.get("share_id") or f"s{uuid.uuid4().hex[:10]}"
@@ -351,3 +454,21 @@ async def public_spar_result(share_id: str):
         "best_line": feedback.get("best_line", ""),
         "created_at": debate.get("created_at"),
     }
+
+
+@router.post("/spar/{debate_id}/claim")
+async def claim_guest_spar(
+    debate_id: str,
+    user: User = Depends(get_current_user),
+    x_guest_token: Optional[str] = Header(None),
+    _xhr: None = Depends(require_xhr),
+):
+    """Move a guest round into the signed-in user's account (after they sign
+    up from the guest report), so their first debate isn't lost."""
+    if not x_guest_token or not _GUEST_TOKEN_RE.match(x_guest_token):
+        raise HTTPException(status_code=400, detail="Missing guest token")
+    debate = await _owned_debate(debate_id, GUEST_PREFIX + x_guest_token)
+    await db.ai_debates.update_one({"debate_id": debate_id}, {"$set": {"user_id": user.user_id}})
+    if debate.get("feedback") and debate["status"] == "ended":
+        await bump_streak(user.user_id)
+    return {"debate_id": debate_id, "claimed": True}

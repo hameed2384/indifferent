@@ -270,7 +270,10 @@ export default function Watch() {
                   indifferent matches you with the sharpest opposing viewpoint for a live debate. Nobody online? Spar with an AI that takes the other side, then get a scored report on your arguments. Free.
                 </p>
               </div>
-              <button onClick={startGoogleLogin} className="btn-primary text-sm shrink-0" data-testid="explainer-sign-in">Sign in to start</button>
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <button onClick={() => navigate("/try")} className="btn-accent text-sm" data-testid="explainer-try">Try it now, no sign-up</button>
+                <button onClick={startGoogleLogin} className="btn-outline text-sm" data-testid="explainer-sign-in">Sign in</button>
+              </div>
             </div>
           )}
 
