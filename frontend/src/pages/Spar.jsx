@@ -436,7 +436,10 @@ export function TryPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.get("/spar/guest/motions").then(({ data }) => setMotions(data.motions)).catch(() => setMotions([]));
+    // Absurd topics first: they're what people arriving from social posts came for.
+    api.get("/spar/guest/motions")
+      .then(({ data }) => setMotions([...data.motions].sort((a, b) => (b.tag === "Unhinged") - (a.tag === "Unhinged"))))
+      .catch(() => setMotions([]));
   }, []);
 
   const go = async (side) => {

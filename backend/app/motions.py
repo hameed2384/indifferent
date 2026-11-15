@@ -154,6 +154,127 @@ MOTIONS = [
             "It shows parents what their child is learning and where they struggle.",
         ],
     },
+    # --- Unhinged: petty, absurd questions argued completely seriously. ---
+    {
+        "id": "cereal-soup", "slug": "cereal-is-a-soup", "tag": "Unhinged",
+        "motion": "Cereal is a soup",
+        "summary": "Pieces of food floating in a liquid, eaten with a spoon from a bowl. The internet has never agreed on what that makes cereal.",
+        "for": [
+            "A soup is solid food served in a liquid and eaten with a spoon. Cereal meets every part of that definition.",
+            "Cold soups like gazpacho exist, so serving temperature can't be what rules cereal out.",
+            "Sweet soups exist in many cuisines, so being a breakfast food doesn't disqualify it either.",
+        ],
+        "against": [
+            "In soup the liquid is cooked with the ingredients to share flavour; milk is just poured on at the last second.",
+            "Nobody orders cereal from a soup menu, and words mean what people actually use them to mean.",
+            "If cereal is soup, then a bowl of fruit in juice is soup too, which shows the definition is too broad.",
+        ],
+    },
+    {
+        "id": "hot-dog-sandwich", "slug": "a-hot-dog-is-a-sandwich", "tag": "Unhinged",
+        "motion": "A hot dog is a sandwich",
+        "summary": "A filling inside bread. Dictionaries, food lawyers and at least one hot dog council have weighed in, and nobody is backing down.",
+        "for": [
+            "A sandwich is a filling held in bread. A sausage in a split roll is exactly that.",
+            "Subs and baguette sandwiches are also served in one hinged piece of bread, and nobody disputes those.",
+            "Merriam-Webster has said publicly that, by its definition, a hot dog counts as a sandwich.",
+        ],
+        "against": [
+            "Nobody walks into a shop asking for a sandwich and accepts a hot dog. Usage beats technicality.",
+            "A hot dog is its own category with its own buns, toppings and culture, like a taco.",
+            "If it's a sandwich, then so is a taco, a wrap and a pizza fold, and the word stops meaning anything.",
+        ],
+    },
+    {
+        "id": "straw-holes", "slug": "a-straw-has-one-hole", "tag": "Unhinged",
+        "motion": "A straw has one hole",
+        "summary": "One hole running all the way through, or two holes, one at each end? Mathematicians and everyone else disagree.",
+        "for": [
+            "Topologically a straw is like a doughnut: one hole that goes all the way through.",
+            "You can't fill one end of a straw without filling the other. It's a single opening.",
+            "Nobody says a doughnut has two holes, one on top and one underneath.",
+        ],
+        "against": [
+            "There are two openings you can put your finger in. In everyday language, that's two holes.",
+            "A tunnel has two entrances, and nobody calls the tunnel itself a hole.",
+            "If you blocked one end, the other end would still be open, so they work as two separate holes.",
+        ],
+    },
+    {
+        "id": "water-wet", "slug": "water-is-wet", "tag": "Unhinged",
+        "motion": "Water is wet",
+        "summary": "Is wetness something water has, or something water does to other things? A surprisingly bitter argument.",
+        "for": [
+            "Any water molecule is surrounded by other water, so all water is covered in water.",
+            "In everyday speech we call liquids wet: a wet floor is one covered in liquid, and water is liquid.",
+            "If you touch water, it feels wet. That's the only test most people need.",
+        ],
+        "against": [
+            "Wet means a liquid is sticking to a solid surface. Water is the liquid doing the wetting, not the thing being wetted.",
+            "Fire burns things but isn't itself burnt. Water makes things wet but isn't itself wet.",
+            "Scientists describe wetness as how well a liquid spreads on a surface, which only makes sense between two different things.",
+        ],
+    },
+    {
+        "id": "pineapple-pizza", "slug": "pineapple-belongs-on-pizza", "tag": "Unhinged",
+        "motion": "Pineapple belongs on pizza",
+        "summary": "Invented by a Greek-born cook in Canada in 1962 and still splitting friendships, families and group chats.",
+        "for": [
+            "Sweet and salty is a classic pairing, from ham and pineapple to salted caramel.",
+            "The acidity cuts through rich cheese the way tomato does.",
+            "Pizza is already a flexible, global food; gatekeeping toppings is pure snobbery.",
+        ],
+        "against": [
+            "Pineapple releases juice that makes the base soggy.",
+            "Fruit on a savoury pizza clashes with tomato sauce and herbs.",
+            "Naples, where pizza comes from, says no, and they invented it.",
+        ],
+    },
+    {
+        "id": "socks-sandals", "slug": "socks-with-sandals-are-fashion", "tag": "Unhinged",
+        "motion": "Socks with sandals are a fashion statement",
+        "summary": "Once the uniform of dads on holiday, now on runways and in student halls. Crime or comeback?",
+        "for": [
+            "Luxury brands and designers have put socks with sandals on runways.",
+            "It's comfortable and practical: warm feet, no blisters, all the airflow.",
+            "Fashion is about confidence; anything worn with intent is a statement.",
+        ],
+        "against": [
+            "Sandals exist to keep feet cool; covering them in socks defeats the point.",
+            "Runway looks are meant to shock, not to be copied at the shops.",
+            "Being seen in public is a social contract, and this breaks it.",
+        ],
+    },
+    {
+        "id": "ghosting", "slug": "ghosting-is-sometimes-polite", "tag": "Unhinged",
+        "motion": "Ghosting someone is sometimes the polite option",
+        "summary": "Disappearing without a word after a few chats or dates: cruel, or a mercy for everyone involved?",
+        "for": [
+            "After a single date or a few messages, a rejection text can feel more hurtful than silence.",
+            "Explaining why you're not interested often invites argument or pressure.",
+            "Silence is a widely understood signal now, so the message still gets through.",
+        ],
+        "against": [
+            "Silence leaves the other person guessing and checking their phone, which is crueller than a clear answer.",
+            "A short, kind message takes ten seconds and treats someone like a person.",
+            "Normalising ghosting makes everyone more anxious about every unanswered message.",
+        ],
+    },
+    {
+        "id": "replying-k", "slug": "replying-k-is-hostile", "tag": "Unhinged",
+        "motion": "Replying \"k\" is a declaration of war",
+        "summary": "One letter. No punctuation. Is it efficiency, or the most passive-aggressive text there is?",
+        "for": [
+            "Writing \"ok\" takes one extra letter; choosing not to bother sends a message.",
+            "Tone is missing from text, so people read the shortest possible reply as cold.",
+            "Almost everyone has had a \"k\" land badly at least once; the reputation is earned.",
+        ],
+        "against": [
+            "Some people text fast and short with everyone; it says nothing about how they feel.",
+            "Reading hostility into one letter says more about the reader than the sender.",
+            "\"K\" clearly confirms the message was received, which is all a reply needs to do.",
+        ],
+    },
 ]
 
 MOTIONS_BY_ID = {m["id"]: m for m in MOTIONS}

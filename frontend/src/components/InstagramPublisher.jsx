@@ -6,6 +6,88 @@ import { RowSkeletonList } from "@/components/SkeletonCard";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const slidesOf = (post) => (post.video ? [{ type: "video", src: post.video, poster: post.images?.[0] }] : post.images.map((src) => ({ type: "image", src })));
+
+function Slide({ slide, className, controls = false }) {
+  return slide.type === "video"
+    ? <video src={slide.src} poster={slide.poster} className={className} controls={controls} muted={!controls} playsInline preload="metadata" />
+    : <img src={slide.src} alt="" className={className} />;
+}
+
+function Arrow({ dir, onClick, className = "" }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={dir < 0 ? "Previous slide" : "Next slide"}
+      className={`w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 ${className}`}>
+      {dir < 0 ? "‹" : "›"}
+    </button>
+  );
+}
+
+/** The post as it will look: one slide at a time, arrows for carousels,
+ * click to open full size. */
+function PostPreview({ post, onOpen }) {
+  const slides = slidesOf(post);
+  const [i, setI] = useState(0);
+  const go = (d) => setI((n) => (n + d + slides.length) % slides.length);
+  return (
+    <div className="self-start w-full max-w-[260px]">
+      <div className="relative">
+        <button type="button" onClick={() => onOpen(i)} className="block w-full" aria-label={`Open ${post.title} full size`}>
+          <Slide slide={slides[i]} className="w-full aspect-[4/5] object-cover rounded-lg border border-[var(--border)] bg-black" />
+        </button>
+        {slides.length > 1 && (
+          <>
+            <Arrow dir={-1} onClick={() => go(-1)} className="absolute left-2 top-1/2 -translate-y-1/2" />
+            <Arrow dir={1} onClick={() => go(1)} className="absolute right-2 top-1/2 -translate-y-1/2" />
+          </>
+        )}
+      </div>
+      <div className="mt-2 flex items-center justify-between text-xs text-[var(--fg-subtle)]">
+        <span>{post.video ? "Reel" : slides.length > 1 ? `Slide ${i + 1} of ${slides.length}` : "Single image"}</span>
+        {slides.length > 1 && (
+          <span className="flex gap-1">
+            {slides.map((_, n) => (
+              <button key={n} type="button" onClick={() => setI(n)} aria-label={`Slide ${n + 1}`}
+                className={`w-1.5 h-1.5 rounded-full ${n === i ? "bg-[var(--fg)]" : "bg-[var(--border-strong)]"}`} />
+            ))}
+          </span>
+        )}
+        <button type="button" onClick={() => onOpen(i)} className="hover:text-[var(--fg)]">View full size</button>
+      </div>
+    </div>
+  );
+}
+
+/** Full-screen viewer: arrow keys or buttons to move, Esc to close. */
+function SlideViewer({ post, start, onClose }) {
+  const slides = slidesOf(post);
+  const [i, setI] = useState(start);
+  const go = (d) => setI((n) => (n + d + slides.length) % slides.length);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+  return (
+    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={post.title} onClick={onClose}>
+      <div className="flex items-center gap-3 sm:gap-6 max-w-full" onClick={(e) => e.stopPropagation()}>
+        {slides.length > 1 && <Arrow dir={-1} onClick={() => go(-1)} className="shrink-0" />}
+        <Slide slide={slides[i]} controls className="max-h-[80vh] max-w-[80vw] w-auto rounded-lg" />
+        {slides.length > 1 && <Arrow dir={1} onClick={() => go(1)} className="shrink-0" />}
+      </div>
+      <div className="mt-4 text-sm text-white/80 text-center" onClick={(e) => e.stopPropagation()}>
+        <div className="font-medium text-white">{post.title}</div>
+        {slides.length > 1 && <div>Slide {i + 1} of {slides.length} · use ← → keys</div>}
+      </div>
+      <button type="button" onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white text-sm px-3 py-1.5 rounded-md bg-white/10">Close (Esc)</button>
+    </div>
+  );
+}
+
 /** Admin > Marketing: prepared Instagram posts. Nothing is posted until an
  * admin clicks Publish and confirms. */
 export default function InstagramPublisher() {
@@ -14,6 +96,7 @@ export default function InstagramPublisher() {
   const [captions, setCaptions] = useState({});
   const [confirm, setConfirm] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [viewer, setViewer] = useState(null);
 
   const load = () => {
     setFailed(false);
@@ -36,7 +119,8 @@ export default function InstagramPublisher() {
       await api.post(`/admin/instagram/posts/${post.id}/prepare`, { caption: captions[post.id] });
       setPost(post.id, { status: "processing", error: null });
       // Instagram processes the images before the post can go live.
-      for (let i = 0; i < 30; i++) {
+      // Videos take longer for Instagram to process than images.
+      for (let i = 0; i < (post.video ? 80 : 30); i++) {
         await sleep(3000);
         const { data: r } = await api.post(`/admin/instagram/posts/${post.id}/publish`);
         if (r.status === "published") {
@@ -84,13 +168,8 @@ export default function InstagramPublisher() {
           const published = p.status === "published";
           const busy = busyId === p.id;
           return (
-            <div key={p.id} className="py-4 grid md:grid-cols-[minmax(0,320px)_1fr] gap-4" data-testid={`ig-post-${p.id}`}>
-              <div className="flex items-start gap-2 overflow-x-auto self-start">
-                {p.images.map((src) => (
-                  <img key={src} src={src} alt="" loading="lazy"
-                    className="w-24 aspect-[4/5] object-cover rounded-md border border-[var(--border)] shrink-0" />
-                ))}
-              </div>
+            <div key={p.id} className="py-5 grid md:grid-cols-[260px_1fr] gap-5" data-testid={`ig-post-${p.id}`}>
+              <PostPreview post={p} onOpen={(i) => setViewer({ post: p, index: i })} />
               <div className="min-w-0 space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <div className="font-medium text-sm">{p.title}{p.images.length > 1 && <span className="text-[var(--fg-subtle)]"> · {p.images.length} slides</span>}</div>
@@ -128,6 +207,8 @@ export default function InstagramPublisher() {
           );
         })}
       </div>
+
+      {viewer && <SlideViewer post={viewer.post} start={viewer.index} onClose={() => setViewer(null)} />}
 
       {confirm && (
         <ConfirmModal

@@ -176,6 +176,7 @@ async def instagram_overview(_admin: User = Depends(require_admin)):
         "posts": [{
             "id": p["id"], "title": p["title"],
             "images": [_image_url(i) for i in p["images"]],
+            "video": _image_url(p["video"]) if p.get("video") else None,
             "caption": _default_caption(p),
             **_public_state(states.get(p["id"])),
         } for p in POSTS],
@@ -214,7 +215,12 @@ async def prepare_post(post_id: str, payload: PrepareRequest, _admin: User = Dep
     )
     try:
         urls = [_image_url(i) for i in post["images"]]
-        if len(urls) == 1:
+        if post.get("video"):
+            # A Reel: the video, with the first image as its cover; also shown in the profile grid.
+            container = await graph("POST", f"{INSTAGRAM_USER_ID}/media", media_type="REELS",
+                                    video_url=_image_url(post["video"]), cover_url=urls[0] if urls else None,
+                                    caption=payload.caption, share_to_feed="true")
+        elif len(urls) == 1:
             container = await graph("POST", f"{INSTAGRAM_USER_ID}/media", image_url=urls[0], caption=payload.caption)
         else:
             children = await asyncio.gather(*[

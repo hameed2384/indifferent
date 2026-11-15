@@ -184,3 +184,15 @@ async def test_system_user_tokens_are_not_renewed(monkeypatch):
     monkeypatch.setattr(ig, "INSTAGRAM_USER_ID", "ig_user_1")
     monkeypatch.setattr(ig, "_refresh_sync", lambda t: (_ for _ in ()).throw(AssertionError("should not refresh")))
     assert await ig.maybe_refresh_token() is None
+
+
+async def test_reel_publishes_video_with_cover(client, admin_headers, fake, monkeypatch):
+    reel = {"id": "reel-test", "title": "Reel", "images": ["cover.jpg"], "video": "reel.mp4", "caption": "Watch"}
+    monkeypatch.setitem(ig.POSTS_BY_ID, "reel-test", reel)
+    r = await client.post("/api/admin/instagram/posts/reel-test/prepare", json={"caption": "Watch this"}, headers=admin_headers)
+    assert r.status_code == 200, r.text
+    (create,) = [c[2] for c in fake.calls if c[0] == "POST"]
+    assert create["media_type"] == "REELS"
+    assert create["video_url"].endswith("/social/reel.mp4")
+    assert create["cover_url"].endswith("/social/cover.jpg")
+    assert create["caption"] == "Watch this"
