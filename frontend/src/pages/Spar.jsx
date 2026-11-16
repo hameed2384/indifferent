@@ -434,6 +434,8 @@ export function TryPage() {
   const [motions, setMotions] = useState(null);
   const [picked, setPicked] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const TRY_SHOWN = 12; // the library is long; show a short pick list first
 
   useEffect(() => {
     // Absurd topics first: they're what people arriving from social posts came for.
@@ -473,12 +475,17 @@ export function TryPage() {
         {!picked ? (
           <div className="mt-8 grid sm:grid-cols-2 gap-3" data-testid="try-motions">
             {motions === null && <div className="text-sm text-[var(--fg-subtle)]">Loading…</div>}
-            {motions?.map((m) => (
+            {(showAll ? motions : motions?.slice(0, TRY_SHOWN))?.map((m) => (
               <button key={m.id} onClick={() => setPicked(m)} className="card p-4 text-left hover:border-[var(--fg)] transition-colors">
                 <span className="chip !py-0 !px-1.5 text-[10px]">{m.tag}</span>
                 <div className="mt-2 font-medium">{m.motion}</div>
               </button>
             ))}
+            {!showAll && motions?.length > TRY_SHOWN && (
+              <button onClick={() => setShowAll(true)} className="btn-outline sm:col-span-2" data-testid="try-more-motions">
+                More topics ({motions.length - TRY_SHOWN})
+              </button>
+            )}
             {motions?.length > 0 && (
               <a href="/motions" className="text-sm text-[var(--fg-muted)] hover:text-[var(--fg)] sm:col-span-2 mt-1">
                 Read the arguments for and against each topic →

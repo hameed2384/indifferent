@@ -277,5 +277,9 @@ MOTIONS = [
     },
 ]
 
+from .motions_extra import EXTRA_MOTIONS  # noqa: E402
+
+MOTIONS = MOTIONS + EXTRA_MOTIONS
+
 MOTIONS_BY_ID = {m["id"]: m for m in MOTIONS}
 MOTIONS_BY_SLUG = {m["slug"]: m for m in MOTIONS}

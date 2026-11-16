@@ -29,3 +29,10 @@ async def test_unknown_motion_is_404(client):
 def test_slugs_and_ids_are_unique():
     assert len({m["slug"] for m in MOTIONS}) == len(MOTIONS)
     assert len({m["id"] for m in MOTIONS}) == len(MOTIONS)
+
+
+def test_every_motion_is_a_complete_page():
+    for m in MOTIONS:
+        assert m["motion"] and m["summary"] and m["tag"], m["id"]
+        assert len(m["for"]) == 3 and len(m["against"]) == 3, m["id"]
+        assert m["slug"] == m["slug"].lower() and " " not in m["slug"], m["slug"]
