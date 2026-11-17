@@ -279,8 +279,9 @@ MOTIONS = [
 
 from .motions_extra import EXTRA_MOTIONS  # noqa: E402
 from .motions_trending import TRENDING_MOTIONS  # noqa: E402
+from .motions_evergreen import EVERGREEN_MOTIONS  # noqa: E402
 
-MOTIONS = MOTIONS + EXTRA_MOTIONS + TRENDING_MOTIONS
+MOTIONS = MOTIONS + EXTRA_MOTIONS + TRENDING_MOTIONS + EVERGREEN_MOTIONS
 
 MOTIONS_BY_ID = {m["id"]: m for m in MOTIONS}
 MOTIONS_BY_SLUG = {m["slug"]: m for m in MOTIONS}
