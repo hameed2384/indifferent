@@ -14,6 +14,7 @@ from ..ratelimit import rate_limit
 from ..reactions import toggle_reaction
 from ..room_utils import MAX_PER_SIDE, is_participant, member_side, side_members
 from ..topic_stances import upsert_topic_stance
+from ..visit_source import clean_source
 
 router = APIRouter()
 
@@ -556,3 +557,21 @@ async def vote_on_debate(room_id: str, payload: VoteIn, user: User = Depends(get
 
     tally = await _vote_tally(room_id)
     return {**tally, "my_vote": payload.side}
+
+
+class VisitPing(BaseModel):
+    source: Optional[str] = None
+
+
+@router.post("/public/visit")
+async def record_visit(
+    payload: VisitPing,
+    _rl: None = Depends(rate_limit("visit_ping", limit=30, window_seconds=3600)),
+):
+    """One ping per browser session (App.js), counted per day and source so the
+    admin Growth tab can show which channel brings visitors. No personal data:
+    just a counter per (day, source)."""
+    source = clean_source(payload.source) or "other"
+    day = datetime.now(timezone.utc).date().isoformat()
+    await db.visit_counts.update_one({"day": day, "source": source}, {"$inc": {"count": 1}}, upsert=True)
+    return {"ok": True}

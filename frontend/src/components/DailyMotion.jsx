@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { getSource } from "@/lib/referral";
 import { saveGuestToken } from "@/lib/guest";
 import { dailyIndex } from "@/lib/daily";
 
@@ -24,7 +25,7 @@ export default function DailyMotion() {
   const go = async (side) => {
     setBusy(true);
     try {
-      const { data } = await api.post("/spar/guest/start", { motion_id: motion.id, side });
+      const { data } = await api.post("/spar/guest/start", { motion_id: motion.id, side, source: getSource() });
       saveGuestToken(data.debate_id, data.guest_token);
       navigate(`/try/${data.debate_id}`);
     } catch (e) {

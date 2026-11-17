@@ -27,6 +27,8 @@ async def _dedupe_room_reactions():
 
 async def create_indexes():
     await db.users.create_index("user_id", unique=True)
+    # admin growth: visit counters per (day, source), see routers/public.py record_visit
+    await db.visit_counts.create_index([("day", 1), ("source", 1)], unique=True)
     await db.users.create_index("email", unique=True)
     # Partial (not plain unique): most users won't have set a handle yet, and
     # a plain unique index only tolerates ONE doc missing/null on the field —

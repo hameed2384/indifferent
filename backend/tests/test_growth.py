@@ -65,3 +65,39 @@ async def test_guest_start_and_claim_are_marked(client, make_user, monkeypatch):
     assert r.status_code == 200, r.text
     doc = await db.ai_debates.find_one({"debate_id": d["debate_id"]})
     assert doc["via_guest"] is True and doc.get("claimed_at")
+
+
+async def test_visits_rounds_and_signups_by_source(client, make_user, monkeypatch):
+    import app.routers.spar as spar
+    async def no_llm(*a, **k):
+        return None
+    monkeypatch.setattr(spar, "call_llm_json", no_llm)
+    xhr = {"X-Requested-With": "XMLHttpRequest"}
+
+    for src in ["instagram", "instagram", "YouTube", "bad source!", None]:
+        r = await client.post("/api/public/visit", json={"source": src}, headers=xhr)
+        assert r.status_code == 200, r.text
+    r = await client.post("/api/spar/guest/start", json={"motion_id": "homework", "side": "for", "source": "instagram"},
+                          headers=xhr)
+    assert r.status_code == 200, r.text
+    doc = await db.ai_debates.find_one({"debate_id": r.json()["debate_id"]})
+    assert doc["source"] == "instagram"
+    await db.users.insert_one({"user_id": "user_ig", "email": "ig@x.test", "signup_source": "instagram",
+                               "created_at": _ago(1)})
+
+    _, headers = await make_user(email=ADMIN_EMAIL)
+    g = (await client.get("/api/admin/growth", params={"days": 7}, headers=headers)).json()
+    rows = {r["source"]: r for r in g["by_source"]}
+    assert rows["instagram"] == {"source": "instagram", "visits": 2, "guest_rounds": 1, "signups": 1}
+    assert rows["youtube"]["visits"] == 1
+    assert rows["other"]["visits"] == 2  # invalid and missing sources are bucketed, never stored raw
+    assert g["by_source"][0]["source"] == "instagram"
+
+
+def test_clean_source():
+    from app.visit_source import clean_source
+    assert clean_source(" Instagram ") == "instagram"
+    assert clean_source("l.instagram.com") == "l.instagram.com"
+    assert clean_source("<script>") is None
+    assert clean_source("x" * 40) is None
+    assert clean_source(None) is None

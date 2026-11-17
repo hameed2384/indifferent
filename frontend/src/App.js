@@ -23,7 +23,8 @@ import Settings from "@/pages/Settings";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { REFERRAL_KEY } from "@/lib/referral";
+import { REFERRAL_KEY, captureSource } from "@/lib/referral";
+import { api } from "@/lib/api";
 
 function RouterInner() {
   // Captured on whatever route a shared link lands on (home, a debate, a
@@ -36,6 +37,9 @@ function RouterInner() {
     if (ref) {
       try { localStorage.setItem(REFERRAL_KEY, ref); } catch { /* noop */ }
     }
+    // Which channel brought this visit (admin Growth tab). Fire-and-forget.
+    const source = captureSource();
+    if (source) api.post("/public/visit", { source }).catch(() => {});
   }, []);
 
   return (

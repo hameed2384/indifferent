@@ -26,6 +26,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
+from ..visit_source import clean_source
 from ..db import db
 from ..deps import get_current_user, get_current_user_optional, require_xhr
 from ..llm import call_llm_json, generate_topics
@@ -268,6 +269,7 @@ async def guest_motions():
 class GuestStart(BaseModel):
     motion_id: str
     side: str  # "for" | "against"
+    source: Optional[str] = None  # landing channel, see visit_source.py
 
 
 @router.post("/spar/guest/start")
@@ -287,6 +289,7 @@ async def start_guest_spar(
         "debate_id": f"spar_{uuid.uuid4().hex[:12]}",
         "user_id": GUEST_PREFIX + token,
         "via_guest": True,  # stays set after a claim, for the signup funnel
+        "source": clean_source(payload.source),
         "tag": motion["tag"],
         "topic": motion["motion"],
         "user_position": user_pos,

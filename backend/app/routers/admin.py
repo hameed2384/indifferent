@@ -143,8 +143,27 @@ async def growth(days: int = 7, _admin: User = Depends(require_admin)):
         q = {"$and": [recent, *filters]} if filters else recent
         return await db[coll].count_documents(q)
 
+    async def per_source(coll, field, *filters):
+        match = {"$and": [recent, {field: {"$type": "string"}}, *filters]}
+        cur = db[coll].aggregate([{"$match": match}, {"$group": {"_id": f"${field}", "n": {"$sum": 1}}}])
+        return {d["_id"]: d["n"] async for d in cur}
+
+    visits_cur = db.visit_counts.aggregate([
+        {"$match": {"day": {"$gte": since[:10]}}},
+        {"$group": {"_id": "$source", "n": {"$sum": "$count"}}},
+    ])
+    visits = {d["_id"]: d["n"] async for d in visits_cur}
+    rounds = await per_source("ai_debates", "source", guest)
+    joined = await per_source("users", "signup_source")
+    by_source = sorted(
+        ({"source": s, "visits": visits.get(s, 0), "guest_rounds": rounds.get(s, 0), "signups": joined.get(s, 0)}
+         for s in set(visits) | set(rounds) | set(joined)),
+        key=lambda r: (-r["visits"], -r["signups"], r["source"]),
+    )
+
     return {
         "days": days,
+        "by_source": by_source,
         "guest_rounds_started": await count("ai_debates", guest),
         "guest_rounds_finished": await count("ai_debates", guest, {"status": "ended"}),
         "guest_rounds_claimed": await count("ai_debates", {"claimed_at": {"$exists": True}}),

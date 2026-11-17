@@ -4,7 +4,7 @@ import { api, setStoredToken } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { claimGuestRounds } from "@/lib/guest";
-import { REFERRAL_KEY } from "@/lib/referral";
+import { REFERRAL_KEY, getSource } from "@/lib/referral";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -32,7 +32,7 @@ export default function AuthCallback() {
       try {
         let referredBy = null;
         try { referredBy = localStorage.getItem(REFERRAL_KEY); } catch { /* noop */ }
-        const { data } = await api.post("/auth/google/callback", { code, redirect_uri: redirectUri, referred_by: referredBy });
+        const { data } = await api.post("/auth/google/callback", { code, redirect_uri: redirectUri, referred_by: referredBy, source: getSource() });
         setStoredToken(data.session_token);
         sessionStorage.removeItem("google_oauth_redirect_uri");
         try { localStorage.removeItem(REFERRAL_KEY); } catch { /* noop */ }

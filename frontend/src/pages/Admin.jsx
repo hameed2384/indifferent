@@ -378,6 +378,35 @@ function GrowthPanel() {
             </div>
           </div>
           <div>
+            <div className="eyebrow mb-3">Where people came from</div>
+            {g.by_source?.length ? (
+              <div className="card-muted overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-[var(--fg-subtle)]">
+                      <th className="p-3 font-medium">Source</th>
+                      <th className="p-3 font-medium text-right">Visits</th>
+                      <th className="p-3 font-medium text-right">Guest rounds</th>
+                      <th className="p-3 font-medium text-right">Sign-ups</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.by_source.map((r) => (
+                      <tr key={r.source} className="border-t border-[var(--border)]">
+                        <td className="p-3 font-medium">{r.source}</td>
+                        <td className="p-3 text-right tabular-nums">{r.visits}</td>
+                        <td className="p-3 text-right tabular-nums">{r.guest_rounds}</td>
+                        <td className="p-3 text-right tabular-nums">{r.signups}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--fg-muted)]">No tracked visits yet. Links with ?utm_source= (Instagram bio, YouTube descriptions) and referrers show up here.</p>
+            )}
+          </div>
+          <div>
             <div className="eyebrow mb-3">Accounts and activity</div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {others.map((s) => (

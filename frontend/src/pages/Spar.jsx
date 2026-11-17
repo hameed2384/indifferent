@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { getSource } from "@/lib/referral";
 import { useAuth } from "@/contexts/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
@@ -447,7 +448,7 @@ export function TryPage() {
   const go = async (side) => {
     setBusy(true);
     try {
-      const { data } = await api.post("/spar/guest/start", { motion_id: picked.id, side });
+      const { data } = await api.post("/spar/guest/start", { motion_id: picked.id, side, source: getSource() });
       saveGuestToken(data.debate_id, data.guest_token);
       navigate(`/try/${data.debate_id}`);
     } catch (e) {

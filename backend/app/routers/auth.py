@@ -10,6 +10,7 @@ from ..config import ADMIN_EMAILS, COOKIE_SECURE, GOOGLE_CLIENT_ID, GOOGLE_CLIEN
 from ..db import db
 from ..deps import get_current_user
 from ..models import User
+from ..visit_source import clean_source
 
 router = APIRouter()
 
@@ -37,6 +38,9 @@ class GoogleAuthCallback(BaseModel):
     # Only ever applied on a brand-new account below — a returning user
     # logging in again can't retroactively credit someone.
     referred_by: Optional[str] = None
+    # Landing channel (instagram, youtube, google...), see visit_source.py.
+    # Like referred_by, only recorded on a brand-new account.
+    source: Optional[str] = None
 
 
 @router.post("/auth/google/callback")
@@ -101,6 +105,8 @@ async def google_callback(payload: GoogleAuthCallback, response: Response):
             "referral_count": 0,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        if clean_source(payload.source):
+            user_doc["signup_source"] = clean_source(payload.source)
         if payload.referred_by:
             ref = payload.referred_by.strip().lstrip("@").lower()
             referrer = await db.users.find_one({"$or": [{"handle": ref}, {"user_id": payload.referred_by.strip()}]}, {"_id": 0, "user_id": 1})

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { getSource } from "@/lib/referral";
 import { useAuth } from "@/contexts/AuthContext";
 import { startGoogleLogin } from "@/lib/auth";
 import { saveGuestToken } from "@/lib/guest";
@@ -51,7 +52,7 @@ function useStartRound() {
   const start = async (motionId, side) => {
     setBusy(true);
     try {
-      const { data } = await api.post("/spar/guest/start", { motion_id: motionId, side });
+      const { data } = await api.post("/spar/guest/start", { motion_id: motionId, side, source: getSource() });
       saveGuestToken(data.debate_id, data.guest_token);
       navigate(`/try/${data.debate_id}`);
     } catch (e) {
