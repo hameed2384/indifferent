@@ -11,6 +11,7 @@ import Verify from "@/pages/Verify";
 import Match from "@/pages/Match";
 import Spar, { SparHistory, SparShare, TryPage } from "@/pages/Spar";
 import { MotionsIndex, MotionPage } from "@/pages/Motions";
+import { ArenaGame, ArenaStart } from "@/pages/Arena";
 import { Privacy, Terms } from "@/pages/Legal";
 import ChatRoom from "@/pages/ChatRoom";
 import Watch from "@/pages/Watch";
@@ -66,6 +67,8 @@ function RouterInner() {
       <Route path="/private/:friendId" element={<ProtectedRoute requireOnboarded><PrivateChat /></ProtectedRoute>} />
       <Route path="/s/:shareId" element={<SparShare />} />
       <Route path="/try" element={<TryPage />} />
+      <Route path="/arena" element={<ArenaStart />} />
+      <Route path="/arena/:slug" element={<ArenaGame />} />
       <Route path="/motions" element={<MotionsIndex />} />
       <Route path="/motions/:slug" element={<MotionPage />} />
       <Route path="/try/:debateId" element={<Spar />} />

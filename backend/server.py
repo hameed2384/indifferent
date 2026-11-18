@@ -25,7 +25,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS, DB_SETUP_ON_STARTUP
 from app.db import client, create_indexes
-from app.routers import admin, auth, categories, clips, friends, health, instagram, livekit, match, notifications, onboarding, payments, private, profiles, public, reports, rooms, social, spar, verify
+from app.routers import admin, arena, auth, categories, clips, friends, health, instagram, livekit, match, notifications, onboarding, payments, private, profiles, public, reports, rooms, social, spar, verify
 from app.storage import init_storage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -33,7 +33,7 @@ logger = logging.getLogger("indifferent")
 
 app = FastAPI(title="Indifferent API")
 
-for module in (health, auth, onboarding, verify, match, rooms, public, livekit, categories, payments, profiles, friends, private, clips, reports, notifications, admin, social, spar, instagram):
+for module in (health, auth, onboarding, verify, match, rooms, public, livekit, categories, payments, profiles, friends, private, clips, reports, notifications, admin, social, spar, instagram, arena):
     app.include_router(module.router, prefix="/api")
 
 app.add_middleware(

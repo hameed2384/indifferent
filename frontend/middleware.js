@@ -134,6 +134,12 @@ async function middleware(request) {
         title = `${m.motion}: arguments for and against — indifferent`;
         description = `${m.summary} Read both sides, then debate an AI that scores you. Free.`;
       }
+    } else if (section === "arena") {
+      const m = await fetchJson(`${BACKEND}/api/public/arena/${encodeURIComponent(id)}`);
+      if (m) {
+        title = `${m.motion}: pick a side — indifferent`;
+        description = "Pick a side and watch your ball smash its way out. Free, no sign-up.";
+      }
     } else if (section === "u") {
       const p = await fetchJson(`${BACKEND}/api/users/${encodeURIComponent(id)}`);
       if (p) {
