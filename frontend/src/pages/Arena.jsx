@@ -21,7 +21,7 @@ function store(key, value) {
   return null;
 }
 
-function voterId() {
+export function voterId() {
   let id = store("arena-voter");
   if (!id) {
     const bytes = crypto.getRandomValues(new Uint8Array(16));

@@ -87,6 +87,7 @@ export function MotionsIndex() {
         <div className="eyebrow">Debate topics</div>
         <h1 className="font-heading text-3xl sm:text-4xl font-semibold mt-2 leading-tight">Arguments for and against</h1>
         <p className="mt-3 text-[var(--fg-muted)] max-w-lg">
+          <Link to="/how-indifferent-are-you" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="test-link">Take the test: how indifferent are you?</Link>
           <Link to="/arena" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="arena-link">Play the Arena: pick a side and smash your way out</Link>
           The strongest case on both sides of today's big questions. Read them, pick a side, then test yourself against an AI that argues back.
         </p>
