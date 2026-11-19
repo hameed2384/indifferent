@@ -103,6 +103,9 @@ async def create_indexes():
     await db.arena_votes.create_index([("motion_id", 1), ("voter_hash", 1)], unique=True)
     await db.arena_votes.create_index([("motion_id", 1), ("side", 1)])
 
+    # The Split Test (routers/split.py): looked up by its share code.
+    await db.split_tests.create_index("code", unique=True)
+
     # "Watch later" bookmarks (routers/public.py) — one save per (viewer,
     # room); unique index is what makes the toggle race-safe, not just a
     # lookup optimization.

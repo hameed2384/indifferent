@@ -377,6 +377,29 @@ function GrowthPanel() {
               ))}
             </div>
           </div>
+          {g.by_day?.length > 0 && (() => {
+            const top = Math.max(1, ...g.by_day.map((d) => d.visits));
+            const total = g.by_day.reduce((s, d) => s + d.visits, 0);
+            return (
+              <div data-testid="visitors-per-day">
+                <div className="eyebrow mb-3">Visitors per day · {total} in {g.by_day.length} days</div>
+                <div className="card-muted p-3 grid gap-1.5">
+                  {g.by_day.map((d) => (
+                    <div key={d.day} className="grid grid-cols-[5.5rem_1fr_3rem] items-center gap-3 text-sm">
+                      <span className="text-[var(--fg-muted)] tabular-nums">
+                        {new Date(`${d.day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}
+                      </span>
+                      <div className="h-2.5 rounded-full bg-[var(--border)] overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--fg)]" style={{ width: `${(d.visits / top) * 100}%` }} />
+                      </div>
+                      <span className="text-right tabular-nums font-medium">{d.visits}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-[var(--fg-subtle)] mt-2">One visit per browser session, counted by the site itself. Days are in UTC.</p>
+              </div>
+            );
+          })()}
           <div>
             <div className="eyebrow mb-3">Where people came from</div>
             {g.by_source?.length ? (

@@ -81,7 +81,7 @@ async function buildSitemap() {
   // independently (one backend hiccup shouldn't drop the other, and a
   // sitemap missing some entries is a much smaller problem than a sitemap
   // that 500s and gets Search Console to stop trusting it).
-  const staticUrls = [urlEntry(`${SITE}/`), urlEntry(`${SITE}/watch`), urlEntry(`${SITE}/claims`), urlEntry(`${SITE}/try`), urlEntry(`${SITE}/motions`), urlEntry(`${SITE}/how-indifferent-are-you`), urlEntry(`${SITE}/arena`)];
+  const staticUrls = [urlEntry(`${SITE}/`), urlEntry(`${SITE}/watch`), urlEntry(`${SITE}/claims`), urlEntry(`${SITE}/try`), urlEntry(`${SITE}/motions`), urlEntry(`${SITE}/how-indifferent-are-you`), urlEntry(`${SITE}/arena`), urlEntry(`${SITE}/split-test`)];
 
   const debates = await fetchJson(`${BACKEND}/api/public/debates`).catch(() => null);
   const debateUrls = (debates?.debates || []).map((d) => urlEntry(`${SITE}/watch/${d.room_id}`, d.published_at));
@@ -139,6 +139,12 @@ async function middleware(request) {
       if (m) {
         title = `${m.motion}: pick a side — indifferent`;
         description = "Pick a side and watch your ball smash its way out. Free, no sign-up.";
+      }
+    } else if (section === "split-test") {
+      const t = await fetchJson(`${BACKEND}/api/public/split/${encodeURIComponent(id)}`);
+      if (t) {
+        title = `${t.name} sent you The Split Test`;
+        description = "12 hot takes. Agree or disagree, then see exactly where you two split. Free, no sign-up.";
       }
     } else if (section === "u") {
       const p = await fetchJson(`${BACKEND}/api/users/${encodeURIComponent(id)}`);

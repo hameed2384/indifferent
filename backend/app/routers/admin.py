@@ -153,6 +153,15 @@ async def growth(days: int = 7, _admin: User = Depends(require_admin)):
         {"$group": {"_id": "$source", "n": {"$sum": "$count"}}},
     ])
     visits = {d["_id"]: d["n"] async for d in visits_cur}
+    # Visitors per day (one per browser session), newest first, every day shown even when 0.
+    day_cur = db.visit_counts.aggregate([
+        {"$match": {"day": {"$gte": since[:10]}}},
+        {"$group": {"_id": "$day", "n": {"$sum": "$count"}}},
+    ])
+    per_day = {d["_id"]: d["n"] async for d in day_cur}
+    today = datetime.now(timezone.utc).date()
+    by_day = [{"day": (today - timedelta(days=i)).isoformat(), "visits": per_day.get((today - timedelta(days=i)).isoformat(), 0)}
+              for i in range(days)]
     rounds = await per_source("ai_debates", "source", guest)
     joined = await per_source("users", "signup_source")
     by_source = sorted(
@@ -164,6 +173,7 @@ async def growth(days: int = 7, _admin: User = Depends(require_admin)):
     return {
         "days": days,
         "by_source": by_source,
+        "by_day": by_day,
         "guest_rounds_started": await count("ai_debates", guest),
         "guest_rounds_finished": await count("ai_debates", guest, {"status": "ended"}),
         "guest_rounds_claimed": await count("ai_debates", {"claimed_at": {"$exists": True}}),
