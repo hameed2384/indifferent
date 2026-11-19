@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Home, GitBranch, Users, UserPlus, Star, Rss, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { PRODUCTS, productFor } from "@/lib/products";
 import { PAYMENTS_ENABLED } from "@/lib/features";
 import { setVisibleInterval } from "@/lib/poll";
 import { useAuth } from "@/contexts/AuthContext";
@@ -102,7 +103,8 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
     return () => { mounted = false; stop(); };
   }, [user]);
 
-  const isHome = location.pathname === "/" || location.pathname === "/watch";
+  const isHome = location.pathname === "/";
+  const current = productFor(location.pathname);
   const collapsed = onClose ? false : collapsedProp;
 
   return (
@@ -130,15 +132,20 @@ export default function SideNav({ collapsed: collapsedProp, onToggleCollapsed, o
           {!collapsed && <span className="text-sm font-medium">Home</span>}
         </button>
 
-        <button
-          onClick={() => { navigate("/claims"); onClose?.(); }}
-          className={`flex items-center gap-3 w-full text-left rounded-lg transition-colors ${location.pathname.startsWith("/claims") ? "bg-[var(--bg-muted)]" : "hover:bg-[var(--bg-muted)]"} ${collapsed ? "justify-center px-0 py-2" : "px-3 py-2"}`}
-          data-testid="sidenav-claims"
-          title="Claim Trees"
-        >
-          <GitBranch className="w-4 h-4 shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Claims</span>}
-        </button>
+        {PRODUCTS.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => { navigate(p.path); onClose?.(); }}
+            className={`flex items-center gap-3 w-full text-left rounded-lg transition-colors ${current?.key === p.key ? "bg-[var(--bg-muted)]" : "hover:bg-[var(--bg-muted)]"} ${collapsed ? "justify-center px-0 py-2" : "px-3 py-2"}`}
+            data-testid={`sidenav-${p.key}`}
+            title={p.name}
+          >
+            {p.key === "claims"
+              ? <GitBranch className="w-4 h-4 shrink-0" />
+              : <span className="w-4 h-4 shrink-0 grid place-items-center"><span className="w-2.5 h-2.5 rounded-full" style={{ background: p.accent }} /></span>}
+            {!collapsed && <span className="text-sm font-medium">{p.name}</span>}
+          </button>
+        ))}
 
         {!user ? (
           !collapsed && <p className="px-3 py-4 text-xs text-[var(--fg-subtle)]">Sign in to see friends and follows here.</p>

@@ -67,7 +67,7 @@ export function useStartRound() {
 export function MotionsIndex() {
   const [motions, setMotions] = useState(null);
   usePageMeta(
-    `Debate topics: arguments for and against | ${SITE_NAME}`,
+    `Both Sides: debate topics with arguments for and against | ${SITE_NAME}`,
     "Popular debate topics with the strongest arguments for and against each. Pick a side and debate an AI that scores your arguments, free and with no sign-up.",
   );
 
@@ -84,10 +84,10 @@ export function MotionsIndex() {
     <div className="min-h-screen bg-[var(--bg)]">
       <Header />
       <main className={`${CONTAINER_COMPACT} mx-auto px-4 sm:px-6 py-10`}>
-        <div className="eyebrow">Debate topics</div>
+        <div className="eyebrow">Both Sides</div>
         <h1 className="font-heading text-3xl sm:text-4xl font-semibold mt-2 leading-tight">Arguments for and against</h1>
         <p className="mt-3 text-[var(--fg-muted)] max-w-lg">
-          <Link to="/how-indifferent-are-you" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="test-link">Take the test: how indifferent are you?</Link>
+          <Link to="/how-indifferent-are-you" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="test-link">The Mirror: how indifferent are you?</Link>
           <Link to="/split-test" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="split-link">The Split Test: where do you and your friend split?</Link>
           <Link to="/arena" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="arena-link">Play the Arena: pick a side and smash your way out</Link>
           The strongest case on both sides of today's big questions. Read them, pick a side, then test yourself against an AI that argues back.
