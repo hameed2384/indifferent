@@ -106,6 +106,7 @@ function Result({ result, onAgain }) {
           <button onClick={save} className="h-11 rounded-xl border border-white/20 text-sm">Save image</button>
           <button onClick={onAgain} className="h-11 rounded-xl border border-white/20 text-sm">Take it again</button>
         </div>
+        <Link to="/split-test" className="h-12 rounded-xl bg-white/10 border border-white/30 font-medium grid place-items-center" data-testid="test-to-split">Now see where you and a friend split</Link>
         <Link to="/arena" className="h-12 rounded-xl border border-white/30 font-medium grid place-items-center">Fight for a side in the Arena</Link>
       </div>
     </div>

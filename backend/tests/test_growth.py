@@ -101,3 +101,19 @@ def test_clean_source():
     assert clean_source("<script>") is None
     assert clean_source("x" * 40) is None
     assert clean_source(None) is None
+
+
+async def test_visitors_per_day(client, make_user):
+    from datetime import datetime as dt, timedelta as td, timezone as tz
+    today = dt.now(tz.utc).date()
+    await db.visit_counts.insert_many([
+        {"day": today.isoformat(), "source": "direct", "count": 3},
+        {"day": today.isoformat(), "source": "instagram", "count": 2},
+        {"day": (today - td(days=2)).isoformat(), "source": "google", "count": 4},
+    ])
+    _, headers = await make_user(email=ADMIN_EMAIL)
+    g = (await client.get("/api/admin/growth", params={"days": 7}, headers=headers)).json()
+    assert len(g["by_day"]) == 7
+    assert g["by_day"][0] == {"day": today.isoformat(), "visits": 5}
+    assert g["by_day"][1]["visits"] == 0
+    assert g["by_day"][2]["visits"] == 4
