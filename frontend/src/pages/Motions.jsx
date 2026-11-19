@@ -14,7 +14,7 @@ const SITE_NAME = "indifferent";
 
 /** Sets the tab title and meta description for pages search engines index
  * (Google renders the app's JavaScript, so these count). */
-function usePageMeta(title, description) {
+export function usePageMeta(title, description) {
   useEffect(() => {
     if (!title) return undefined;
     const prevTitle = document.title;
@@ -46,7 +46,7 @@ function Header() {
 }
 
 /** Starts a no-sign-up round on this motion. */
-function useStartRound() {
+export function useStartRound() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const start = async (motionId, side) => {
@@ -87,6 +87,8 @@ export function MotionsIndex() {
         <div className="eyebrow">Debate topics</div>
         <h1 className="font-heading text-3xl sm:text-4xl font-semibold mt-2 leading-tight">Arguments for and against</h1>
         <p className="mt-3 text-[var(--fg-muted)] max-w-lg">
+          <Link to="/how-indifferent-are-you" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="test-link">Take the test: how indifferent are you?</Link>
+          <Link to="/arena" className="block mb-2 font-medium text-[var(--fg)] underline underline-offset-4" data-testid="arena-link">Play the Arena: pick a side and smash your way out</Link>
           The strongest case on both sides of today's big questions. Read them, pick a side, then test yourself against an AI that argues back.
         </p>
         {motions === null && <div className="mt-8 text-sm text-[var(--fg-subtle)]">Loading…</div>}
@@ -176,6 +178,7 @@ export function MotionPage() {
               <div className="mt-4 flex flex-wrap gap-3">
                 <button onClick={() => start(m.id, "for")} disabled={busy} className="btn-accent" data-testid="motion-agree">I agree</button>
                 <button onClick={() => start(m.id, "against")} disabled={busy} className="btn-outline" data-testid="motion-disagree">I disagree</button>
+                <Link to={`/arena/${m.slug}`} className="btn-outline" data-testid="motion-arena">Settle it in the Arena</Link>
               </div>
             </div>
           </article>

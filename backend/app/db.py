@@ -99,6 +99,10 @@ async def create_indexes():
     # changeable, feeding topic_stances via the reasoning text.
     await db.debate_votes.create_index([("room_id", 1), ("user_id", 1)], unique=True)
 
+    # The Arena (routers/arena.py): one anonymous vote per (motion, voter).
+    await db.arena_votes.create_index([("motion_id", 1), ("voter_hash", 1)], unique=True)
+    await db.arena_votes.create_index([("motion_id", 1), ("side", 1)])
+
     # "Watch later" bookmarks (routers/public.py) — one save per (viewer,
     # room); unique index is what makes the toggle race-safe, not just a
     # lookup optimization.
