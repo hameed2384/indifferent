@@ -10,7 +10,7 @@ import hashlib
 import re
 import secrets
 from datetime import datetime, timezone
-from typing import List, Literal
+from typing import Annotated, List, Literal, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
@@ -23,7 +23,8 @@ router = APIRouter()
 
 QUESTIONS = 12
 MAX_RESPONSES = 100
-Side = Literal["for", "against"]
+# -2 strongly disagree .. 2 strongly agree. "for"/"against" were the first version's answers and still work.
+Side = Union[Annotated[int, Field(strict=True, ge=-2, le=2)], Literal["for", "against"]]
 _CODE_RE = re.compile(r"^[A-Za-z0-9_-]{6,16}$")
 
 

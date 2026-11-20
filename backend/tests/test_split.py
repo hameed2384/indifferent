@@ -65,3 +65,12 @@ async def test_bad_requests_are_rejected(client):
 async def test_creating_is_rate_limited(client):
     codes = [(await make(client)).status_code for _ in range(11)]
     assert codes[:10] == [200] * 10 and codes[10] == 429
+
+
+async def test_five_point_answers(client):
+    scale = [2, 1, 0, -1, -2, 2, 1, 0, -1, -2, 2, 1]
+    code = (await make(client, answers=scale)).json()["code"]
+    r = await client.post(f"/api/public/split/{code}/respond", json={"name": "Alex", "answers": [-2] * 12})
+    assert r.status_code == 200 and r.json()["answers"] == scale
+    assert (await make(client, answers=[3] * 12)).status_code == 422
+    assert (await make(client, answers=[True] * 12)).status_code == 422

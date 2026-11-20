@@ -10,7 +10,7 @@ export const PRODUCTS = [
   },
   {
     key: "split", name: "The Split Test", sub: "split", path: "/split-test", match: ["/split-test"],
-    pitch: "Answer 12 hot takes, send it to a friend, and see exactly where you split.",
+    pitch: "Answer 12 hot takes with a friend and see your match, both your types and your biggest clash.",
     cta: "Take it with a friend", accent: "#ff5c7a", badge: "New",
   },
   {
