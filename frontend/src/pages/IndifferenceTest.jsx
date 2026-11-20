@@ -45,7 +45,11 @@ export function drawCard(canvas, result) {
   g.textAlign = "center";
   g.fillStyle = "#fff";
   g.font = font(44, 600);
-  g.fillText("HOW INDIFFERENT ARE YOU?", cx, 130);
+  g.fillText("THE MIRROR", cx, 105);
+  g.font = font(34, 500);
+  g.fillStyle = "rgba(255,255,255,.6)";
+  g.fillText("How indifferent are you?", cx, 155);
+  g.fillStyle = "#fff";
   g.font = font(150, 800);
   g.fillText(`${result.indifference}%`, cx, cy + 40);
   g.font = font(38, 500);
@@ -125,7 +129,7 @@ export default function IndifferenceTest() {
   const busy = useRef(false);
 
   usePageMeta(
-    "How Indifferent Are You? The 60-second test | indifferent",
+    "The Mirror: how indifferent are you? The 60-second test | indifferent",
     "Ten hot takes. Agree, disagree or don't care. Find out how indifferent you really are. Free, no sign-up.",
   );
 
@@ -178,7 +182,8 @@ export default function IndifferenceTest() {
       <main className="flex-1 w-full max-w-xl mx-auto px-4 pb-10">
         {!deck && (
           <div className="text-center mt-16">
-            <h1 className="font-heading text-4xl sm:text-5xl font-semibold leading-tight">How indifferent are you?</h1>
+            <div className="text-sm uppercase tracking-widest text-white/50">The Mirror</div>
+            <h1 className="mt-2 font-heading text-4xl sm:text-5xl font-semibold leading-tight">How indifferent are you?</h1>
             <p className="mt-4 text-white/65">{QUESTION_COUNT} hot takes. Agree, disagree or simply don't care. About a minute, no sign-up.</p>
             <button onClick={failed ? load : begin} disabled={!motions && !failed} className="mt-8 h-14 px-10 rounded-2xl bg-white text-black font-semibold text-lg disabled:opacity-40" data-testid="test-start">
               {failed ? "Try again" : motions ? "Start" : "Loading…"}

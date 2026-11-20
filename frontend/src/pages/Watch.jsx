@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Bookmark, Menu, Radio, Search, Shuffle, Swords, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,7 @@ import SideNav from "@/components/SideNav";
 import Logo from "@/components/Logo";
 import { startSpar } from "@/pages/Spar";
 import DailyMotion from "@/components/DailyMotion";
+import Hub from "@/components/Hub";
 import { useSideNavToggle } from "@/hooks/use-sidenav";
 import { readNotInterested } from "@/lib/notInterested";
 import { startGoogleLogin } from "@/lib/auth";
@@ -66,6 +67,8 @@ export default function Watch() {
   const { collapsed: sidebarCollapsed, mobileOpen: mobileNavOpen, toggle: toggleSidebar, closeMobile } = useSideNavToggle();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  // "/" is the indifferent hub (every product); "/watch" is BeIndifferent's own debate feed.
+  const isHub = useLocation().pathname === "/";
   const navRef = useRef(null);
   useNavHeightVar(navRef);
 
@@ -209,7 +212,7 @@ export default function Watch() {
             className="field !py-1.5 !pl-9 !rounded-full w-full"
           />
         </div>
-        {categories.length > 0 && (
+        {!isHub && categories.length > 0 && (
           <div className="px-4 sm:px-6 pb-3 flex gap-2 overflow-x-auto">
             <button
               onClick={() => setActiveCategory(null)}
@@ -262,13 +265,22 @@ export default function Watch() {
         </div>
 
         <main id="main-content" className={`flex-1 min-w-0 ${CONTAINER_WIDE} mx-auto px-4 sm:px-6 py-8`}>
-          {!user && (
+          {isHub && <Hub liveCount={live.length} />}
+
+          {isHub && visible.length > 0 && (
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="font-heading text-xl font-semibold">BeIndifferent debates</h2>
+              <button onClick={() => navigate("/watch")} className="text-sm text-[var(--accent)] hover:underline">See all</button>
+            </div>
+          )}
+
+          {!isHub && !user && (
             <div className="card p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-testid="explainer-banner">
               <div>
-                <div className="eyebrow mb-1">What is this?</div>
+                <div className="eyebrow mb-1">BeIndifferent</div>
                 <div className="font-heading text-lg sm:text-xl font-semibold">Argue with someone who actually disagrees with you.</div>
                 <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">
-                  indifferent matches you with the sharpest opposing viewpoint for a live debate. Nobody online? Spar with an AI that takes the other side, then get a scored report on your arguments. Free.
+                  BeIndifferent matches you with the sharpest opposing viewpoint for a live debate. Nobody online? Spar with an AI that takes the other side, then get a scored report on your arguments. Free.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 shrink-0">
@@ -278,10 +290,10 @@ export default function Watch() {
             </div>
           )}
 
-          {user && (
+          {!isHub && user && (
             <div className="card p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-testid="match-banner">
               <div>
-                <div className="eyebrow mb-1">Ready when you are</div>
+                <div className="eyebrow mb-1">BeIndifferent</div>
                 <div className="font-heading text-lg sm:text-xl font-semibold">Find your sharpest opposing viewpoint.</div>
                 <p className="text-sm text-[var(--fg-muted)] mt-1 max-w-xl">Debate a real person who disagrees — or warm up against an AI sparring partner and get scored on your arguments.</p>
               </div>
@@ -292,7 +304,7 @@ export default function Watch() {
             </div>
           )}
 
-          <DailyMotion />
+          {!isHub && <DailyMotion />}
 
           {feedTrouble && (
             <div className="mt-4 text-sm text-[var(--fg-subtle)] flex items-center gap-2" data-testid="feed-trouble-banner">
@@ -301,9 +313,9 @@ export default function Watch() {
             </div>
           )}
 
-          {loading && <div className="mt-4"><SkeletonGrid Skeleton={DebateCardSkeleton} /></div>}
+          {loading && !isHub && <div className="mt-4"><SkeletonGrid Skeleton={DebateCardSkeleton} /></div>}
 
-          {!loading && visible.length === 0 && (
+          {!loading && !isHub && visible.length === 0 && (
             <div className="mt-4 card p-10 text-center">
               <div className="eyebrow">Nothing to watch yet</div>
               <div className="font-heading text-xl sm:text-2xl mt-2">
@@ -351,7 +363,7 @@ export default function Watch() {
 
           <footer className="mt-16 pt-6 border-t border-[var(--border)] text-xs text-[var(--fg-subtle)] flex flex-wrap gap-x-4 gap-y-2" data-testid="site-footer">
             <span>© {new Date().getFullYear()} indifferent</span>
-            <a href="/motions" className="hover:underline">Debate topics</a>
+            <a href="/motions" className="hover:underline">Both Sides</a>
             <a href="/terms" className="hover:underline">Terms</a>
             <a href="/privacy" className="hover:underline">Privacy</a>
             <span>18+ only</span>
