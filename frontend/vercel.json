@@ -1,5 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    { "source": "/", "has": [{ "type": "host", "value": "be.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/watch", "permanent": false },
+    { "source": "/:path+", "has": [{ "type": "host", "value": "be.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/:path+", "permanent": false },
+    { "source": "/", "has": [{ "type": "host", "value": "claims.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/claims", "permanent": false },
+    { "source": "/:path+", "has": [{ "type": "host", "value": "claims.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/claims/:path+", "permanent": false },
+    { "source": "/", "has": [{ "type": "host", "value": "split.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/split-test", "permanent": false },
+    { "source": "/:path+", "has": [{ "type": "host", "value": "split.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/split-test/:path+", "permanent": false },
+    { "source": "/:path*", "has": [{ "type": "host", "value": "mirror.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/how-indifferent-are-you", "permanent": false },
+    { "source": "/", "has": [{ "type": "host", "value": "arena.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/arena", "permanent": false },
+    { "source": "/:path+", "has": [{ "type": "host", "value": "arena.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/arena/:path+", "permanent": false },
+    { "source": "/", "has": [{ "type": "host", "value": "bothsides.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/motions", "permanent": false },
+    { "source": "/:path+", "has": [{ "type": "host", "value": "bothsides.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/motions/:path+", "permanent": false }
+  ],
   "proxy": {
     "entrypoint": "middleware.js",
     "matcher": ["/watch/:id", "/u/:id", "/s/:id", "/motions/:id", "/arena/:id", "/split-test/:id", "/sitemap.xml"]
