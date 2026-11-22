@@ -11,7 +11,12 @@ export const PRODUCTS = [
   {
     key: "split", name: "The Split Test", sub: "split", path: "/split-test", match: ["/split-test"],
     pitch: "Answer 12 hot takes with a friend and see your match, both your types and your biggest clash.",
-    cta: "Take it with a friend", accent: "#ff5c7a", badge: "New",
+    cta: "Take it with a friend", accent: "#ff5c7a",
+  },
+  {
+    key: "swipe", name: "Swipe", sub: "swipe", path: "/swipe", match: ["/swipe"],
+    pitch: "Endless hot takes. Swipe right or left, see how everyone else swiped, and unlock your position after 30.",
+    cta: "Start swiping", accent: "#38bdf8", badge: "New",
   },
   {
     key: "mirror", name: "The Mirror", sub: "mirror", path: "/how-indifferent-are-you", match: ["/how-indifferent-are-you"],
