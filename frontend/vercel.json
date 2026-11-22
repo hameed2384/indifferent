@@ -8,6 +8,7 @@
     { "source": "/", "has": [{ "type": "host", "value": "split.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/split-test", "permanent": false },
     { "source": "/:path+", "has": [{ "type": "host", "value": "split.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/split-test/:path+", "permanent": false },
     { "source": "/:path*", "has": [{ "type": "host", "value": "mirror.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/how-indifferent-are-you", "permanent": false },
+    { "source": "/:path*", "has": [{ "type": "host", "value": "swipe.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/swipe", "permanent": false },
     { "source": "/", "has": [{ "type": "host", "value": "arena.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/arena", "permanent": false },
     { "source": "/:path+", "has": [{ "type": "host", "value": "arena.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/arena/:path+", "permanent": false },
     { "source": "/", "has": [{ "type": "host", "value": "bothsides.indifferentapp.com" }], "destination": "https://www.indifferentapp.com/motions", "permanent": false },

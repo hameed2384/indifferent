@@ -14,6 +14,7 @@ import { MotionsIndex, MotionPage } from "@/pages/Motions";
 import { ArenaGame, ArenaStart } from "@/pages/Arena";
 import IndifferenceTest from "@/pages/IndifferenceTest";
 import SplitTest from "@/pages/SplitTest";
+import Swipe from "@/pages/Swipe";
 import { Privacy, Terms } from "@/pages/Legal";
 import ChatRoom from "@/pages/ChatRoom";
 import Watch from "@/pages/Watch";
@@ -70,6 +71,7 @@ function RouterInner() {
       <Route path="/s/:shareId" element={<SparShare />} />
       <Route path="/try" element={<TryPage />} />
       <Route path="/how-indifferent-are-you" element={<IndifferenceTest />} />
+      <Route path="/swipe" element={<Swipe />} />
       <Route path="/split-test" element={<SplitTest />} />
       <Route path="/split-test/:code" element={<SplitTest />} />
       <Route path="/arena" element={<ArenaStart />} />
